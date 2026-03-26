@@ -56,7 +56,7 @@ type dumpContext struct {
 	defaultFont   excel.FontInfo
 	defaultHeight float64
 	mergeInfo     *excel.MergeInfo
-	noStyle       bool
+	showStyle     bool
 	showFormula   bool
 	hiddenColCache map[int]bool // 列の非表示キャッシュ
 	styleCache     map[int]*styleResult // スタイルIDのキャッシュ
@@ -69,9 +69,9 @@ type styleResult struct {
 	alignment *excel.AlignmentObj
 }
 
-func newDumpContext(f *excel.File, sheet string, noStyle, showFormula bool) (*dumpContext, error) {
+func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*dumpContext, error) {
 	var defaultFont excel.FontInfo
-	if !noStyle {
+	if showStyle {
 		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
 	}
 
@@ -88,7 +88,7 @@ func newDumpContext(f *excel.File, sheet string, noStyle, showFormula bool) (*du
 		defaultFont:    defaultFont,
 		defaultHeight:  defaultHeight,
 		mergeInfo:      mergeInfo,
-		noStyle:        noStyle,
+		showStyle:      showStyle,
 		showFormula:    showFormula,
 		hiddenColCache: make(map[int]bool),
 		styleCache:     make(map[int]*styleResult),
@@ -174,7 +174,7 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData) cellO
 		out.HiddenCol = true
 	}
 
-	if !dc.noStyle {
+	if dc.showStyle {
 		sr := dc.getCellStyle(col, row)
 		if sr != nil {
 			out.Font = sr.font
@@ -230,7 +230,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	dc, err := newDumpContext(f, sheet, !showStyle, showFormula)
+	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}

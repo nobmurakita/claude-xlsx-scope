@@ -90,7 +90,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	showFormula, _ := cmd.Flags().GetBool("formula")
 
-	dc, err := newDumpContext(f, sheet, !showStyle, showFormula)
+	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}
