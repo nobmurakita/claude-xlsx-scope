@@ -145,8 +145,5 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if outputCount == 0 {
-		return errNoMatch
-	}
 	return nil
 }

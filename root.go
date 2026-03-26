@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -9,12 +8,9 @@ import (
 )
 
 const (
-	exitOK      = 0
-	exitNoMatch = 1
-	exitError   = 2
+	exitOK    = 0
+	exitError = 1
 )
-
-var errNoMatch = errors.New("no match")
 
 var rootCmd = &cobra.Command{
 	Use:           "exceldump",
@@ -27,9 +23,6 @@ func execute() int {
 	err := rootCmd.Execute()
 	if err == nil {
 		return exitOK
-	}
-	if errors.Is(err, errNoMatch) {
-		return exitNoMatch
 	}
 	fmt.Fprintf(os.Stderr, "exceldump: %s\n", err)
 	return exitError

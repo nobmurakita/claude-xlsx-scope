@@ -147,7 +147,7 @@ exceldump search --numeric ">1000" --limit 3 example.xlsx
 {"cell":"C12","value":3200}
 ```
 
-`--numeric` と `--type` は formula セルのキャッシュ値にもヒットする。終了コード: 0=結果あり、1=結果なし。
+`--numeric` と `--type` は formula セルのキャッシュ値にもヒットする。結果なしでも正常終了（終了コード 0）する。
 
 ## 出力形式の詳細
 
