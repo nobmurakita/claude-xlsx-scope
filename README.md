@@ -21,14 +21,14 @@ GitHub から直接インストール:
 
 ```bash
 mkdir -p ~/.claude/skills/exceldump
-curl -fsSL https://raw.githubusercontent.com/nobmurakita/exceldump/main/skill/SKILL.md -o ~/.claude/skills/exceldump/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/nobmurakita/exceldump/main/SKILL.md -o ~/.claude/skills/exceldump/SKILL.md
 ```
 
 またはローカルからコピー:
 
 ```bash
 mkdir -p ~/.claude/skills/exceldump
-cp skill/SKILL.md ~/.claude/skills/exceldump/SKILL.md
+cp SKILL.md ~/.claude/skills/exceldump/SKILL.md
 ```
 
 インストール後、Claude Code で `/exceldump` コマンドが利用可能になる。
