@@ -31,7 +31,7 @@ mkdir -p ~/.claude/skills/exceldump
 cp SKILL.md ~/.claude/skills/exceldump/SKILL.md
 ```
 
-インストール後、Claude Code で `/exceldump` コマンドが利用可能になる。
+インストール後、Claude Code が Excel ファイルの読み取りが必要な場面で自動的に exceldump を使用する。
 
 ## コマンド
 
