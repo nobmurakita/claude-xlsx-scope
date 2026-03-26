@@ -53,7 +53,7 @@ exceldump dump --sheet 0 --limit 5 見積計算.xlsx
 書式付き:
 
 ```bash
-exceldump dump --sheet 0 --range "B3:K4" --limit 3 見積計算.xlsx
+exceldump dump --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 ```
 
 ```jsonl
@@ -71,7 +71,7 @@ exceldump dump --sheet 0 --range "B3:K4" --limit 3 見積計算.xlsx
 | `--range` | セル範囲（例: `A1:H20`, `A:F`, `1:20`） | 全体 |
 | `--start` | 開始セル位置（例: `A51`）。`--range` と排他 | 先頭 |
 | `--include-empty` | 空セルも出力する | OFF |
-| `--no-style` | 書式情報を省略する | OFF |
+| `--style` | 書式情報を出力する | OFF |
 | `--formula` | 数式文字列を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
 
@@ -106,7 +106,7 @@ exceldump search --numeric ">100" --no-style 見積計算.xlsx
 | `--sheet` | 対象シート | 最初のシート |
 | `--range` | セル範囲 | 全体 |
 | `--start` | 開始セル位置。`--range` と排他 | 先頭 |
-| `--no-style` | 書式情報を省略する | OFF |
+| `--style` | 書式情報を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
 
 `--query`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。

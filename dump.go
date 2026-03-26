@@ -14,7 +14,7 @@ func init() {
 	dumpCmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
 	dumpCmd.Flags().String("start", "", "開始セル位置（例: A51）")
 	dumpCmd.Flags().Bool("include-empty", false, "空セルも出力する")
-	dumpCmd.Flags().Bool("no-style", false, "書式情報を省略する")
+	dumpCmd.Flags().Bool("style", false, "書式情報を出力する")
 	dumpCmd.Flags().Bool("formula", false, "数式文字列を出力する")
 	dumpCmd.Flags().Int("limit", 1000, "出力セル数の上限（0で無制限）")
 	rootCmd.AddCommand(dumpCmd)
@@ -193,7 +193,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	rangeFlag, _ := cmd.Flags().GetString("range")
 	startFlag, _ := cmd.Flags().GetString("start")
 	includeEmpty, _ := cmd.Flags().GetBool("include-empty")
-	noStyle, _ := cmd.Flags().GetBool("no-style")
+	showStyle, _ := cmd.Flags().GetBool("style")
 	showFormula, _ := cmd.Flags().GetBool("formula")
 	limit, _ := cmd.Flags().GetInt("limit")
 
@@ -230,7 +230,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	dc, err := newDumpContext(f, sheet, noStyle, showFormula)
+	dc, err := newDumpContext(f, sheet, !showStyle, showFormula)
 	if err != nil {
 		return err
 	}
