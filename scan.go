@@ -24,14 +24,14 @@ var scanCmd = &cobra.Command{
 
 type scanOutput struct {
 	Sheet         string                   `json:"sheet"`
-	UsedRange     string                   `json:"used_range"`
+	UsedRange     string                   `json:"used_range,omitempty"`
 	TabColor      string                   `json:"tab_color,omitempty"`
 	DefaultFont   excel.FontInfo           `json:"default_font"`
 	DefaultWidth  float64                  `json:"default_width"`
 	DefaultHeight float64                  `json:"default_height"`
 	ColWidths     map[string]float64       `json:"col_widths,omitempty"`
 	RowHeights    map[string]float64       `json:"row_heights,omitempty"`
-	Regions       []excel.Region           `json:"regions"`
+	Regions       []excel.Region           `json:"regions,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -48,15 +48,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	usedRangeStr, err := f.GetUsedRange(sheet)
-	if err != nil {
-		return err
-	}
+	// dimension の有無で全行走査の要否を判定
+	dim, _ := f.GetSheetDimension(sheet)
+	fullScan := dim != "" && dim != "A1:A1"
 
 	out := scanOutput{
-		Sheet:     sheet,
-		UsedRange: usedRangeStr,
-		Regions:   []excel.Region{},
+		Sheet: sheet,
 	}
 
 	// タブ色・デフォルト幅高
@@ -68,24 +65,40 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	// デフォルトフォント
-	var usedRange excel.CellRange
-	if usedRangeStr != "" {
-		usedRange, _ = excel.ParseRange(usedRangeStr, "")
-	}
-	out.DefaultFont = f.DetectDefaultFont(sheet, usedRange)
+	out.DefaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
 
-	// 列幅・行高（usedRange内、デフォルトと異なるもの）
-	if !usedRange.IsEmpty() {
-		out.ColWidths = collectColWidths(f, sheet, usedRange, out.DefaultWidth)
-		out.RowHeights = collectRowHeights(f, sheet, usedRange, out.DefaultHeight)
-	}
+	if fullScan {
+		// 全行走査: used_range, regions, col_widths, row_heights を算出
+		rowCache, err := f.LoadRows(sheet)
+		if err != nil {
+			return err
+		}
 
-	// 領域分割
-	regions, err := f.DetectRegions(sheet, usedRange)
-	if err != nil {
-		return err
+		usedRangeStr, err := f.GetUsedRange(sheet, rowCache)
+		if err != nil {
+			return err
+		}
+		out.UsedRange = usedRangeStr
+
+		var usedRange excel.CellRange
+		if usedRangeStr != "" {
+			usedRange, _ = excel.ParseRange(usedRangeStr, "")
+		}
+
+		if !usedRange.IsEmpty() {
+			out.ColWidths = collectColWidths(f, sheet, usedRange, out.DefaultWidth)
+			out.RowHeights = collectRowHeights(f, sheet, usedRange, out.DefaultHeight)
+
+			regions, err := f.DetectRegions(sheet, usedRange, rowCache)
+			if err != nil {
+				return err
+			}
+			out.Regions = regions
+		}
+	} else {
+		// 軽量走査: col_widths のみ（列定義はシートXMLから取得可能）
+		out.ColWidths = collectAllColWidths(f, sheet, out.DefaultWidth)
 	}
-	out.Regions = regions
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
@@ -93,6 +106,33 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("JSON出力に失敗しました: %w", err)
 	}
 	return nil
+}
+
+// collectAllColWidths は used_range なしでデフォルトと異なる列幅を取得する。
+// 列A から順に走査し、連続してデフォルト幅が続いたら打ち切る。
+func collectAllColWidths(f *excel.File, sheet string, defaultWidth float64) map[string]float64 {
+	widths := make(map[string]float64)
+	consecutive := 0
+	for c := 1; c <= 16384; c++ { // Excel最大列数
+		colStr := excel.ColName(c)
+		w, err := f.GetColWidth(sheet, colStr)
+		if err != nil {
+			break
+		}
+		if w != defaultWidth {
+			widths[colStr] = w
+			consecutive = 0
+		} else {
+			consecutive++
+			if consecutive > 10 {
+				break
+			}
+		}
+	}
+	if len(widths) == 0 {
+		return nil
+	}
+	return widths
 }
 
 func collectColWidths(f *excel.File, sheet string, r excel.CellRange, defaultWidth float64) map[string]float64 {

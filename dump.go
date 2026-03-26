@@ -26,22 +26,26 @@ var dumpCmd = &cobra.Command{
 	RunE:  runDump,
 }
 
-// cellOutput はJSONL出力する1セルの情報
+type rowOutput struct {
+	Row    int     `json:"_row"`
+	Height float64 `json:"height,omitempty"`
+	Hidden bool    `json:"hidden,omitempty"`
+}
+
 type cellOutput struct {
-	Cell      string              `json:"cell"`
-	Value     any                 `json:"value,omitempty"`
-	Display   string              `json:"display,omitempty"`
-	Type      excel.CellType      `json:"type"`
-	Merge     string              `json:"merge,omitempty"`
-	Formula   string              `json:"formula,omitempty"`
+	Cell      string               `json:"cell"`
+	Value     any                  `json:"value,omitempty"`
+	Display   string               `json:"display,omitempty"`
+	Type      excel.CellType       `json:"type"`
+	Merge     string               `json:"merge,omitempty"`
+	Formula   string               `json:"formula,omitempty"`
 	Link      *excel.HyperlinkData `json:"link,omitempty"`
-	HiddenRow bool                `json:"hidden_row,omitempty"`
-	HiddenCol bool                `json:"hidden_col,omitempty"`
-	Font      *excel.FontObj      `json:"font,omitempty"`
-	Fill      *excel.FillObj      `json:"fill,omitempty"`
-	Border    *excel.BorderObj    `json:"border,omitempty"`
-	Alignment *excel.AlignmentObj `json:"alignment,omitempty"`
-	RichText  []excel.RichTextRun `json:"rich_text,omitempty"`
+	HiddenCol bool                 `json:"hidden_col,omitempty"`
+	Font      *excel.FontObj       `json:"font,omitempty"`
+	Fill      *excel.FillObj       `json:"fill,omitempty"`
+	Border    *excel.BorderObj     `json:"border,omitempty"`
+	Alignment *excel.AlignmentObj  `json:"alignment,omitempty"`
+	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
 }
 
 func runDump(cmd *cobra.Command, args []string) error {
@@ -67,49 +71,33 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	usedRangeStr, err := f.GetUsedRange(sheet)
-	if err != nil {
-		return err
-	}
-
 	// 走査範囲の決定
-	var scanRange excel.CellRange
+	var scanRange *excel.CellRange
 	var startCol, startRow int
-	useStart := false
 
 	if rangeFlag != "" {
-		scanRange, err = excel.ParseRange(rangeFlag, usedRangeStr)
+		// --range: used_range が必要な場合は取得
+		usedRange, _ := f.GetUsedRange(sheet, nil)
+		r, err := excel.ParseRange(rangeFlag, usedRange)
 		if err != nil {
 			return err
 		}
+		scanRange = &r
 	} else if startFlag != "" {
 		startCol, startRow, err = excel.StartPosition(startFlag)
 		if err != nil {
 			return err
 		}
-		useStart = true
-		if usedRangeStr != "" {
-			scanRange, _ = excel.ParseRange(usedRangeStr, "")
-		}
-	} else {
-		if usedRangeStr == "" {
-			return nil // 空シート
-		}
-		scanRange, err = excel.ParseRange(usedRangeStr, "")
-		if err != nil {
-			return err
-		}
 	}
 
-	if scanRange.IsEmpty() {
-		return nil
-	}
-
-	// デフォルトフォント（書式差分計算用）
+	// デフォルトフォント
 	var defaultFont excel.FontInfo
 	if !noStyle {
-		defaultFont = f.DetectDefaultFont(sheet, scanRange)
+		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
 	}
+
+	// デフォルト行高
+	_, _, defaultHeight, _ := f.GetSheetMeta(sheet)
 
 	// 結合セル情報
 	mergeInfo, err := f.LoadMergeInfo(sheet)
@@ -121,73 +109,70 @@ func runDump(cmd *cobra.Command, args []string) error {
 	enc.SetEscapeHTML(false)
 
 	outputCount := 0
-	totalCount := 0
-	nextCell := ""
-	limitReached := false
+	lastRow := -1
 
-	// セル走査（行優先順）
-	for row := scanRange.StartRow; row <= scanRange.EndRow; row++ {
-		for col := scanRange.StartCol; col <= scanRange.EndCol; col++ {
-			// --start: 開始位置より前のセルをスキップ
-			if useStart {
-				if row < startRow || (row == startRow && col < startCol) {
-					continue
-				}
+	err = f.StreamRows(sheet, func(col, row int, value string) bool {
+		// --range フィルタ
+		if scanRange != nil {
+			if row < scanRange.StartRow || col < scanRange.StartCol {
+				return true
 			}
-
-			// 結合セルの左上以外はスキップ
-			if mergeInfo.IsMergedNonTopLeft(col, row) {
-				continue
+			if row > scanRange.EndRow {
+				return false // 範囲終了、走査打ち切り
 			}
-
-			// セル値の読み取り
-			data, err := f.ReadCell(sheet, col, row)
-			if err != nil {
-				return err
+			if col > scanRange.EndCol {
+				return true
 			}
-
-			// 空セルの処理
-			if !data.HasValue && data.Type == excel.CellTypeEmpty {
-				if !includeEmpty {
-					continue
-				}
-			}
-
-			totalCount++
-
-			// limit 超過: next_cell を記録してカウントを続ける
-			if limitReached {
-				if nextCell == "" {
-					nextCell = excel.CellRef(col, row)
-				}
-				continue
-			}
-			if limit > 0 && outputCount >= limit {
-				limitReached = true
-				nextCell = excel.CellRef(col, row)
-				continue
-			}
-
-			out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
-			enc.Encode(out)
-			outputCount++
 		}
+
+		// --start フィルタ
+		if startCol > 0 {
+			if row < startRow || (row == startRow && col < startCol) {
+				return true
+			}
+		}
+
+		// 結合セルの左上以外はスキップ
+		if mergeInfo.IsMergedNonTopLeft(col, row) {
+			return true
+		}
+
+		// セル値の読み取り
+		data, err := f.ReadCell(sheet, col, row)
+		if err != nil {
+			return true
+		}
+
+		// 空セルの処理
+		if !data.HasValue && data.Type == excel.CellTypeEmpty {
+			if !includeEmpty {
+				return true
+			}
+		}
+
+		// limit チェック
+		if limit > 0 && outputCount >= limit {
+			return false
+		}
+
+		// 行が変わったら行情報を出力
+		if row != lastRow {
+			emitRowInfo(enc, f, sheet, row, defaultHeight)
+			lastRow = row
+		}
+
+		out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
+		enc.Encode(out)
+		outputCount++
+		return true
+	})
+	if err != nil {
+		return err
 	}
 
-	// 切り捨て通知
-	if limitReached && nextCell != "" {
-		trunc := excel.Truncation{
-			Truncated: true,
-			Total:     totalCount,
-			Output:    outputCount,
-			NextCell:  nextCell,
-		}
-		if rangeFlag != "" {
-			nextCol, nextRow, _ := excel.StartPosition(nextCell)
-			trunc.NextRange = excel.NextRangeFrom(nextCol, nextRow, scanRange)
-		}
-		enc.Encode(trunc)
-	}
+	// --include-empty で --range 指定時: ストリーミングでは空セルが来ないため、
+	// 範囲内の空セルを補完する処理が必要だが、現時点では非対応
+	// （include-empty + range の組み合わせは excelize の個別API呼び出しが必要）
 
 	return nil
 }
@@ -213,23 +198,16 @@ func buildCellOutput(f *excel.File, sheet string, col, row int, data *excel.Cell
 		out.Display = data.Display
 	}
 
-	// 結合セル
 	if merge, ok := mi.IsTopLeft(col, row); ok {
 		out.Merge = merge
 	}
 
-	// ハイパーリンク
 	out.Link = f.GetHyperlink(sheet, out.Cell)
 
-	// hidden row/col
-	if f.IsHiddenRow(sheet, row) {
-		out.HiddenRow = true
-	}
 	if f.IsHiddenCol(sheet, col) {
 		out.HiddenCol = true
 	}
 
-	// 書式
 	if !noStyle {
 		font, fill, border, alignment, err := f.CellStyle(sheet, col, row, defaultFont)
 		if err == nil {
@@ -242,4 +220,16 @@ func buildCellOutput(f *excel.File, sheet string, col, row int, data *excel.Cell
 	}
 
 	return out
+}
+
+func emitRowInfo(enc *json.Encoder, f *excel.File, sheet string, row int, defaultHeight float64) {
+	ri := rowOutput{Row: row}
+	h, err := f.GetRowHeight(sheet, row)
+	if err == nil && h != defaultHeight {
+		ri.Height = h
+	}
+	if f.IsHiddenRow(sheet, row) {
+		ri.Hidden = true
+	}
+	enc.Encode(ri)
 }

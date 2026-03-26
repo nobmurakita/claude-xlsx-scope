@@ -90,60 +90,34 @@ func (f *File) ResolveWorksheet(sheet string) (string, error) {
 	return name, nil
 }
 
+// GetSheetDimension は excelize の GetSheetDimension をラップする
+func (f *File) GetSheetDimension(sheet string) (string, error) {
+	return f.File.GetSheetDimension(sheet)
+}
+
 // GetUsedRange はシートの使用範囲を返す。空シートの場合は空文字を返す。
-func (f *File) GetUsedRange(sheet string) (string, error) {
+// rowCache が非nilの場合はそれを使い、nilの場合は GetSheetDimension にフォールバックする。
+func (f *File) GetUsedRange(sheet string, rowCache *RowCache) (string, error) {
+	// RowCache がある場合はそこから算出
+	if rowCache != nil {
+		return rowCache.CalcUsedRange(), nil
+	}
+
 	dim, err := f.File.GetSheetDimension(sheet)
 	if err != nil {
 		return "", err
 	}
 
-	// GetSheetDimension が信頼できる値を返した場合
 	if dim != "" && dim != "A1:A1" {
 		return dim, nil
 	}
 
-	// dim が空や "A1:A1" の場合、全行を走査して実際の使用範囲を算出する
-	return f.calcUsedRange(sheet)
-}
-
-func (f *File) calcUsedRange(sheet string) (string, error) {
-	rows, err := f.File.GetRows(sheet)
+	// フォールバック: GetRows で算出
+	rc, err := f.LoadRows(sheet)
 	if err != nil {
 		return "", err
 	}
-	if len(rows) == 0 {
-		return "", nil
-	}
-
-	minCol, maxCol := -1, -1
-	minRow, maxRow := -1, -1
-
-	for r, row := range rows {
-		for c, cell := range row {
-			if cell != "" {
-				rowIdx := r + 1
-				colIdx := c + 1
-				if minRow == -1 || rowIdx < minRow {
-					minRow = rowIdx
-				}
-				if maxRow == -1 || rowIdx > maxRow {
-					maxRow = rowIdx
-				}
-				if minCol == -1 || colIdx < minCol {
-					minCol = colIdx
-				}
-				if maxCol == -1 || colIdx > maxCol {
-					maxCol = colIdx
-				}
-			}
-		}
-	}
-
-	if minRow == -1 {
-		return "", nil
-	}
-
-	return CellRef(minCol, minRow) + ":" + CellRef(maxCol, maxRow), nil
+	return rc.CalcUsedRange(), nil
 }
 
 func formatSheetNames(names []string) string {

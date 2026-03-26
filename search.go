@@ -38,7 +38,6 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	noStyle, _ := cmd.Flags().GetBool("no-style")
 	limit, _ := cmd.Flags().GetInt("limit")
 
-	// 最低1つのフィルタが必須
 	if queryFlag == "" && numericFlag == "" && typeFlag == "" {
 		return fmt.Errorf("--query, --numeric, --type のうち少なくとも1つを指定してください")
 	}
@@ -47,7 +46,6 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--range と --start は同時に指定できません")
 	}
 
-	// フィルタの構築
 	filter := &excel.Filter{Query: queryFlag}
 	if numericFlag != "" {
 		expr, err := excel.ParseNumericExpr(numericFlag)
@@ -71,51 +69,29 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	usedRangeStr, err := f.GetUsedRange(sheet)
-	if err != nil {
-		return err
-	}
-
 	// 走査範囲の決定
-	var scanRange excel.CellRange
+	var scanRange *excel.CellRange
 	var startCol, startRow int
-	useStart := false
 
 	if rangeFlag != "" {
-		scanRange, err = excel.ParseRange(rangeFlag, usedRangeStr)
+		usedRange, _ := f.GetUsedRange(sheet, nil)
+		r, err := excel.ParseRange(rangeFlag, usedRange)
 		if err != nil {
 			return err
 		}
+		scanRange = &r
 	} else if startFlag != "" {
 		startCol, startRow, err = excel.StartPosition(startFlag)
 		if err != nil {
 			return err
 		}
-		useStart = true
-		if usedRangeStr != "" {
-			scanRange, _ = excel.ParseRange(usedRangeStr, "")
-		}
-	} else {
-		if usedRangeStr == "" {
-			return errNoMatch
-		}
-		scanRange, err = excel.ParseRange(usedRangeStr, "")
-		if err != nil {
-			return err
-		}
 	}
 
-	if scanRange.IsEmpty() {
-		return errNoMatch
-	}
-
-	// デフォルトフォント
 	var defaultFont excel.FontInfo
 	if !noStyle {
-		defaultFont = f.DetectDefaultFont(sheet, scanRange)
+		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
 	}
 
-	// 結合セル情報
 	mergeInfo, err := f.LoadMergeInfo(sheet)
 	if err != nil {
 		return err
@@ -125,69 +101,52 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	enc.SetEscapeHTML(false)
 
 	outputCount := 0
-	totalCount := 0
-	nextCell := ""
-	limitReached := false
 
-	for row := scanRange.StartRow; row <= scanRange.EndRow; row++ {
-		for col := scanRange.StartCol; col <= scanRange.EndCol; col++ {
-			if useStart {
-				if row < startRow || (row == startRow && col < startCol) {
-					continue
-				}
+	err = f.StreamRows(sheet, func(col, row int, value string) bool {
+		// --range フィルタ
+		if scanRange != nil {
+			if row < scanRange.StartRow || col < scanRange.StartCol {
+				return true
 			}
-
-			if mergeInfo.IsMergedNonTopLeft(col, row) {
-				continue
+			if row > scanRange.EndRow {
+				return false
 			}
-
-			data, err := f.ReadCell(sheet, col, row)
-			if err != nil {
-				return err
+			if col > scanRange.EndCol {
+				return true
 			}
-
-			if !data.HasValue && data.Type == excel.CellTypeEmpty {
-				continue
-			}
-
-			// フィルタ適用
-			if !filter.MatchCell(data) {
-				continue
-			}
-
-			totalCount++
-
-			if limitReached {
-				if nextCell == "" {
-					nextCell = excel.CellRef(col, row)
-				}
-				continue
-			}
-			if limit > 0 && outputCount >= limit {
-				limitReached = true
-				nextCell = excel.CellRef(col, row)
-				continue
-			}
-
-			out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
-			enc.Encode(out)
-			outputCount++
 		}
-	}
 
-	// 切り捨て通知
-	if limitReached && nextCell != "" {
-		trunc := excel.Truncation{
-			Truncated: true,
-			Total:     totalCount,
-			Output:    outputCount,
-			NextCell:  nextCell,
+		// --start フィルタ
+		if startCol > 0 {
+			if row < startRow || (row == startRow && col < startCol) {
+				return true
+			}
 		}
-		if rangeFlag != "" {
-			nextCol, nextRow, _ := excel.StartPosition(nextCell)
-			trunc.NextRange = excel.NextRangeFrom(nextCol, nextRow, scanRange)
+
+		if mergeInfo.IsMergedNonTopLeft(col, row) {
+			return true
 		}
-		enc.Encode(trunc)
+
+		data, err := f.ReadCell(sheet, col, row)
+		if err != nil || (!data.HasValue && data.Type == excel.CellTypeEmpty) {
+			return true
+		}
+
+		if !filter.MatchCell(data) {
+			return true
+		}
+
+		if limit > 0 && outputCount >= limit {
+			return false
+		}
+
+		out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
+		enc.Encode(out)
+		outputCount++
+		return true
+	})
+	if err != nil {
+		return err
 	}
 
 	if outputCount == 0 {

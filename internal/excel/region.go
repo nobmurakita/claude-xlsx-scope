@@ -10,7 +10,8 @@ type Region struct {
 
 // DetectRegions はシート内の非空セルの分布から領域を検出する。
 // 3行以上の空行、3列以上の空列で分割する。
-func (f *File) DetectRegions(sheet string, usedRange CellRange) ([]Region, error) {
+// rowCache が非nilの場合はキャッシュから値の有無を判定する。
+func (f *File) DetectRegions(sheet string, usedRange CellRange, rowCache *RowCache) ([]Region, error) {
 	if usedRange.IsEmpty() {
 		return []Region{}, nil
 	}
@@ -23,8 +24,14 @@ func (f *File) DetectRegions(sheet string, usedRange CellRange) ([]Region, error
 
 	for r := usedRange.StartRow; r <= usedRange.EndRow; r++ {
 		for c := usedRange.StartCol; c <= usedRange.EndCol; c++ {
-			val, _ := f.File.GetCellValue(sheet, CellRef(c, r))
-			if val != "" {
+			hasVal := false
+			if rowCache != nil {
+				hasVal = rowCache.HasValue(c, r)
+			} else {
+				val, _ := f.File.GetCellValue(sheet, CellRef(c, r))
+				hasVal = val != ""
+			}
+			if hasVal {
 				cells = append(cells, cell{c, r})
 				occupiedRows[r] = true
 				occupiedCols[c] = true
