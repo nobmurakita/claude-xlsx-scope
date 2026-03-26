@@ -17,7 +17,14 @@ go build -ldflags "-X main.version=0.1.0" -o exceldump .
 
 ### Claude Code スキルのインストール
 
-`skill/SKILL.md` を `~/.claude/skills/exceldump/` にコピーする:
+GitHub から直接インストール:
+
+```bash
+mkdir -p ~/.claude/skills/exceldump
+curl -fsSL https://raw.githubusercontent.com/nobmurakita/exceldump/main/skill/SKILL.md -o ~/.claude/skills/exceldump/SKILL.md
+```
+
+またはローカルからコピー:
 
 ```bash
 mkdir -p ~/.claude/skills/exceldump
