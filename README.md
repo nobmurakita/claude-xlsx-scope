@@ -128,48 +128,5 @@ exceldump search --numeric ">100" --no-style 見積計算.xlsx
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
 
 `--query`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。
-検索結果が0件の場合も正常終了（終了コード 0）する。
 
-## 出力形式
-
-- `info` / `scan` は JSON
-- `dump` / `search` は JSONL（1行1セルまたは1行1行情報）
-
-### 型の判定
-
-`type` フィールドは `date` と `error` の場合のみ出力される。他はJSON値から推測可能:
-
-- `value` が文字列 → string
-- `value` が数値 → number
-- `value` が true/false → bool
-- `formula` フィールドあり → formula
-- `value` なし → empty
-- `type: "date"` → 日付（ISO 8601 文字列）
-- `type: "error"` → エラー値（`#N/A` 等）
-
-### 行情報
-
-行高がデフォルトと異なる、または非表示の行では、セル出力の前に行情報が挿入される:
-
-```jsonl
-{"_row":1,"height":30}
-```
-
-`_row` フィールドの有無でセル行と区別する。
-
-## 利用フロー
-
-```
-info → scan → dump（--range で領域ごとに取得）
-info → dump（先頭からストリーミング取得）
-info → search（特定値の検索）
-```
-
-`scan` の `regions` が利用できない場合（dimension なしのファイル）は、`dump` を直接実行する。
-
-## 終了コード
-
-| コード | 意味 |
-|--------|------|
-| 0 | 成功（検索結果なしも含む） |
-| 1 | エラー |
+出力形式やフィールドの詳細は [DESIGN.md](DESIGN.md) を参照。
