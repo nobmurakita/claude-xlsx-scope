@@ -36,7 +36,7 @@ type cellOutput struct {
 	Cell      string               `json:"cell"`
 	Value     any                  `json:"value,omitempty"`
 	Display   string               `json:"display,omitempty"`
-	Type      excel.CellType       `json:"type"`
+	Type      excel.CellType       `json:"type,omitempty"`
 	Merge     string               `json:"merge,omitempty"`
 	Formula   string               `json:"formula,omitempty"`
 	Link      *excel.HyperlinkData `json:"link,omitempty"`
@@ -180,15 +180,20 @@ func runDump(cmd *cobra.Command, args []string) error {
 func buildCellOutput(f *excel.File, sheet string, col, row int, data *excel.CellData, mi *excel.MergeInfo, noStyle bool, defaultFont excel.FontInfo) cellOutput {
 	out := cellOutput{
 		Cell: excel.CellRef(col, row),
-		Type: data.Type,
 	}
 
+	// type は date と error のみ出力（他はJSON値の型やformulaフィールドの有無から推測可能）
 	switch data.Type {
 	case excel.CellTypeEmpty:
-		// value は省略
+		// value, type ともに省略
 	case excel.CellTypeError:
+		out.Type = excel.CellTypeError
 		out.Value = data.Value
 		out.Formula = data.Formula
+	case excel.CellTypeDate:
+		out.Type = excel.CellTypeDate
+		out.Value = data.Value
+		out.Display = data.Display
 	case excel.CellTypeFormula:
 		out.Value = data.Value
 		out.Formula = data.Formula
