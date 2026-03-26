@@ -15,6 +15,7 @@ func init() {
 	dumpCmd.Flags().String("start", "", "開始セル位置（例: A51）")
 	dumpCmd.Flags().Bool("include-empty", false, "空セルも出力する")
 	dumpCmd.Flags().Bool("no-style", false, "書式情報を省略する")
+	dumpCmd.Flags().Bool("formula", false, "数式文字列を出力する")
 	dumpCmd.Flags().Int("limit", 1000, "出力セル数の上限（0で無制限）")
 	rootCmd.AddCommand(dumpCmd)
 }
@@ -48,12 +49,152 @@ type cellOutput struct {
 	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
 }
 
+// dumpContext は dump/search の走査で共有するコンテキスト
+type dumpContext struct {
+	f             *excel.File
+	sheet         string
+	defaultFont   excel.FontInfo
+	defaultHeight float64
+	mergeInfo     *excel.MergeInfo
+	noStyle       bool
+	showFormula   bool
+	hiddenColCache map[int]bool // 列の非表示キャッシュ
+	styleCache     map[int]*styleResult // スタイルIDのキャッシュ
+}
+
+type styleResult struct {
+	font      *excel.FontObj
+	fill      *excel.FillObj
+	border    *excel.BorderObj
+	alignment *excel.AlignmentObj
+}
+
+func newDumpContext(f *excel.File, sheet string, noStyle, showFormula bool) (*dumpContext, error) {
+	var defaultFont excel.FontInfo
+	if !noStyle {
+		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
+	}
+
+	_, _, defaultHeight, _ := f.GetSheetMeta(sheet)
+
+	mergeInfo, err := f.LoadMergeInfo(sheet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dumpContext{
+		f:              f,
+		sheet:          sheet,
+		defaultFont:    defaultFont,
+		defaultHeight:  defaultHeight,
+		mergeInfo:      mergeInfo,
+		noStyle:        noStyle,
+		showFormula:    showFormula,
+		hiddenColCache: make(map[int]bool),
+		styleCache:     make(map[int]*styleResult),
+	}, nil
+}
+
+func (dc *dumpContext) isHiddenCol(col int) bool {
+	if v, ok := dc.hiddenColCache[col]; ok {
+		return v
+	}
+	hidden := dc.f.IsHiddenCol(dc.sheet, col)
+	dc.hiddenColCache[col] = hidden
+	return hidden
+}
+
+func (dc *dumpContext) getCellStyle(col, row int) *styleResult {
+	axis := excel.CellRef(col, row)
+	styleID, err := dc.f.GetCellStyle(dc.sheet, axis)
+	if err != nil || styleID == 0 {
+		return nil
+	}
+	if cached, ok := dc.styleCache[styleID]; ok {
+		return cached
+	}
+	font, fill, border, alignment, _ := dc.f.StyleByID(styleID, dc.defaultFont)
+	result := &styleResult{font: font, fill: fill, border: border, alignment: alignment}
+	dc.styleCache[styleID] = result
+	return result
+}
+
+func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) {
+	ri := rowOutput{Row: row}
+	h, err := dc.f.GetRowHeight(dc.sheet, row)
+	if err == nil && h != dc.defaultHeight {
+		ri.Height = h
+	}
+	if dc.f.IsHiddenRow(dc.sheet, row) {
+		ri.Hidden = true
+	}
+	// height も hidden もデフォルトなら行情報を省略
+	if ri.Height == 0 && !ri.Hidden {
+		return
+	}
+	enc.Encode(ri)
+}
+
+func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData) cellOutput {
+	out := cellOutput{
+		Cell: excel.CellRef(col, row),
+	}
+
+	switch data.Type {
+	case excel.CellTypeEmpty:
+		// value, type ともに省略
+	case excel.CellTypeError:
+		out.Type = excel.CellTypeError
+		out.Value = data.Value
+		if dc.showFormula {
+			out.Formula = data.Formula
+		}
+	case excel.CellTypeDate:
+		out.Type = excel.CellTypeDate
+		out.Value = data.Value
+		out.Display = data.Display
+	case excel.CellTypeFormula:
+		out.Value = data.Value
+		if dc.showFormula {
+			out.Formula = data.Formula
+		}
+		out.Display = data.Display
+	default:
+		out.Value = data.Value
+		out.Display = data.Display
+	}
+
+	if merge, ok := dc.mergeInfo.IsTopLeft(col, row); ok {
+		out.Merge = merge
+	}
+
+	out.Link = dc.f.GetHyperlink(dc.sheet, out.Cell)
+
+	if dc.isHiddenCol(col) {
+		out.HiddenCol = true
+	}
+
+	if !dc.noStyle {
+		sr := dc.getCellStyle(col, row)
+		if sr != nil {
+			out.Font = sr.font
+			out.Fill = sr.fill
+			out.Border = sr.border
+			out.Alignment = sr.alignment
+		}
+		out.RichText = dc.f.GetRichText(dc.sheet, col, row, out.Font, dc.defaultFont)
+	}
+
+	return out
+}
+
 func runDump(cmd *cobra.Command, args []string) error {
 	sheetFlag, _ := cmd.Flags().GetString("sheet")
 	rangeFlag, _ := cmd.Flags().GetString("range")
 	startFlag, _ := cmd.Flags().GetString("start")
 	includeEmpty, _ := cmd.Flags().GetBool("include-empty")
 	noStyle, _ := cmd.Flags().GetBool("no-style")
+	showFormula, _ := cmd.Flags().GetBool("formula")
 	limit, _ := cmd.Flags().GetInt("limit")
 
 	if rangeFlag != "" && startFlag != "" {
@@ -76,7 +217,6 @@ func runDump(cmd *cobra.Command, args []string) error {
 	var startCol, startRow int
 
 	if rangeFlag != "" {
-		// --range: used_range が必要な場合は取得
 		usedRange, _ := f.GetUsedRange(sheet, nil)
 		r, err := excel.ParseRange(rangeFlag, usedRange)
 		if err != nil {
@@ -90,17 +230,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// デフォルトフォント
-	var defaultFont excel.FontInfo
-	if !noStyle {
-		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
-	}
-
-	// デフォルト行高
-	_, _, defaultHeight, _ := f.GetSheetMeta(sheet)
-
-	// 結合セル情報
-	mergeInfo, err := f.LoadMergeInfo(sheet)
+	dc, err := newDumpContext(f, sheet, noStyle, showFormula)
 	if err != nil {
 		return err
 	}
@@ -118,7 +248,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 				return true
 			}
 			if row > scanRange.EndRow {
-				return false // 範囲終了、走査打ち切り
+				return false
 			}
 			if col > scanRange.EndCol {
 				return true
@@ -132,109 +262,36 @@ func runDump(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// 結合セルの左上以外はスキップ
-		if mergeInfo.IsMergedNonTopLeft(col, row) {
+		if dc.mergeInfo.IsMergedNonTopLeft(col, row) {
 			return true
 		}
 
-		// セル値の読み取り
 		data, err := f.ReadCell(sheet, col, row)
 		if err != nil {
 			return true
 		}
 
-		// 空セルの処理
 		if !data.HasValue && data.Type == excel.CellTypeEmpty {
 			if !includeEmpty {
 				return true
 			}
 		}
 
-		// limit チェック
 		if limit > 0 && outputCount >= limit {
 			return false
 		}
 
 		// 行が変わったら行情報を出力
 		if row != lastRow {
-			emitRowInfo(enc, f, sheet, row, defaultHeight)
+			dc.emitRowInfo(enc, row)
 			lastRow = row
 		}
 
-		out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
+		out := dc.buildCellOutput(col, row, data)
 		enc.Encode(out)
 		outputCount++
 		return true
 	})
-	if err != nil {
-		return err
-	}
 
-	// --include-empty で --range 指定時: ストリーミングでは空セルが来ないため、
-	// 範囲内の空セルを補完する処理が必要だが、現時点では非対応
-	// （include-empty + range の組み合わせは excelize の個別API呼び出しが必要）
-
-	return nil
-}
-
-func buildCellOutput(f *excel.File, sheet string, col, row int, data *excel.CellData, mi *excel.MergeInfo, noStyle bool, defaultFont excel.FontInfo) cellOutput {
-	out := cellOutput{
-		Cell: excel.CellRef(col, row),
-	}
-
-	// type は date と error のみ出力（他はJSON値の型やformulaフィールドの有無から推測可能）
-	switch data.Type {
-	case excel.CellTypeEmpty:
-		// value, type ともに省略
-	case excel.CellTypeError:
-		out.Type = excel.CellTypeError
-		out.Value = data.Value
-		out.Formula = data.Formula
-	case excel.CellTypeDate:
-		out.Type = excel.CellTypeDate
-		out.Value = data.Value
-		out.Display = data.Display
-	case excel.CellTypeFormula:
-		out.Value = data.Value
-		out.Formula = data.Formula
-		out.Display = data.Display
-	default:
-		out.Value = data.Value
-		out.Display = data.Display
-	}
-
-	if merge, ok := mi.IsTopLeft(col, row); ok {
-		out.Merge = merge
-	}
-
-	out.Link = f.GetHyperlink(sheet, out.Cell)
-
-	if f.IsHiddenCol(sheet, col) {
-		out.HiddenCol = true
-	}
-
-	if !noStyle {
-		font, fill, border, alignment, err := f.CellStyle(sheet, col, row, defaultFont)
-		if err == nil {
-			out.Font = font
-			out.Fill = fill
-			out.Border = border
-			out.Alignment = alignment
-		}
-		out.RichText = f.GetRichText(sheet, col, row, font, defaultFont)
-	}
-
-	return out
-}
-
-func emitRowInfo(enc *json.Encoder, f *excel.File, sheet string, row int, defaultHeight float64) {
-	ri := rowOutput{Row: row}
-	h, err := f.GetRowHeight(sheet, row)
-	if err == nil && h != defaultHeight {
-		ri.Height = h
-	}
-	if f.IsHiddenRow(sheet, row) {
-		ri.Hidden = true
-	}
-	enc.Encode(ri)
+	return err
 }

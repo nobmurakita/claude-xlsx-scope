@@ -87,12 +87,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var defaultFont excel.FontInfo
-	if !noStyle {
-		defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
-	}
-
-	mergeInfo, err := f.LoadMergeInfo(sheet)
+	dc, err := newDumpContext(f, sheet, noStyle, false)
 	if err != nil {
 		return err
 	}
@@ -103,7 +98,6 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	outputCount := 0
 
 	err = f.StreamRows(sheet, func(col, row int, value string) bool {
-		// --range フィルタ
 		if scanRange != nil {
 			if row < scanRange.StartRow || col < scanRange.StartCol {
 				return true
@@ -116,14 +110,13 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// --start フィルタ
 		if startCol > 0 {
 			if row < startRow || (row == startRow && col < startCol) {
 				return true
 			}
 		}
 
-		if mergeInfo.IsMergedNonTopLeft(col, row) {
+		if dc.mergeInfo.IsMergedNonTopLeft(col, row) {
 			return true
 		}
 
@@ -140,7 +133,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return false
 		}
 
-		out := buildCellOutput(f, sheet, col, row, data, mergeInfo, noStyle, defaultFont)
+		out := dc.buildCellOutput(col, row, data)
 		enc.Encode(out)
 		outputCount++
 		return true

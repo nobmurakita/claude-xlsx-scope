@@ -64,6 +64,11 @@ func (ao *AlignmentObj) IsEmpty() bool {
 		ao.Indent == 0 && ao.TextRotation == 0 && !ao.ShrinkToFit
 }
 
+// GetCellStyle はセルのスタイルIDを返す
+func (f *File) GetCellStyle(sheet, axis string) (int, error) {
+	return f.File.GetCellStyle(sheet, axis)
+}
+
 // CellStyle はセルの書式情報を取得する
 func (f *File) CellStyle(sheet string, col, row int, defaultFont FontInfo) (*FontObj, *FillObj, *BorderObj, *AlignmentObj, error) {
 	axis := CellRef(col, row)
@@ -75,6 +80,11 @@ func (f *File) CellStyle(sheet string, col, row int, defaultFont FontInfo) (*Fon
 		return nil, nil, nil, nil, nil
 	}
 
+	return f.StyleByID(styleID, defaultFont)
+}
+
+// StyleByID はスタイルIDから書式情報を取得する（キャッシュ用）
+func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj, *BorderObj, *AlignmentObj, error) {
 	style, err := f.File.GetStyle(styleID)
 	if err != nil || style == nil {
 		return nil, nil, nil, nil, nil
