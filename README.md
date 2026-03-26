@@ -1,0 +1,158 @@
+# exceldump
+
+Excel ファイル（.xlsx / .xlsm）の内容を CLI からダンプするGoツール。
+Claude Code が Excel 資料（通常の表、Excel方眼紙の仕様書など）を読み取る用途を主眼とする。
+
+## インストール
+
+```bash
+go install github.com/nobmurakita/exceldump@latest
+```
+
+ビルド時にバージョンを埋め込む場合:
+
+```bash
+go build -ldflags "-X main.version=0.1.0" -o exceldump .
+```
+
+## コマンド
+
+### info — ファイルの概要を表示
+
+```bash
+exceldump info 基本設計書.xlsx
+```
+
+```json
+{"file":"基本設計書.xlsx","defined_names":[],"sheets":[{"index":0,"name":"表紙","type":"worksheet"},{"index":1,"name":"機能一覧","type":"worksheet"}]}
+```
+
+### scan — シートの構造を分析
+
+```bash
+exceldump scan --sheet 0 基本設計書.xlsx
+```
+
+シートのメタ情報（デフォルトフォント、列幅等）を返す。dimension がある場合は使用範囲やデータ領域の分布も返す。
+
+### dump — セルデータをダンプ
+
+```bash
+exceldump dump --sheet 0 --limit 5 見積計算.xlsx
+```
+
+```jsonl
+{"cell":"G2","value":"（人"}
+{"cell":"I2","value":"（ヶ月"}
+{"cell":"J2","value":"（人月"}
+{"cell":"K2","value":"（千円"}
+{"_row":3,"height":22.5}
+{"cell":"B3","value":"工程"}
+```
+
+書式付き:
+
+```bash
+exceldump dump --sheet 0 --range "B3:K4" --limit 3 見積計算.xlsx
+```
+
+```jsonl
+{"_row":3,"height":22.5}
+{"cell":"B3","value":"工程","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
+{"cell":"C3","value":"作業内容","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
+{"cell":"D3","value":"成果物","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
+```
+
+**オプション:**
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
+| `--range` | セル範囲（例: `A1:H20`, `A:F`, `1:20`） | 全体 |
+| `--start` | 開始セル位置（例: `A51`）。`--range` と排他 | 先頭 |
+| `--include-empty` | 空セルも出力する | OFF |
+| `--no-style` | 書式情報を省略する | OFF |
+| `--formula` | 数式文字列を出力する | OFF |
+| `--limit` | 出力セル数の上限（0で無制限） | 1000 |
+
+### search — セル値を検索
+
+```bash
+exceldump search --query "マスタ" --no-style 運用シナリオ.xlsx
+```
+
+```jsonl
+{"cell":"B2","value":"マスタを登録する"}
+{"cell":"D2","value":"マスタファイル"}
+```
+
+```bash
+exceldump search --numeric ">100" --no-style 見積計算.xlsx
+```
+
+```jsonl
+{"cell":"K4","value":800}
+{"cell":"K6","value":800}
+{"cell":"K8","value":400}
+```
+
+**オプション:**
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--query` | 検索文字列（部分一致、大文字小文字無視） | — |
+| `--numeric` | 数値比較（`">100"`, `"100:200"`, `"=42"`） | — |
+| `--type` | 型フィルタ（`string`, `number`, `date`, `bool`, `formula`） | — |
+| `--sheet` | 対象シート | 最初のシート |
+| `--range` | セル範囲 | 全体 |
+| `--start` | 開始セル位置。`--range` と排他 | 先頭 |
+| `--no-style` | 書式情報を省略する | OFF |
+| `--limit` | 出力セル数の上限（0で無制限） | 1000 |
+
+`--query`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。
+検索結果が0件の場合は終了コード 1 を返す。
+
+## 出力形式
+
+- `info` / `scan` は JSON
+- `dump` / `search` は JSONL（1行1セルまたは1行1行情報）
+
+### 型の判定
+
+`type` フィールドは `date` と `error` の場合のみ出力される。他はJSON値から推測可能:
+
+- `value` が文字列 → string
+- `value` が数値 → number
+- `value` が true/false → bool
+- `formula` フィールドあり → formula
+- `value` なし → empty
+- `type: "date"` → 日付（ISO 8601 文字列）
+- `type: "error"` → エラー値（`#N/A` 等）
+
+### 行情報
+
+行高がデフォルトと異なる、または非表示の行では、セル出力の前に行情報が挿入される:
+
+```jsonl
+{"_row":1,"height":30}
+```
+
+`_row` フィールドの有無でセル行と区別する。
+
+## 利用フロー
+
+```
+info → scan → dump（--range で領域ごとに取得）
+info → dump（先頭からストリーミング取得）
+info → search（特定値の検索）
+```
+
+`scan` の `regions` が利用できない場合（dimension なしのファイル）は、`dump` を直接実行する。
+
+## 終了コード
+
+| コード | 意味 |
+|--------|------|
+| 0 | 成功 |
+| 1 | 検索結果なし（`search` のみ） |
+| 2 | エラー |
