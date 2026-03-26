@@ -17,6 +17,7 @@ func init() {
 	searchCmd.Flags().String("range", "", "セル範囲（例: A1:H20）")
 	searchCmd.Flags().String("start", "", "開始セル位置（例: A51）")
 	searchCmd.Flags().Bool("no-style", false, "書式情報を省略する")
+	searchCmd.Flags().Bool("formula", false, "数式文字列を出力する")
 	searchCmd.Flags().Int("limit", 1000, "出力セル数の上限（0で無制限）")
 	rootCmd.AddCommand(searchCmd)
 }
@@ -87,7 +88,9 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	dc, err := newDumpContext(f, sheet, noStyle, false)
+	showFormula, _ := cmd.Flags().GetBool("formula")
+
+	dc, err := newDumpContext(f, sheet, noStyle, showFormula)
 	if err != nil {
 		return err
 	}
