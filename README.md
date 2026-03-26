@@ -15,6 +15,17 @@ go install github.com/nobmurakita/exceldump@latest
 go build -ldflags "-X main.version=0.1.0" -o exceldump .
 ```
 
+### Claude Code スキルのインストール
+
+`skill/SKILL.md` を `~/.claude/skills/exceldump/` にコピーする:
+
+```bash
+mkdir -p ~/.claude/skills/exceldump
+cp skill/SKILL.md ~/.claude/skills/exceldump/SKILL.md
+```
+
+インストール後、Claude Code で `/exceldump` コマンドが利用可能になる。
+
 ## コマンド
 
 ### info — ファイルの概要を表示
