@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/nobmurakita/exceldump/internal/excel"
@@ -16,7 +15,7 @@ func init() {
 	dumpCmd.Flags().Bool("include-empty", false, "空セルも出力する")
 	dumpCmd.Flags().Bool("style", false, "書式情報を出力する")
 	dumpCmd.Flags().Bool("formula", false, "数式文字列を出力する")
-	dumpCmd.Flags().Int("limit", 1000, "出力セル数の上限（0で無制限）")
+	dumpCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
 	rootCmd.AddCommand(dumpCmd)
 }
 
@@ -68,8 +67,9 @@ func runDump(cmd *cobra.Command, args []string) error {
 	showFormula, _ := cmd.Flags().GetBool("formula")
 	limit, _ := cmd.Flags().GetInt("limit")
 
-	if rangeFlag != "" && startFlag != "" {
-		return fmt.Errorf("--range と --start は同時に指定できません")
+	scanRange, startCol, startRow, err := parseScanRange(rangeFlag, startFlag)
+	if err != nil {
+		return err
 	}
 
 	f, err := excel.OpenFile(args[0])
@@ -83,42 +83,16 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// 走査範囲の決定
-	var scanRange *excel.CellRange
-	var startCol, startRow int
-
-	if rangeFlag != "" {
-		r, err := excel.ParseRange(rangeFlag, "")
-		if err != nil {
-			return err
-		}
-		scanRange = &r
-	} else if startFlag != "" {
-		startCol, startRow, err = excel.StartPosition(startFlag)
-		if err != nil {
-			return err
-		}
-	}
-
 	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
+	enc := newJSONLWriter(os.Stdout)
 
 	// _meta 行を出力（col_widths, default_width/height）
-	if dc.sheetMeta != nil {
-		meta := metaOutput{
-			Meta:          true,
-			DefaultWidth:  dc.sheetMeta.EffectiveDefaultWidth(),
-			DefaultHeight: dc.sheetMeta.DefaultHeight,
-			ColWidths:     colWidthsFromMeta(dc.sheetMeta),
-		}
-		if err := enc.Encode(meta); err != nil {
-			return err
-		}
+	if err := emitMeta(enc, dc.sheetMeta); err != nil {
+		return err
 	}
 
 	outputCount := 0
@@ -177,13 +151,28 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if truncatedNext != "" {
-		if err := enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext}); err != nil {
-			return err
-		}
-	}
+	return emitTruncated(enc, truncatedNext)
+}
 
-	return nil
+// emitMeta は _meta 行を出力する
+func emitMeta(enc *json.Encoder, meta *excel.SheetMeta) error {
+	if meta == nil {
+		return nil
+	}
+	return enc.Encode(metaOutput{
+		Meta:          true,
+		DefaultWidth:  meta.EffectiveDefaultWidth(),
+		DefaultHeight: meta.DefaultHeight,
+		ColWidths:     colWidthsFromMeta(meta),
+	})
+}
+
+// emitTruncated は打ち切り行を出力する（truncatedNext が空なら何もしない）
+func emitTruncated(enc *json.Encoder, truncatedNext string) error {
+	if truncatedNext == "" {
+		return nil
+	}
+	return enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext})
 }
 
 func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {

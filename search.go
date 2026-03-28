@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -18,7 +17,7 @@ func init() {
 	searchCmd.Flags().String("start", "", "開始セル位置（例: A51）")
 	searchCmd.Flags().Bool("style", false, "書式情報を出力する")
 	searchCmd.Flags().Bool("formula", false, "数式文字列を出力する")
-	searchCmd.Flags().Int("limit", 1000, "出力セル数の上限（0で無制限）")
+	searchCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
 	rootCmd.AddCommand(searchCmd)
 }
 
@@ -37,32 +36,21 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	rangeFlag, _ := cmd.Flags().GetString("range")
 	startFlag, _ := cmd.Flags().GetString("start")
 	showStyle, _ := cmd.Flags().GetBool("style")
+	showFormula, _ := cmd.Flags().GetBool("formula")
 	limit, _ := cmd.Flags().GetInt("limit")
 
 	if queryFlag == "" && numericFlag == "" && typeFlag == "" {
 		return fmt.Errorf("--query, --numeric, --type のうち少なくとも1つを指定してください")
 	}
 
-	if rangeFlag != "" && startFlag != "" {
-		return fmt.Errorf("--range と --start は同時に指定できません")
+	scanRange, startCol, startRow, err := parseScanRange(rangeFlag, startFlag)
+	if err != nil {
+		return err
 	}
 
-	filter := &excel.Filter{Query: queryFlag}
-	if numericFlag != "" {
-		expr, err := excel.ParseNumericExpr(numericFlag)
-		if err != nil {
-			return err
-		}
-		filter.Numeric = expr
-	}
-	if typeFlag != "" {
-		switch excel.CellType(typeFlag) {
-		case excel.CellTypeString, excel.CellTypeNumber, excel.CellTypeBool,
-			excel.CellTypeDate, excel.CellTypeFormula, excel.CellTypeError:
-			filter.Type = excel.CellType(typeFlag)
-		default:
-			return fmt.Errorf("不明なセル型です: %q（指定可能: string, number, date, bool, formula, error）", typeFlag)
-		}
+	filter, err := buildFilter(queryFlag, numericFlag, typeFlag)
+	if err != nil {
+		return err
 	}
 
 	f, err := excel.OpenFile(args[0])
@@ -76,32 +64,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// 走査範囲の決定
-	var scanRange *excel.CellRange
-	var startCol, startRow int
-
-	if rangeFlag != "" {
-		r, err := excel.ParseRange(rangeFlag, "")
-		if err != nil {
-			return err
-		}
-		scanRange = &r
-	} else if startFlag != "" {
-		startCol, startRow, err = excel.StartPosition(startFlag)
-		if err != nil {
-			return err
-		}
-	}
-
-	showFormula, _ := cmd.Flags().GetBool("formula")
-
 	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
+	enc := newJSONLWriter(os.Stdout)
 
 	outputCount := 0
 	var truncatedNext string
@@ -151,11 +119,27 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if truncatedNext != "" {
-		if err := enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext}); err != nil {
-			return err
+	return emitTruncated(enc, truncatedNext)
+}
+
+// buildFilter はフラグからフィルタを構築する
+func buildFilter(query, numeric, typeStr string) (*excel.Filter, error) {
+	filter := &excel.Filter{Query: query}
+	if numeric != "" {
+		expr, err := excel.ParseNumericExpr(numeric)
+		if err != nil {
+			return nil, err
+		}
+		filter.Numeric = expr
+	}
+	if typeStr != "" {
+		switch excel.CellType(typeStr) {
+		case excel.CellTypeString, excel.CellTypeNumber, excel.CellTypeBool,
+			excel.CellTypeDate, excel.CellTypeFormula, excel.CellTypeError:
+			filter.Type = excel.CellType(typeStr)
+		default:
+			return nil, fmt.Errorf("不明なセル型です: %q（指定可能: string, number, date, bool, formula, error）", typeStr)
 		}
 	}
-
-	return nil
+	return filter, nil
 }

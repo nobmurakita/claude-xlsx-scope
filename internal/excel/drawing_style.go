@@ -2,11 +2,8 @@ package excel
 
 import (
 	"encoding/xml"
-	"fmt"
 	"log"
 	"math"
-	"strconv"
-	"strings"
 )
 
 // DrawingML の単位変換定数
@@ -58,24 +55,20 @@ func collectColorMods(decoder *xml.Decoder) colorMods {
 			switch t.Name.Local {
 			case "lumMod":
 				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					cm.lumMod = float64(n) / drawingMLPercentUnit
+					cm.lumMod = float64(safeAtoi(v)) / drawingMLPercentUnit
 				}
 			case "lumOff":
 				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					cm.lumOff = float64(n) / drawingMLPercentUnit
+					cm.lumOff = float64(safeAtoi(v)) / drawingMLPercentUnit
 				}
 			case "tint":
 				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					cm.tint = float64(n) / drawingMLPercentUnit
+					cm.tint = float64(safeAtoi(v)) / drawingMLPercentUnit
 					cm.hasTint = true
 				}
 			case "shade":
 				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					cm.tint = -(1.0 - float64(n)/drawingMLPercentUnit)
+					cm.tint = -(1.0 - float64(safeAtoi(v))/drawingMLPercentUnit)
 					cm.hasTint = true
 				}
 			}
@@ -121,17 +114,13 @@ func (p *drawingParser) applyColorMods(decoder *xml.Decoder, startDepth int, col
 }
 
 // applyLuminance は lumMod/lumOff を適用する
-func applyLuminance(hex string, lumMod, lumOff float64) string {
-	hex = strings.TrimPrefix(hex, "#")
-	if len(hex) != 6 {
-		return "#" + strings.ToUpper(hex)
+func applyLuminance(hexColor string, lumMod, lumOff float64) string {
+	r, g, b, ok := parseHexRGB(hexColor)
+	if !ok {
+		return normalizeHexColor(hexColor)
 	}
-	r, _ := strconv.ParseInt(hex[0:2], 16, 32)
-	g, _ := strconv.ParseInt(hex[2:4], 16, 32)
-	b, _ := strconv.ParseInt(hex[4:6], 16, 32)
 
-	// HSL に変換して luminance を調整
-	h, s, l := rgbToHSL(float64(r)/255, float64(g)/255, float64(b)/255)
+	h, s, l := rgbToHSL(r, g, b)
 	l = l*lumMod + lumOff
 	if l < 0 {
 		l = 0
@@ -140,7 +129,7 @@ func applyLuminance(hex string, lumMod, lumOff float64) string {
 		l = 1
 	}
 	rr, gg, bb := hslToRGB(h, s, l)
-	return fmt.Sprintf("#%02X%02X%02X", int(math.Round(rr*255)), int(math.Round(gg*255)), int(math.Round(bb*255)))
+	return formatHexRGB(rr, gg, bb)
 }
 
 // assignColor は解決済み色を適切なターゲットに割り当てる
@@ -194,8 +183,7 @@ func parseLineWidth(t xml.StartElement) *LineStyle {
 	ls := &LineStyle{}
 	for _, attr := range t.Attr {
 		if attr.Name.Local == "w" {
-			w, _ := strconv.Atoi(attr.Value)
-			ls.Width = math.Round(float64(w)/emuPerPoint*100) / 100
+			ls.Width = math.Round(float64(safeAtoi(attr.Value))/emuPerPoint*100) / 100
 		}
 	}
 	return ls
@@ -273,8 +261,7 @@ func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {
 		switch attr.Name.Local {
 		case "sz":
 			// 100分の1ポイント単位
-			sz, _ := strconv.Atoi(attr.Value)
-			font.Size = float64(sz) / drawingMLFontUnit
+			font.Size = float64(safeAtoi(attr.Value)) / drawingMLFontUnit
 		case "b":
 			font.Bold = attr.Value == "1"
 		case "i":

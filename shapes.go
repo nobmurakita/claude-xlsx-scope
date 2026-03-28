@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -11,7 +10,7 @@ import (
 
 func init() {
 	shapesCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	shapesCmd.Flags().Int("limit", 1000, "出力図形数の上限（0で無制限）")
+	shapesCmd.Flags().Int("limit", defaultOutputLimit, "出力図形数の上限（0で無制限）")
 	shapesCmd.Flags().Bool("style", false, "書式情報を出力する")
 	shapesCmd.Flags().String("extract-images", "", "画像を抽出するディレクトリ")
 	rootCmd.AddCommand(shapesCmd)
@@ -44,21 +43,23 @@ func runShapes(cmd *cobra.Command, args []string) error {
 	// 画像抽出ディレクトリの作成
 	if extractDir != "" {
 		if err := os.MkdirAll(extractDir, 0755); err != nil {
-			return fmt.Errorf("ディレクトリの作成に失敗しました: %w", err)
+			return fmt.Errorf("ディレクトリの作成エラー: %w", err)
 		}
 	}
 
-	result, err := f.LoadDrawing(sheet, showStyle, extractDir)
+	result, err := f.LoadDrawing(sheet, excel.DrawingOptions{
+		IncludeStyle: showStyle,
+		ExtractDir:   extractDir,
+	})
 	if err != nil {
 		return err
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
+	enc := newJSONLWriter(os.Stdout)
 
 	// _meta 行
 	if err := enc.Encode(result.Meta); err != nil {
-		return fmt.Errorf("JSON出力に失敗しました: %w", err)
+		return fmt.Errorf("JSON出力エラー: %w", err)
 	}
 
 	// 図形
@@ -67,7 +68,7 @@ func runShapes(cmd *cobra.Command, args []string) error {
 			break
 		}
 		if err := enc.Encode(shape); err != nil {
-			return fmt.Errorf("JSON出力に失敗しました: %w", err)
+			return fmt.Errorf("JSON出力エラー: %w", err)
 		}
 	}
 

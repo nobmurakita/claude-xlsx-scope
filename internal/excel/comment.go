@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -155,7 +156,7 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 					case "ref":
 						commentRef = attr.Value
 					case "authorId":
-						authorID = atoi(attr.Value)
+						authorID = safeAtoi(attr.Value)
 					}
 				}
 			case "text":
@@ -343,13 +344,8 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 	}
 }
 
-// atoi は文字列を int に変換する（エラー時は 0）
-func atoi(s string) int {
-	n := 0
-	for _, c := range s {
-		if c >= '0' && c <= '9' {
-			n = n*10 + int(c-'0')
-		}
-	}
+// safeAtoi は文字列を int に変換する（エラー時は 0）
+func safeAtoi(s string) int {
+	n, _ := strconv.Atoi(s)
 	return n
 }

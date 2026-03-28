@@ -30,7 +30,7 @@ type File struct {
 }
 
 // OpenFile はExcelファイルを開き、メタデータをZIPから直接パースする。
-func OpenFile(path string) (*File, error) {
+func OpenFile(path string) (result *File, retErr error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext != ".xlsx" && ext != ".xlsm" {
 		return nil, fmt.Errorf(".xlsx / .xlsm 形式のみ対応しています")
@@ -40,6 +40,11 @@ func OpenFile(path string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if retErr != nil {
+			zr.Close()
+		}
+	}()
 
 	f := &File{
 		Name: filepath.Base(path),
@@ -50,26 +55,22 @@ func OpenFile(path string) (*File, error) {
 	// 共有文字列テーブル
 	f.sharedStrings, err = parseSharedStringsFromZip(zr)
 	if err != nil {
-		zr.Close()
 		return nil, err
 	}
 
 	// シートパスマップ
 	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zr)
 	if err != nil {
-		zr.Close()
 		return nil, err
 	}
 
 	// styles.xml
 	stylesData, err := readZipFile(zr, "xl/styles.xml")
 	if err != nil {
-		zr.Close()
 		return nil, fmt.Errorf("styles.xml の読み込みに失敗: %w", err)
 	}
 	f.styles, err = parseStyleSheet(stylesData)
 	if err != nil {
-		zr.Close()
 		return nil, fmt.Errorf("styles.xml のパースに失敗: %w", err)
 	}
 

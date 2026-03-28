@@ -1,8 +1,15 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+
 	"github.com/nobmurakita/exceldump/internal/excel"
 )
+
+// defaultOutputLimit は dump/search/shapes のデフォルト出力上限
+const defaultOutputLimit = 1000
 
 type truncatedOutput struct {
 	Truncated bool   `json:"_truncated"`
@@ -24,6 +31,35 @@ type cellOutput struct {
 	Border    *excel.BorderObj     `json:"border,omitempty"`
 	Alignment *excel.AlignmentObj  `json:"alignment,omitempty"`
 	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
+}
+
+// newJSONLWriter は JSONL 出力用のエンコーダを生成する
+func newJSONLWriter(w io.Writer) *json.Encoder {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	return enc
+}
+
+// parseScanRange は --range / --start フラグを解析して走査範囲を返す
+func parseScanRange(rangeFlag, startFlag string) (scanRange *excel.CellRange, startCol, startRow int, err error) {
+	if rangeFlag != "" && startFlag != "" {
+		return nil, 0, 0, fmt.Errorf("--range と --start は同時に指定できません")
+	}
+	if rangeFlag != "" {
+		r, err := excel.ParseRange(rangeFlag, "")
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		return &r, 0, 0, nil
+	}
+	if startFlag != "" {
+		startCol, startRow, err = excel.StartPosition(startFlag)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		return nil, startCol, startRow, nil
+	}
+	return nil, 0, 0, nil
 }
 
 // dumpContext は dump/search の走査で共有するコンテキスト

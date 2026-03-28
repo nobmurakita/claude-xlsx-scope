@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -74,10 +73,9 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		Sheets:       sheetOutputs,
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
+	enc := newJSONLWriter(os.Stdout)
 	if err := enc.Encode(out); err != nil {
-		return fmt.Errorf("JSON出力に失敗しました: %w", err)
+		return fmt.Errorf("JSON出力エラー: %w", err)
 	}
 	return nil
 }

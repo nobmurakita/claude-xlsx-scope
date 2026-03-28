@@ -3,7 +3,6 @@ package excel
 import (
 	"encoding/xml"
 	"math"
-	"strconv"
 	"strings"
 )
 
@@ -421,18 +420,12 @@ func applyTint(hexColor string, tint float64) string {
 	if tint == 0 {
 		return hexColor
 	}
-	hex := strings.TrimPrefix(hexColor, "#")
-	if len(hex) != 6 {
-		return hexColor
-	}
-	r, err1 := strconv.ParseUint(hex[0:2], 16, 8)
-	g, err2 := strconv.ParseUint(hex[2:4], 16, 8)
-	b, err3 := strconv.ParseUint(hex[4:6], 16, 8)
-	if err1 != nil || err2 != nil || err3 != nil {
+	r, g, b, ok := parseHexRGB(hexColor)
+	if !ok {
 		return hexColor
 	}
 
-	h, s, l := rgbToHSL(float64(r)/255.0, float64(g)/255.0, float64(b)/255.0)
+	h, s, l := rgbToHSL(r, g, b)
 
 	if tint < 0 {
 		l = l * (1.0 + tint)
@@ -442,24 +435,7 @@ func applyTint(hexColor string, tint float64) string {
 	l = math.Max(0, math.Min(1, l))
 
 	rr, gg, bb := hslToRGB(h, s, l)
-	return "#" + strings.ToUpper(
-		toHex(rr)+toHex(gg)+toHex(bb),
-	)
-}
-
-func toHex(v float64) string {
-	n := int(math.Round(v * 255))
-	if n < 0 {
-		n = 0
-	}
-	if n > 255 {
-		n = 255
-	}
-	s := strconv.FormatInt(int64(n), 16)
-	if len(s) == 1 {
-		return "0" + s
-	}
-	return s
+	return formatHexRGB(rr, gg, bb)
 }
 
 // rgbToHSL は RGB (0-1) を HSL (0-1) に変換する

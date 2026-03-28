@@ -70,9 +70,14 @@ func (f *File) HasDrawings(sheet string) bool {
 	return getDrawingTarget(f.zr, xmlPath) != ""
 }
 
+// DrawingOptions は LoadDrawing のオプション
+type DrawingOptions struct {
+	IncludeStyle bool   // 書式情報を含める
+	ExtractDir   string // 画像抽出先ディレクトリ（空なら抽出しない）
+}
+
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
-// extractDir が空でない場合、画像を指定ディレクトリに抽出する。
-func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (*DrawingResult, error) {
+func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, error) {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
@@ -104,7 +109,7 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
 	}
 
-	return parseDrawingXML(entry, f.theme, includeStyle, drawingPath, drawingRels, zipEntries, extractDir)
+	return parseDrawingXML(entry, f.theme, opts.IncludeStyle, drawingPath, drawingRels, zipEntries, opts.ExtractDir)
 }
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す

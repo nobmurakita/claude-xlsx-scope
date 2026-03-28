@@ -21,6 +21,10 @@ const (
 	CellTypeEmpty   CellType = "empty"
 )
 
+// maxExactIntFloat は float64 で整数として正確に表現できる最大値。
+// この値を超える場合、FormatFloat の結果が不正確になりうる。
+const maxExactIntFloat = 1e15
+
 // CellData はセルから読み取った値情報
 type CellData struct {
 	Type      CellType
@@ -52,7 +56,7 @@ func valueToJSONString(v any) string {
 		return val
 	case float64:
 		if val == math.Trunc(val) && !math.IsInf(val, 0) && !math.IsNaN(val) {
-			if val >= -1e15 && val <= 1e15 {
+			if val >= -maxExactIntFloat && val <= maxExactIntFloat {
 				return strconv.FormatFloat(val, 'f', -1, 64)
 			}
 		}
@@ -223,12 +227,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		data.Type = CellTypeFormula
 		data.HasValue = true
 		data.Value = parseCachedValueRaw(raw.Value, numFmtID, numFmtStr)
-		// Display はキャッシュ値から設定（シリアル値ではなく変換後の値を使う）
-		if s, ok := data.Value.(string); ok {
-			data.Display = s
-		} else {
-			data.Display = raw.Value
-		}
+		data.Display = displayFromCachedValue(data.Value, raw.Value)
 		adjustDisplay(data)
 		return data
 	}
@@ -257,19 +256,8 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		data.Display = raw.Value
 
 	case "n", "":
-		// 数値型（デフォルト）
 		data.HasValue = true
-		if isDateFormat(numFmtID, numFmtStr) {
-			data.Type = CellTypeDate
-			data.Value = parseDate(raw.Value)
-			if s, ok := data.Value.(string); ok {
-				data.Display = s
-			}
-		} else {
-			data.Type = CellTypeNumber
-			data.Value = parseNumber(raw.Value)
-			data.Display = raw.Value
-		}
+		fillNumericOrDate(data, raw.Value, numFmtID, numFmtStr)
 
 	default:
 		if raw.Value == "" {
@@ -277,21 +265,10 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 			data.HasValue = false
 			return data
 		}
-		// 未知の型: 数値+日付フォーマット判定
+		// 未知の型: 数値ならフォーマット判定、それ以外は文字列
 		if _, err := strconv.ParseFloat(raw.Value, 64); err == nil {
-			if isDateFormat(numFmtID, numFmtStr) {
-				data.Type = CellTypeDate
-				data.HasValue = true
-				data.Value = parseDate(raw.Value)
-				if s, ok := data.Value.(string); ok {
-					data.Display = s
-				}
-			} else {
-				data.Type = CellTypeNumber
-				data.HasValue = true
-				data.Value = parseNumber(raw.Value)
-				data.Display = raw.Value
-			}
+			data.HasValue = true
+			fillNumericOrDate(data, raw.Value, numFmtID, numFmtStr)
 		} else {
 			data.Type = CellTypeString
 			data.Value = raw.Value
@@ -307,6 +284,29 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 
 	adjustDisplay(data)
 	return data
+}
+
+// fillNumericOrDate は数値セルの型・値・Displayを設定する（日付フォーマットなら日付、それ以外は数値）
+func fillNumericOrDate(data *CellData, rawValue string, numFmtID int, numFmtStr string) {
+	if isDateFormat(numFmtID, numFmtStr) {
+		data.Type = CellTypeDate
+		data.Value = parseDate(rawValue)
+		if s, ok := data.Value.(string); ok {
+			data.Display = s
+		}
+	} else {
+		data.Type = CellTypeNumber
+		data.Value = parseNumber(rawValue)
+		data.Display = rawValue
+	}
+}
+
+// displayFromCachedValue はキャッシュ値から Display 文字列を決定する
+func displayFromCachedValue(value any, rawValue string) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return rawValue
 }
 
 // parseCachedValueRaw は RawCell 用のキャッシュ値パーサー
