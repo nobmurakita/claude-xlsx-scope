@@ -10,10 +10,11 @@ import (
 
 // SheetInfo はシートの基本情報
 type SheetInfo struct {
-	Index  int    `json:"index"`
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Hidden bool   `json:"hidden,omitempty"`
+	Index     int    `json:"index"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Hidden    bool   `json:"hidden,omitempty"`
+	Dimension string `json:"-"` // XMLのdimension属性（info出力用）
 }
 
 // GetSheetList はシート一覧を返す
