@@ -22,8 +22,9 @@ var scanCmd = &cobra.Command{
 }
 
 type scanOutput struct {
-	Sheet     string `json:"sheet"`
-	UsedRange string `json:"used_range,omitempty"`
+	Sheet       string `json:"sheet"`
+	UsedRange   string `json:"used_range,omitempty"`
+	HasDrawings bool   `json:"has_drawings,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -40,6 +41,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	out := scanOutput{Sheet: sheet}
+	out.HasDrawings = f.HasDrawings(sheet)
 
 	// dimension があればそのまま使用、なければフルスキャン
 	dim := f.LoadDimension(sheet)
