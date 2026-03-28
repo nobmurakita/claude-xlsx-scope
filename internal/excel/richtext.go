@@ -42,4 +42,3 @@ func richTextBaseFont(cellFont *FontObj, defaultFont FontInfo) FontInfo {
 	}
 	return base
 }
-

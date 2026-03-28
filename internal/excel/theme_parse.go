@@ -12,7 +12,7 @@ type themeColors struct {
 // XML 構造体（テーマパース用）
 
 type xmlTheme struct {
-	XMLName       xml.Name         `xml:"theme"`
+	XMLName       xml.Name          `xml:"theme"`
 	ThemeElements *xmlThemeElements `xml:"themeElements"`
 }
 
@@ -21,17 +21,17 @@ type xmlThemeElements struct {
 }
 
 type xmlClrScheme struct {
-	Dk1     xmlThemeColor `xml:"dk1"`
-	Lt1     xmlThemeColor `xml:"lt1"`
-	Dk2     xmlThemeColor `xml:"dk2"`
-	Lt2     xmlThemeColor `xml:"lt2"`
-	Accent1 xmlThemeColor `xml:"accent1"`
-	Accent2 xmlThemeColor `xml:"accent2"`
-	Accent3 xmlThemeColor `xml:"accent3"`
-	Accent4 xmlThemeColor `xml:"accent4"`
-	Accent5 xmlThemeColor `xml:"accent5"`
-	Accent6 xmlThemeColor `xml:"accent6"`
-	Hlink   xmlThemeColor `xml:"hlink"`
+	Dk1      xmlThemeColor `xml:"dk1"`
+	Lt1      xmlThemeColor `xml:"lt1"`
+	Dk2      xmlThemeColor `xml:"dk2"`
+	Lt2      xmlThemeColor `xml:"lt2"`
+	Accent1  xmlThemeColor `xml:"accent1"`
+	Accent2  xmlThemeColor `xml:"accent2"`
+	Accent3  xmlThemeColor `xml:"accent3"`
+	Accent4  xmlThemeColor `xml:"accent4"`
+	Accent5  xmlThemeColor `xml:"accent5"`
+	Accent6  xmlThemeColor `xml:"accent6"`
+	Hlink    xmlThemeColor `xml:"hlink"`
 	FolHlink xmlThemeColor `xml:"folHlink"`
 }
 
@@ -96,10 +96,10 @@ func extractThemeColorValue(c xmlThemeColor) string {
 // theme=3 → dk2 (index 2)
 // theme=4-11 → accent1-6, hlink, folHlink (index 4-11)
 var themeIndexMap = map[int]int{
-	0: 1,  // lt1
-	1: 0,  // dk1
-	2: 3,  // lt2
-	3: 2,  // dk2
+	0: 1, // lt1
+	1: 0, // dk1
+	2: 3, // lt2
+	3: 2, // dk2
 }
 
 // Get はテーマカラーインデックスからRGB色を返す

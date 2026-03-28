@@ -27,8 +27,8 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 	depth := 1
 	var st pictureParseState
 	var (
-		embedRID   string
-		excelID    int
+		embedRID     string
+		excelID      int
 		extCX, extCY int // EMU
 	)
 

@@ -16,18 +16,18 @@ const (
 
 // LineStyle は図形の枠線スタイル（色・線種・太さ）
 type LineStyle struct {
-	Color string  `json:"color,omitempty"`  // #RRGGBB
-	Style string  `json:"style,omitempty"`  // "solid", "dash", "dot" 等
-	Width float64 `json:"width,omitempty"`  // ポイント単位
+	Color string  `json:"color,omitempty"` // #RRGGBB
+	Style string  `json:"style,omitempty"` // "solid", "dash", "dot" 等
+	Width float64 `json:"width,omitempty"` // ポイント単位
 }
 
 // ImageInfo は埋め込み画像のメタデータ
 type ImageInfo struct {
 	Format string `json:"format"`           // 拡張子（"png", "jpg" 等）
-	Width  int    `json:"width,omitempty"`   // ピクセル
-	Height int    `json:"height,omitempty"`  // ピクセル
-	Size   int64  `json:"size,omitempty"`    // バイト数
-	Path   string `json:"path,omitempty"`    // 抽出先パス（--extract-images 時のみ）
+	Width  int    `json:"width,omitempty"`  // ピクセル
+	Height int    `json:"height,omitempty"` // ピクセル
+	Size   int64  `json:"size,omitempty"`   // バイト数
+	Path   string `json:"path,omitempty"`   // 抽出先パス（--extract-images 時のみ）
 }
 
 // ShapeInfo は Drawing XML から取得した図形情報。
@@ -150,4 +150,3 @@ func getDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
 	}
 	return ""
 }
-

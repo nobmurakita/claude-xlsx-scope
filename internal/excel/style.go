@@ -2,13 +2,13 @@ package excel
 
 // FontObj は出力用のフォント情報
 type FontObj struct {
-	Name          string `json:"name,omitempty"`
+	Name          string  `json:"name,omitempty"`
 	Size          float64 `json:"size,omitempty"`
-	Bold          bool   `json:"bold,omitempty"`
-	Italic        bool   `json:"italic,omitempty"`
-	Strikethrough bool   `json:"strikethrough,omitempty"`
-	Underline     string `json:"underline,omitempty"`
-	Color         string `json:"color,omitempty"`
+	Bold          bool    `json:"bold,omitempty"`
+	Italic        bool    `json:"italic,omitempty"`
+	Strikethrough bool    `json:"strikethrough,omitempty"`
+	Underline     string  `json:"underline,omitempty"`
+	Color         string  `json:"color,omitempty"`
 }
 
 // IsEmpty はフォント情報が空かどうかを返す

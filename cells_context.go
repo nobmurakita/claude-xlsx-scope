@@ -12,16 +12,16 @@ type cellStyler interface {
 
 // cellsContext は cells/search の走査で共有するコンテキスト
 type cellsContext struct {
-	styler        cellStyler
-	sheet         string
-	defaultFont   excel.FontInfo
-	defaultHeight float64
-	mergeInfo     *excel.MergeInfo
-	hyperlinks    excel.HyperlinkMap
-	comments      excel.CommentMap
-	sheetMeta     *excel.SheetMeta // lite モード用
-	showStyle     bool
-	showFormula   bool
+	styler         cellStyler
+	sheet          string
+	defaultFont    excel.FontInfo
+	defaultHeight  float64
+	mergeInfo      *excel.MergeInfo
+	hyperlinks     excel.HyperlinkMap
+	comments       excel.CommentMap
+	sheetMeta      *excel.SheetMeta // lite モード用
+	showStyle      bool
+	showFormula    bool
 	hiddenColCache map[int]bool         // 列の非表示キャッシュ
 	styleCache     map[int]*styleResult // スタイルIDのキャッシュ
 }

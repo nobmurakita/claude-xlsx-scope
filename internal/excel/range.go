@@ -21,9 +21,9 @@ func (r CellRange) String() string {
 }
 
 var (
-	reCellRange = regexp.MustCompile(`^([A-Z]+)(\d+):([A-Z]+)(\d+)$`)
-	reColRange  = regexp.MustCompile(`^([A-Z]+):([A-Z]+)$`)
-	reRowRange  = regexp.MustCompile(`^(\d+):(\d+)$`)
+	reCellRange  = regexp.MustCompile(`^([A-Z]+)(\d+):([A-Z]+)(\d+)$`)
+	reColRange   = regexp.MustCompile(`^([A-Z]+):([A-Z]+)$`)
+	reRowRange   = regexp.MustCompile(`^(\d+):(\d+)$`)
 	reSingleCell = regexp.MustCompile(`^([A-Z]+)(\d+)$`)
 )
 
@@ -137,4 +137,3 @@ func colName(n int) string {
 func CellRef(col, row int) string {
 	return fmt.Sprintf("%s%d", colName(col), row)
 }
-

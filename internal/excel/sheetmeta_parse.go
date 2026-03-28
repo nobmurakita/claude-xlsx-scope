@@ -74,11 +74,11 @@ type sheetMetaSection int
 
 const (
 	sectionNone       sheetMetaSection = iota
-	sectionSheetPr    // <sheetPr>
-	sectionCols       // <cols>
-	sectionSheetData  // <sheetData>
-	sectionMergeCells // <mergeCells>
-	sectionHyperlinks // <hyperlinks>
+	sectionSheetPr                     // <sheetPr>
+	sectionCols                        // <cols>
+	sectionSheetData                   // <sheetData>
+	sectionMergeCells                  // <mergeCells>
+	sectionHyperlinks                  // <hyperlinks>
 )
 
 // sheetMetaFullState は parseSheetMetaFull の SAX パーサー状態
@@ -399,4 +399,3 @@ func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]st
 	}
 	return m
 }
-

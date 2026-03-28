@@ -10,9 +10,9 @@ import (
 
 // CommentData はセルに付与されたコメント情報
 type CommentData struct {
-	Author string         `json:"author,omitempty"`
-	Text   string         `json:"text"`
-	Thread []ThreadEntry  `json:"thread,omitempty"`
+	Author string        `json:"author,omitempty"`
+	Text   string        `json:"text"`
+	Thread []ThreadEntry `json:"thread,omitempty"`
 }
 
 // ThreadEntry はスレッドコメントの1エントリ（返信）
@@ -351,4 +351,3 @@ func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
 		}
 	}
 }
-

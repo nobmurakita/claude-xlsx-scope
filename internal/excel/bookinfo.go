@@ -29,8 +29,8 @@ type BookInfoResult struct {
 
 // DefinedNameInfo は定義名の情報
 type DefinedNameInfo struct {
-	Name    string
-	Scope   string
+	Name     string
+	Scope    string
 	RefersTo string
 }
 

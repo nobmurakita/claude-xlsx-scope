@@ -48,7 +48,6 @@ type CellData struct {
 	StyleID   int      // スタイルID
 }
 
-
 // adjustDisplay はdisplayをvalueのJSON表現と比較し、同一なら空にする
 func adjustDisplay(data *CellData) {
 	if data.Value == nil {
@@ -261,4 +260,3 @@ func displayFromCachedValue(value any, rawValue string) string {
 	}
 	return rawValue
 }
-

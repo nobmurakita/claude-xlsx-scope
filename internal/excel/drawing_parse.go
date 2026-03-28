@@ -106,11 +106,11 @@ func (p *drawingParser) parse(r io.Reader) error {
 
 	var (
 		// アンカー状態
-		inAnchor     bool
-		anchorType   string // "two", "one", "abs"
+		inAnchor                     bool
+		anchorType                   string // "two", "one", "abs"
 		anchorFromCol, anchorFromRow int
 		anchorToCol, anchorToRow     int
-		hasTo        bool
+		hasTo                        bool
 
 		// スキップ状態（pic, graphicFrame）
 		skipDepth int

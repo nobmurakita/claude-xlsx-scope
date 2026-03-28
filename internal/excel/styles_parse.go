@@ -7,23 +7,23 @@ import (
 
 // styleSheet は styles.xml から解析したスタイル情報
 type styleSheet struct {
-	numFmts  map[int]string // numFmtId → formatCode (カスタムフォーマットのみ)
-	fonts    []parsedFont
-	fills    []parsedFill
-	borders  []parsedBorder
-	cellXfs  []parsedCellXf // セルスタイル定義（インデックス = styleID）
+	numFmts map[int]string // numFmtId → formatCode (カスタムフォーマットのみ)
+	fonts   []parsedFont
+	fills   []parsedFill
+	borders []parsedBorder
+	cellXfs []parsedCellXf // セルスタイル定義（インデックス = styleID）
 }
 
 type parsedFont struct {
-	Name       string
-	Size       float64
-	Bold       bool
-	Italic     bool
+	Name          string
+	Size          float64
+	Bold          bool
+	Italic        bool
 	Strikethrough bool
-	Underline  string
-	Color      string // RGB色（ARGBの先頭2バイト除去済み）
-	ColorTheme *int
-	ColorTint  float64
+	Underline     string
+	Color         string // RGB色（ARGBの先頭2バイト除去済み）
+	ColorTheme    *int
+	ColorTint     float64
 }
 
 type parsedFill struct {
@@ -68,12 +68,12 @@ type parsedAlignment struct {
 // XML 構造体（パース用）
 
 type xmlStyleSheet struct {
-	XMLName xml.Name      `xml:"styleSheet"`
-	NumFmts xmlNumFmts    `xml:"numFmts"`
-	Fonts   xmlFonts      `xml:"fonts"`
-	Fills   xmlFills      `xml:"fills"`
-	Borders xmlBorders    `xml:"borders"`
-	CellXfs xmlCellXfs    `xml:"cellXfs"`
+	XMLName xml.Name   `xml:"styleSheet"`
+	NumFmts xmlNumFmts `xml:"numFmts"`
+	Fonts   xmlFonts   `xml:"fonts"`
+	Fills   xmlFills   `xml:"fills"`
+	Borders xmlBorders `xml:"borders"`
+	CellXfs xmlCellXfs `xml:"cellXfs"`
 }
 
 type xmlNumFmts struct {
@@ -90,13 +90,13 @@ type xmlFonts struct {
 }
 
 type xmlFont struct {
-	B         *xmlBoolVal   `xml:"b"`
-	I         *xmlBoolVal   `xml:"i"`
-	Strike    *xmlBoolVal   `xml:"strike"`
-	U         *xmlUnderline `xml:"u"`
-	Sz        *xmlFloatVal  `xml:"sz"`
-	Color     *xmlColor     `xml:"color"`
-	Name      *xmlStringVal `xml:"name"`
+	B      *xmlBoolVal   `xml:"b"`
+	I      *xmlBoolVal   `xml:"i"`
+	Strike *xmlBoolVal   `xml:"strike"`
+	U      *xmlUnderline `xml:"u"`
+	Sz     *xmlFloatVal  `xml:"sz"`
+	Color  *xmlColor     `xml:"color"`
+	Name   *xmlStringVal `xml:"name"`
 }
 
 type xmlBoolVal struct {
@@ -131,7 +131,7 @@ type xmlFill struct {
 }
 
 type xmlPatternFill struct {
-	PatternType string   `xml:"patternType,attr"`
+	PatternType string    `xml:"patternType,attr"`
 	FgColor     *xmlColor `xml:"fgColor"`
 }
 
@@ -148,7 +148,7 @@ type xmlBorderDef struct {
 }
 
 type xmlBorderEdge struct {
-	Style string   `xml:"style,attr"`
+	Style string    `xml:"style,attr"`
 	Color *xmlColor `xml:"color"`
 }
 
@@ -157,14 +157,14 @@ type xmlCellXfs struct {
 }
 
 type xmlXf struct {
-	NumFmtID    int    `xml:"numFmtId,attr"`
-	FontID      int    `xml:"fontId,attr"`
-	FillID      int    `xml:"fillId,attr"`
-	BorderID    int    `xml:"borderId,attr"`
-	ApplyFont   string `xml:"applyFont,attr"`
-	ApplyFill   string `xml:"applyFill,attr"`
-	ApplyBorder string `xml:"applyBorder,attr"`
-	ApplyAlign  string `xml:"applyAlignment,attr"`
+	NumFmtID    int           `xml:"numFmtId,attr"`
+	FontID      int           `xml:"fontId,attr"`
+	FillID      int           `xml:"fillId,attr"`
+	BorderID    int           `xml:"borderId,attr"`
+	ApplyFont   string        `xml:"applyFont,attr"`
+	ApplyFill   string        `xml:"applyFill,attr"`
+	ApplyBorder string        `xml:"applyBorder,attr"`
+	ApplyAlign  string        `xml:"applyAlignment,attr"`
 	Alignment   *xmlAlignment `xml:"alignment"`
 }
 
@@ -447,4 +447,3 @@ func (ss *styleSheet) DefaultFontName() string {
 	}
 	return ss.fonts[0].Name
 }
-

@@ -20,9 +20,9 @@ var infoCmd = &cobra.Command{
 }
 
 type infoOutput struct {
-	File         string           `json:"file"`
+	File         string              `json:"file"`
 	DefinedNames []definedNameOutput `json:"defined_names"`
-	Sheets       []sheetOutput      `json:"sheets"`
+	Sheets       []sheetOutput       `json:"sheets"`
 }
 
 type definedNameOutput struct {

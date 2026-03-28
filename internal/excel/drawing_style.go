@@ -7,11 +7,11 @@ import (
 
 // DrawingML の単位変換定数
 const (
-	emuPerPixel          = 9525    // 1px = 9525 EMU
-	emuPerPoint          = 12700   // 1pt = 12700 EMU
-	drawingMLPercentUnit = 100000  // DrawingML の色変換パーセント単位
-	drawingMLRotUnit     = 60000   // DrawingML の回転角度単位（1度 = 60000）
-	drawingMLFontUnit    = 100     // DrawingML のフォントサイズ単位（100分の1ポイント）
+	emuPerPixel          = 9525   // 1px = 9525 EMU
+	emuPerPoint          = 12700  // 1pt = 12700 EMU
+	drawingMLPercentUnit = 100000 // DrawingML の色変換パーセント単位
+	drawingMLRotUnit     = 60000  // DrawingML の回転角度単位（1度 = 60000）
+	drawingMLFontUnit    = 100    // DrawingML のフォントサイズ単位（100分の1ポイント）
 )
 
 // schemeColorIndex はスキームカラー名をテーマインデックスにマッピングする
@@ -219,7 +219,6 @@ func parseCNvPr(t xml.StartElement) (name string, excelID int) {
 	}
 	return
 }
-
 
 // parseDrawingFontAttrs は DrawingML の rPr/defRPr 属性からフォント情報を取得する
 func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {

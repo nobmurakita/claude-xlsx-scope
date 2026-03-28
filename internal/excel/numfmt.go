@@ -14,27 +14,27 @@ import (
 type tokenKind int
 
 const (
-	tkLiteral     tokenKind = iota // リテラル文字列
-	tkDateYear                     // yyyy, yy
-	tkDateMonth                    // mm, m (日付文脈)
-	tkDateDay                      // dd, d, ddd, dddd
-	tkTimeHour                     // hh, h
-	tkTimeMinute                   // mm, m (時刻文脈)
-	tkTimeSecond                   // ss, s
-	tkAmPm                         // AM/PM 等
-	tkElapsedHour                  // [h]
-	tkElapsedMin                   // [m]
-	tkElapsedSec                   // [s]
-	tkDigitZero                    // 0
-	tkDigitHash                    // #
-	tkDigitSpace                   // ?
-	tkDecimalPoint                 // .
-	tkThousandSep                  // , (桁区切り)
-	tkPercent                      // %
-	tkExponent                     // E+, E-, e+, e-
-	tkSlash                        // / (分数区切り)
-	tkAt                           // @ (テキスト挿入)
-	tkGeneral                      // General
+	tkLiteral      tokenKind = iota // リテラル文字列
+	tkDateYear                      // yyyy, yy
+	tkDateMonth                     // mm, m (日付文脈)
+	tkDateDay                       // dd, d, ddd, dddd
+	tkTimeHour                      // hh, h
+	tkTimeMinute                    // mm, m (時刻文脈)
+	tkTimeSecond                    // ss, s
+	tkAmPm                          // AM/PM 等
+	tkElapsedHour                   // [h]
+	tkElapsedMin                    // [m]
+	tkElapsedSec                    // [s]
+	tkDigitZero                     // 0
+	tkDigitHash                     // #
+	tkDigitSpace                    // ?
+	tkDecimalPoint                  // .
+	tkThousandSep                   // , (桁区切り)
+	tkPercent                       // %
+	tkExponent                      // E+, E-, e+, e-
+	tkSlash                         // / (分数区切り)
+	tkAt                            // @ (テキスト挿入)
+	tkGeneral                       // General
 )
 
 // fmtToken はパース済みの1トークン
@@ -78,9 +78,9 @@ type fmtSection struct {
 	fracDenomDigits int  // 分母の桁数（?/?=1, ??/??=2）
 	fracFixedDenom  int  // 固定分母（0なら可変）
 	// 指数用
-	hasExponent  bool
-	expSign      string // "+" or "-"
-	expDigits    int    // 指数部の桁数
+	hasExponent bool
+	expSign     string // "+" or "-"
+	expDigits   int    // 指数部の桁数
 }
 
 // parsedNumFmt はフォーマット文字列全体のパース結果
@@ -316,7 +316,7 @@ func tokenize(s string) ([]fmtToken, *sectionCondition) {
 		}
 
 		// gg, g (和暦) → リテラル空文字として読み飛ばし
-		if (ch == 'G' || ch == 'g') {
+		if ch == 'G' || ch == 'g' {
 			n := 1
 			for i+n < len(s) && (s[i+n] == 'g' || s[i+n] == 'G') {
 				n++
