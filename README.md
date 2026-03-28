@@ -52,10 +52,10 @@ exceldump scan --sheet 0 基本設計書.xlsx
 ```
 
 ```json
-{"sheet":"表紙","used_range":"A1:CD55"}
+{"sheet":"表紙","used_range":"A1:CD55","has_drawings":true}
 ```
 
-dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。
+dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。`has_drawings` は図形が存在するシートでのみ `true` を出力する。
 
 ### dump — セルデータをダンプ
 
@@ -99,6 +99,38 @@ exceldump dump --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 | `--style` | 書式情報を出力する | OFF |
 | `--formula` | 数式文字列を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
+
+### shapes — 図形・フローチャート・画像を取得
+
+```bash
+exceldump shapes --sheet 0 処理フロー.xlsx
+```
+
+```jsonl
+{"_meta":true,"shape_count":8,"connector_count":3}
+{"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","z":0}
+{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","z":1}
+{"id":3,"type":"connector","from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","z":2}
+```
+
+画像を抽出する場合:
+
+```bash
+exceldump shapes --sheet 0 --extract-images /tmp/images 設計書.xlsx
+```
+
+```jsonl
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/images/image_1.png"}}
+```
+
+**オプション:**
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
+| `--limit` | 出力図形数の上限（0で無制限） | 1000 |
+| `--style` | 書式情報を出力する | OFF |
+| `--extract-images` | 画像を指定ディレクトリに抽出する | OFF（画像スキップ） |
 
 ### search — セル値を検索
 

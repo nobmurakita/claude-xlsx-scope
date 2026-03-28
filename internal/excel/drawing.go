@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -15,6 +17,15 @@ type LineStyle struct {
 	Color string  `json:"color,omitempty"`
 	Style string  `json:"style,omitempty"`
 	Width float64 `json:"width,omitempty"`
+}
+
+// ImageInfo は画像のメタデータ
+type ImageInfo struct {
+	Format string `json:"format"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
+	Size   int64  `json:"size,omitempty"`
+	Path   string `json:"path,omitempty"`
 }
 
 // ShapeInfo は出力用の図形情報
@@ -35,6 +46,8 @@ type ShapeInfo struct {
 	Label         string        `json:"label,omitempty"`
 	Children      []int         `json:"children,omitempty"`
 	Parent        *int          `json:"parent,omitempty"`
+	AltText       string        `json:"alt_text,omitempty"`
+	Image         *ImageInfo    `json:"image,omitempty"`
 	Fill          string        `json:"fill,omitempty"`
 	Line          *LineStyle    `json:"line,omitempty"`
 	Font          *FontObj      `json:"font,omitempty"`
@@ -67,8 +80,9 @@ func (f *File) HasDrawings(sheet string) bool {
 	return findDrawingTarget(zr, xmlPath) != ""
 }
 
-// LoadDrawing はシートの drawing XML をパースして図形情報を返す
-func (f *File) LoadDrawing(sheet string, includeStyle bool) (*DrawingResult, error) {
+// LoadDrawing はシートの drawing XML をパースして図形情報を返す。
+// extractDir が空でない場合、画像を指定ディレクトリに抽出する。
+func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (*DrawingResult, error) {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
@@ -91,13 +105,44 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool) (*DrawingResult, err
 	// drawing XML パスを解決
 	drawingPath := resolveDrawingPath(xmlPath, target)
 
+	// drawing の .rels を読む（画像パス解決用）
+	drawingRels := loadDrawingRels(zr, drawingPath)
+
+	// ZIP エントリのマップを構築
+	zipEntries := make(map[string]*zip.File, len(zr.File))
 	for _, entry := range zr.File {
-		if entry.Name == drawingPath {
-			return parseDrawingXML(entry, f.theme, includeStyle)
-		}
+		zipEntries[entry.Name] = entry
 	}
 
-	return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
+	entry, ok := zipEntries[drawingPath]
+	if !ok {
+		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
+	}
+
+	return parseDrawingXML(entry, f.theme, includeStyle, drawingPath, drawingRels, zipEntries, extractDir)
+}
+
+// loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
+func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelationship {
+	dir := drawingPath[:strings.LastIndex(drawingPath, "/")+1]
+	base := drawingPath[strings.LastIndex(drawingPath, "/")+1:]
+	relsPath := dir + "_rels/" + base + ".rels"
+
+	data, err := readZipFileFromReader(zr, relsPath)
+	if err != nil {
+		return nil
+	}
+
+	var rels xmlRelationships
+	if err := xml.Unmarshal(data, &rels); err != nil {
+		return nil
+	}
+
+	m := make(map[string]xmlRelationship, len(rels.Rels))
+	for _, r := range rels.Rels {
+		m[r.ID] = r
+	}
+	return m
 }
 
 // findDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
@@ -155,6 +200,7 @@ type drawingParser struct {
 	// 結果
 	shapes    []ShapeInfo
 	connCount int
+	picCount  int
 
 	// Excel図形ID → 連番IDのマッピング
 	excelIDMap map[int]int
@@ -165,6 +211,12 @@ type drawingParser struct {
 
 	// コネクタの接続先（後処理用）
 	connRefs []connRef
+
+	// 画像対応
+	drawingPath string
+	drawingRels map[string]xmlRelationship
+	zipEntries  map[string]*zip.File
+	extractDir  string // 空なら画像スキップ
 }
 
 type connRef struct {
@@ -182,7 +234,7 @@ type groupContext struct {
 	children []int
 }
 
-func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool) (*DrawingResult, error) {
+func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) (*DrawingResult, error) {
 	rc, err := entry.Open()
 	if err != nil {
 		return nil, err
@@ -194,6 +246,10 @@ func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool) (*D
 		includeStyle: includeStyle,
 		excelIDMap:   make(map[int]int),
 		nextID:       1,
+		drawingPath:  drawingPath,
+		drawingRels:  drawingRels,
+		zipEntries:   zipEntries,
+		extractDir:   extractDir,
 	}
 
 	if err := p.parse(rc); err != nil {
@@ -326,7 +382,26 @@ func (p *drawingParser) parse(r io.Reader) error {
 					groupStack[len(groupStack)-2].children = append(groupStack[len(groupStack)-2].children, grpShape.ID)
 				}
 
-			case "pic", "graphicFrame":
+			case "pic":
+				if !inAnchor {
+					continue
+				}
+				if p.extractDir == "" {
+					// 画像抽出なし: スキップ
+					skipDepth = 1
+					continue
+				}
+				z := p.currentZ(groupStack)
+				cell := p.buildCell(anchorType, anchorFromCol, anchorFromRow, anchorToCol, anchorToRow, hasTo)
+				shape := p.parsePicture(decoder, z, cell, groupStack)
+				p.incrementZ(groupStack)
+				p.picCount++
+				p.shapes = append(p.shapes, shape)
+				if len(groupStack) > 0 {
+					groupStack[len(groupStack)-1].children = append(groupStack[len(groupStack)-1].children, shape.ID)
+				}
+
+			case "graphicFrame":
 				// スキップ対象
 				skipDepth = 1
 
@@ -1009,6 +1084,186 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 	}
 
 	return shape
+}
+
+// parsePicture は <pic> 要素を末尾まで読み、ShapeInfo を返す
+func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
+	id := p.nextID
+	p.nextID++
+
+	shape := ShapeInfo{
+		ID:   id,
+		Type: "picture",
+		Z:    z,
+		Cell: cell,
+	}
+
+	if len(groupStack) > 0 {
+		parentID := groupStack[len(groupStack)-1].seqID
+		shape.Parent = &parentID
+	}
+
+	depth := 1
+	var (
+		inNvPicPr  bool
+		inBlipFill bool
+		inSpPr     bool
+		embedRID   string
+		excelID    int
+		extCX, extCY int // EMU
+	)
+
+	for depth > 0 {
+		tok, err := decoder.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			depth++
+			switch t.Name.Local {
+			case "nvPicPr":
+				inNvPicPr = true
+			case "cNvPr":
+				if inNvPicPr {
+					for _, attr := range t.Attr {
+						switch attr.Name.Local {
+						case "name":
+							shape.Name = attr.Value
+						case "descr":
+							shape.AltText = attr.Value
+						case "id":
+							excelID, _ = strconv.Atoi(attr.Value)
+						}
+					}
+				}
+			case "blipFill":
+				inBlipFill = true
+			case "blip":
+				if inBlipFill {
+					for _, attr := range t.Attr {
+						if attr.Name.Local == "embed" {
+							embedRID = attr.Value
+						}
+					}
+				}
+			case "spPr":
+				inSpPr = true
+			case "xfrm":
+				if inSpPr {
+					shape.Rotation, shape.Flip = parseXfrm(t)
+				}
+			case "ext":
+				if inSpPr {
+					for _, attr := range t.Attr {
+						switch attr.Name.Local {
+						case "cx":
+							extCX, _ = strconv.Atoi(attr.Value)
+						case "cy":
+							extCY, _ = strconv.Atoi(attr.Value)
+						}
+					}
+				}
+			}
+
+		case xml.EndElement:
+			depth--
+			switch t.Name.Local {
+			case "nvPicPr":
+				inNvPicPr = false
+			case "blipFill":
+				inBlipFill = false
+			case "spPr":
+				inSpPr = false
+			}
+		}
+	}
+
+	// Excel ID マッピング
+	if excelID > 0 {
+		p.excelIDMap[excelID] = id
+	}
+
+	// 画像情報の構築と抽出
+	shape.Image = p.resolveAndExtractImage(embedRID, extCX, extCY)
+
+	return shape
+}
+
+// resolveAndExtractImage は embed RID から画像を解決し、抽出する
+func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int) *ImageInfo {
+	if embedRID == "" || p.drawingRels == nil {
+		return nil
+	}
+
+	rel, ok := p.drawingRels[embedRID]
+	if !ok {
+		return nil
+	}
+
+	// 画像ファイルの ZIP パスを解決
+	imagePath := resolveDrawingPath(p.drawingPath, rel.Target)
+
+	// 拡張子から形式を判定
+	ext := ""
+	if dotIdx := strings.LastIndex(imagePath, "."); dotIdx >= 0 {
+		ext = strings.ToLower(imagePath[dotIdx+1:])
+	}
+
+	info := &ImageInfo{
+		Format: ext,
+	}
+
+	// EMU → ピクセル変換（1px = 9525 EMU）
+	if extCX > 0 {
+		info.Width = int(math.Round(float64(extCX) / 9525))
+	}
+	if extCY > 0 {
+		info.Height = int(math.Round(float64(extCY) / 9525))
+	}
+
+	// ZIP エントリからファイルサイズを取得
+	zipEntry, ok := p.zipEntries[imagePath]
+	if !ok {
+		return info
+	}
+	info.Size = int64(zipEntry.UncompressedSize64)
+
+	// 画像を抽出
+	if p.extractDir != "" {
+		outPath := p.extractImage(zipEntry, ext)
+		if outPath != "" {
+			info.Path = outPath
+		}
+	}
+
+	return info
+}
+
+// extractImage は ZIP エントリからファイルを抽出する
+func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
+	rc, err := entry.Open()
+	if err != nil {
+		return ""
+	}
+	defer rc.Close()
+
+	// ファイル名: image_1.png, image_2.jpg, ...
+	filename := fmt.Sprintf("image_%d.%s", p.picCount+1, ext)
+	outPath := filepath.Join(p.extractDir, filename)
+
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return ""
+	}
+	defer outFile.Close()
+
+	if _, err := io.Copy(outFile, rc); err != nil {
+		os.Remove(outPath)
+		return ""
+	}
+
+	return outPath
 }
 
 // resolveConnectors はコネクタの from/to を Excel ID から連番 ID に解決する

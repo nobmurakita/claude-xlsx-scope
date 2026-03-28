@@ -443,7 +443,7 @@ exceldump version 0.1.0
 
 ### `exceldump shapes <file>`
 
-**役割:** シート上の図形（オートシェイプ、テキストボックス、コネクタ、グループ）を取得する。フローチャートや図解の構造を、図形間の接続関係を含めて把握する。
+**役割:** シート上の図形（オートシェイプ、テキストボックス、コネクタ、グループ、画像）を取得する。フローチャートや図解の構造を、図形間の接続関係を含めて把握する。
 
 各シートの drawing XML（`xl/drawings/drawingN.xml`）をパースし、図形情報をJSONL形式で出力する。
 
@@ -454,8 +454,10 @@ exceldump version 0.1.0
 | `--sheet <name\|index>` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
 | `--limit <n>` | 出力図形数の上限 | 1000 |
 | `--style` | 書式情報（塗りつぶし、枠線、フォント）を出力する | OFF（書式は省略） |
+| `--extract-images <dir>` | 画像を指定ディレクトリに抽出する。未指定時は画像をスキップ | OFF（画像スキップ） |
 
 - `--limit 0` で上限なし
+- `--extract-images` 未指定時は `xdr:pic` 要素をスキップする（画像は出力に含まれない）
 
 **出力例:**
 
@@ -517,6 +519,31 @@ shapes の最初の行に出力される。
 | `label` | string | コネクタ上のテキスト。テキストがない場合は省略 |
 
 コネクタの `from` / `to` は、drawing XML 内の `a:stCxn` / `a:endCxn` 要素の `id` 属性を参照する。この `id` は Excel が付与する図形IDであり、`shapes` コマンドが割り当てる連番 `id` とは異なる。パース時に Excel 図形IDから連番IDへのマッピングを行い、出力時は連番IDで参照する。接続先が drawing 内に見つからない場合は `from` / `to` を省略する。
+
+#### 画像フィールド（`--extract-images` 指定時）
+
+画像（`xdr:pic`）は `type` が `"picture"` となり、以下の追加フィールドを持つ。`--extract-images` 未指定時は画像要素自体がスキップされる。
+
+```jsonl
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"システム構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/shapes/image_1.png"}}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `alt_text` | string | 代替テキスト（`cNvPr` の `descr` 属性）。設定されていない場合は省略 |
+| `image` | object | 画像メタデータ |
+
+**`image` オブジェクト:**
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `format` | string | 画像形式（`png`, `jpeg`, `emf` 等。リレーション先のファイル拡張子から判定） |
+| `width` | number | 画像の幅（ピクセル）。`a:ext` の `cx` をEMUからピクセルに変換（÷ 9525） |
+| `height` | number | 画像の高さ（ピクセル）。`a:ext` の `cy` をEMUからピクセルに変換（÷ 9525） |
+| `size` | number | ファイルサイズ（バイト）。ZIPエントリから取得 |
+| `path` | string | 抽出先のファイルパス。`--extract-images` で指定したディレクトリ内に `image_1.png`, `image_2.jpg`, ... の形式で連番出力 |
+
+画像ファイルは drawing の `.rels` から `blip` の `r:embed` 属性で参照されるリレーションIDを解決し、ZIP内の `xl/media/` 配下から抽出する。
 
 #### グループフィールド
 
@@ -626,13 +653,12 @@ shapes の最初の行に出力される。
 
 drawing リレーションの有無のみを確認し、drawing XML 自体は読み込まない（パフォーマンスへの影響なし）。
 
-#### 対応しない図形要素（第1フェーズ）
+#### 対応しない図形要素
 
 | 要素 | 理由 |
 |------|------|
-| 画像（`xdr:pic`） | テキスト情報がなく、フローチャート読み取りの用途では優先度が低い。`alt_text` の出力は将来対応を検討 |
 | チャート（`xdr:graphicFrame` + chart URI） | 独自のXML体系（`c:chartSpace`）で複雑。別途対応を検討 |
-| SmartArt（`xdr:graphicFrame` + diagram URI） | 独自のXML体系（`dgm:`）で複雑。drawing XML に展開されたシェイプとして部分的に読める可能性はあるが、第1フェーズでは対応しない |
+| SmartArt（`xdr:graphicFrame` + diagram URI） | 独自のXML体系（`dgm:`）で複雑。Excel保存時に描画キャッシュとして `grpSp` に展開されるため、通常はグループとして読み取り可能 |
 | VML図形（`vmlDrawing.vml`） | レガシー形式。DrawingML（`drawing.xml`）のみ対応 |
 
 ## 対応しない機能
