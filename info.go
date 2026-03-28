@@ -22,17 +22,17 @@ var infoCmd = &cobra.Command{
 
 type infoOutput struct {
 	File         string           `json:"file"`
-	DefinedNames []definedNameOut `json:"defined_names"`
-	Sheets       []sheetOut       `json:"sheets"`
+	DefinedNames []definedNameOutput `json:"defined_names"`
+	Sheets       []sheetOutput      `json:"sheets"`
 }
 
-type definedNameOut struct {
+type definedNameOutput struct {
 	Name  string `json:"name"`
 	Scope string `json:"scope"`
 	Refer string `json:"refer"`
 }
 
-type sheetOut struct {
+type sheetOutput struct {
 	Index  int    `json:"index"`
 	Name   string `json:"name"`
 	Type   string `json:"type"`
@@ -45,9 +45,9 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sheetOuts := make([]sheetOut, len(result.Sheets))
+	sheetOutputs := make([]sheetOutput, len(result.Sheets))
 	for i, s := range result.Sheets {
-		sheetOuts[i] = sheetOut{
+		sheetOutputs[i] = sheetOutput{
 			Index:  s.Index,
 			Name:   s.Name,
 			Type:   s.Type,
@@ -55,13 +55,13 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	dnOuts := make([]definedNameOut, len(result.DefinedNames))
+	dnOutputs := make([]definedNameOutput, len(result.DefinedNames))
 	for i, dn := range result.DefinedNames {
 		scope := dn.Scope
 		if scope == "" {
 			scope = "Workbook"
 		}
-		dnOuts[i] = definedNameOut{
+		dnOutputs[i] = definedNameOutput{
 			Name:  dn.Name,
 			Scope: scope,
 			Refer: dn.RefersTo,
@@ -70,8 +70,8 @@ func runInfo(cmd *cobra.Command, args []string) error {
 
 	out := infoOutput{
 		File:         result.FileName,
-		DefinedNames: dnOuts,
-		Sheets:       sheetOuts,
+		DefinedNames: dnOutputs,
+		Sheets:       sheetOutputs,
 	}
 
 	enc := json.NewEncoder(os.Stdout)

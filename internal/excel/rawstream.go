@@ -17,8 +17,8 @@ type RawCell struct {
 	Value        string // 共有文字列は解決済み
 	StyleID      int
 	Formula      string
-	XMLType      string // "s", "str", "inlineStr", "b", "e", "n", ""
-	SharedStrIdx int    // 共有文字列のインデックス（XMLType=="s" の場合のみ有効、-1 = 無効）
+	ValueType      string // "s", "str", "inlineStr", "b", "e", "n", ""
+	SharedStrIdx int    // 共有文字列のインデックス（ValueType=="s" の場合のみ有効、-1 = 無効）
 }
 
 // StreamSheet はワークシートXMLを自前でSAXパースし、全セル属性を1パスで取得する。
@@ -120,7 +120,7 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 							cell.Row = currentRow
 						}
 					case "t":
-						cell.XMLType = attr.Value
+						cell.ValueType = attr.Value
 					case "s":
 						if id, err := strconv.Atoi(attr.Value); err == nil {
 							cell.StyleID = id
@@ -167,9 +167,9 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 				inCell = false
 
 				// 値の解決
-				if cell.XMLType == "inlineStr" {
+				if cell.ValueType == "inlineStr" {
 					cell.Value = inlineBuf.String()
-				} else if cell.XMLType == "s" {
+				} else if cell.ValueType == "s" {
 					// 共有文字列のインデックスを解決
 					if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
 						cell.Value = ss.Get(idx)
@@ -180,7 +180,7 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 				}
 
 				// 数式
-				if needFormula || cell.XMLType == "str" {
+				if needFormula || cell.ValueType == "str" {
 					cell.Formula = formulaBuf.String()
 				} else {
 					// 数式は不要だが、値が数式の結果かどうかの判定用にフラグを保持

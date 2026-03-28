@@ -231,7 +231,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		return data
 	}
 
-	switch raw.XMLType {
+	switch raw.ValueType {
 	case "s", "str", "inlineStr":
 		data.Type = CellTypeString
 		data.Value = raw.Value
