@@ -66,17 +66,28 @@ type HyperlinkEntry struct {
 }
 
 // LoadSheetMeta はワークシートXMLから sheetData 以外のメタデータを読み取る。
-// SAX パースで sheetData はスキップし、メタデータのみを高速に取得する。
+// SAX パースで sheetData 内の行属性も取得する。
 func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
 	for _, entry := range zr.File {
 		if entry.Name == xmlPath {
-			return parseSheetMeta(entry)
+			return parseSheetMeta(entry, false)
 		}
 	}
 	return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 }
 
-func parseSheetMeta(entry *zip.File) (*SheetMeta, error) {
+// LoadSheetMetaQuick はワークシートXMLの先頭部分（sheetData の前）のみを読む軽量版。
+// dimension, sheetFormatPr, cols, sheetPr を取得し、行属性・マージ・ハイパーリンクは取得しない。
+func LoadSheetMetaQuick(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
+	for _, entry := range zr.File {
+		if entry.Name == xmlPath {
+			return parseSheetMeta(entry, true)
+		}
+	}
+	return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
+}
+
+func parseSheetMeta(entry *zip.File, quickMode bool) (*SheetMeta, error) {
 	rc, err := entry.Open()
 	if err != nil {
 		return nil, err
@@ -109,6 +120,10 @@ func parseSheetMeta(entry *zip.File) (*SheetMeta, error) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			if inSheetData {
+				if quickMode {
+					// quickMode: sheetData に入ったら終了
+					return meta, nil
+				}
 				skipDepth++
 				// sheetData 内では行の属性だけ取得する
 				if t.Name.Local == "row" {
@@ -285,6 +300,43 @@ func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
 		return sm.DefaultWidth
 	}
 	return DefaultColWidth
+}
+
+// LoadDimensionOnly はワークシートXMLから dimension 属性のみを高速に取得する。
+// XML 先頭付近の <dimension> 要素を見つけた時点で即座に返す。
+func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
+	for _, entry := range zr.File {
+		if entry.Name == xmlPath {
+			rc, err := entry.Open()
+			if err != nil {
+				return ""
+			}
+			defer rc.Close()
+
+			decoder := xml.NewDecoder(rc)
+			for {
+				tok, err := decoder.Token()
+				if err != nil {
+					return ""
+				}
+				if se, ok := tok.(xml.StartElement); ok {
+					switch se.Name.Local {
+					case "dimension":
+						for _, attr := range se.Attr {
+							if attr.Name.Local == "ref" {
+								return attr.Value
+							}
+						}
+						return ""
+					case "sheetData":
+						// dimension がない場合、sheetData に達したら終了
+						return ""
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // BuildMergeInfo は SheetMeta のマージセル情報から MergeInfo を構築する

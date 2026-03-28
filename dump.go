@@ -27,6 +27,13 @@ var dumpCmd = &cobra.Command{
 	RunE:  runDump,
 }
 
+type metaOutput struct {
+	Meta          bool               `json:"_meta"`
+	DefaultWidth  float64            `json:"default_width"`
+	DefaultHeight float64            `json:"default_height"`
+	ColWidths     map[string]float64 `json:"col_widths,omitempty"`
+}
+
 type rowOutput struct {
 	Row    int     `json:"_row"`
 	Height float64 `json:"height,omitempty"`
@@ -280,6 +287,17 @@ func runDump(cmd *cobra.Command, args []string) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
 
+	// _meta 行を出力（col_widths, default_width/height）
+	if dc.sheetMeta != nil {
+		meta := metaOutput{
+			Meta:          true,
+			DefaultWidth:  dc.sheetMeta.EffectiveDefaultWidth(),
+			DefaultHeight: dc.sheetMeta.DefaultHeight,
+			ColWidths:     colWidthsFromMeta(dc.sheetMeta),
+		}
+		enc.Encode(meta)
+	}
+
 	outputCount := 0
 	lastRow := -1
 
@@ -335,4 +353,20 @@ func runDump(cmd *cobra.Command, args []string) error {
 	})
 
 	return err
+}
+
+func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {
+	dw := meta.EffectiveDefaultWidth()
+	widths := make(map[string]float64)
+	for _, ci := range meta.Cols {
+		if ci.Width != dw && ci.Width != 0 {
+			for c := ci.Min; c <= ci.Max; c++ {
+				widths[excel.ColName(c)] = ci.Width
+			}
+		}
+	}
+	if len(widths) == 0 {
+		return nil
+	}
+	return widths
 }

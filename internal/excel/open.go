@@ -207,6 +207,20 @@ func (f *File) ResolveSheetLite(sheet string) (string, error) {
 	return "", fmt.Errorf("シート %q が見つかりません", sheet)
 }
 
+// LoadDimensionLite はシートの dimension を高速取得する（XML先頭のみ読む）
+func (f *File) LoadDimensionLite(sheet string) string {
+	xmlPath, ok := f.sheetPaths[sheet]
+	if !ok {
+		return ""
+	}
+	zr, err := zip.OpenReader(f.path)
+	if err != nil {
+		return ""
+	}
+	defer zr.Close()
+	return LoadDimensionOnly(zr, xmlPath)
+}
+
 // ResolveTabColor は SheetMeta のタブ色をRGB文字列に解決する
 func (f *File) ResolveTabColor(meta *SheetMeta) string {
 	if meta.TabColorRGB != "" {
