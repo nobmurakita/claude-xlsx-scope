@@ -97,6 +97,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	enc.SetEscapeHTML(false)
 
 	outputCount := 0
+	var truncatedNext string
 
 	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
@@ -133,6 +134,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 
 		if limit > 0 && outputCount >= limit {
+			truncatedNext = excel.CellRef(col, row)
 			return false
 		}
 
@@ -143,6 +145,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if truncatedNext != "" {
+		enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext})
 	}
 
 	return nil

@@ -34,6 +34,11 @@ type metaOutput struct {
 	ColWidths     map[string]float64 `json:"col_widths,omitempty"`
 }
 
+type truncatedOutput struct {
+	Truncated bool   `json:"_truncated"`
+	NextCell  string `json:"next_cell"`
+}
+
 type rowOutput struct {
 	Row    int     `json:"_row"`
 	Height float64 `json:"height,omitempty"`
@@ -269,6 +274,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 
 	outputCount := 0
 	lastRow := -1
+	var truncatedNext string
 
 	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
@@ -306,6 +312,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 
 		if limit > 0 && outputCount >= limit {
+			truncatedNext = excel.CellRef(col, row)
 			return false
 		}
 
@@ -320,6 +327,10 @@ func runDump(cmd *cobra.Command, args []string) error {
 		outputCount++
 		return true
 	})
+
+	if truncatedNext != "" {
+		enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext})
+	}
 
 	return err
 }

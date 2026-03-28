@@ -70,9 +70,10 @@ exceldump dump --sheet 0 --limit 5 見積計算.xlsx
 {"cell":"C1","value":"単価"}
 {"_row":2,"height":22.5}
 {"cell":"A2","value":"商品A","merge":"A2:A3"}
+{"_truncated":true,"next_cell":"B2"}
 ```
 
-最初の行に `_meta`（レイアウト情報）を出力し、その後にセルデータが続く。
+最初の行に `_meta`（レイアウト情報）を出力し、その後にセルデータが続く。`--limit` で打ち切られた場合は最終行に `_truncated` が出力され、`next_cell` を `--start` に渡して続きを取得できる。
 
 書式付き:
 

@@ -103,14 +103,17 @@ exceldump dump [options] <file>
 
 **続きの取得:**
 
-`--limit` で打ち切られた場合、最後に出力されたセルの次のセルを `--start` に渡す。
+`--limit` で打ち切られた場合、最終行に切り捨て通知が出力される。`next_cell` をそのまま `--start` に渡す。
 
 ```bash
 # 最初の1000セル
 exceldump dump --sheet 0 example.xlsx
-# 出力の最後が {"cell":"A501",...} なら次は B501 から（行優先順）
+# 最終行: {"_truncated":true,"next_cell":"B501"}
+# 続きを取得
 exceldump dump --sheet 0 --start B501 example.xlsx
 ```
+
+`_truncated` 行が出力されなければ、残りのデータはない。
 
 ### shapes
 
