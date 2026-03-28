@@ -54,6 +54,7 @@ type cellOutput struct {
 	Formula   string               `json:"formula,omitempty"`
 	Link      *excel.HyperlinkData `json:"link,omitempty"`
 	HiddenCol bool                 `json:"hidden_col,omitempty"`
+	Comment   *excel.CommentData   `json:"comment,omitempty"`
 	Font      *excel.FontObj       `json:"font,omitempty"`
 	Fill      *excel.FillObj       `json:"fill,omitempty"`
 	Border    *excel.BorderObj     `json:"border,omitempty"`
@@ -69,6 +70,7 @@ type dumpContext struct {
 	defaultHeight float64
 	mergeInfo     *excel.MergeInfo
 	hyperlinks    excel.HyperlinkMap
+	comments      excel.CommentMap
 	sheetMeta     *excel.SheetMeta // lite モード用
 	showStyle     bool
 	showFormula   bool
@@ -96,6 +98,7 @@ func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*
 		defaultHeight:  meta.DefaultHeight,
 		mergeInfo:      meta.BuildMergeInfo(),
 		hyperlinks:     meta.BuildHyperlinkMap(f.LoadSheetRels(sheet)),
+		comments:       f.LoadComments(sheet),
 		showStyle:      showStyle,
 		showFormula:    showFormula,
 		hiddenColCache: make(map[int]bool),
@@ -195,6 +198,10 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *
 
 	if dc.isHiddenCol(col) {
 		out.HiddenCol = true
+	}
+
+	if dc.comments != nil {
+		out.Comment = dc.comments[out.Cell]
 	}
 
 	if dc.showStyle {
