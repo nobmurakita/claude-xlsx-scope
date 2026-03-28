@@ -37,6 +37,9 @@ func NormalizeColor(c string) string {
 
 func normalizeHexColor(c string) string {
 	c = strings.TrimPrefix(c, "#")
+	if c == "" {
+		return ""
+	}
 	// ARGB（FFxxxxxx）の先頭2バイトを除去
 	if len(c) == 8 {
 		c = c[2:]

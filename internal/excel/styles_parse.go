@@ -354,7 +354,7 @@ func (ss *styleSheet) GetFont(styleID int) *parsedFont {
 		return nil
 	}
 	xf := ss.cellXfs[styleID]
-	if !xf.ApplyFont {
+	if !xf.ApplyFont && xf.FontID == 0 {
 		return nil
 	}
 	if xf.FontID < 0 || xf.FontID >= len(ss.fonts) {
@@ -370,7 +370,7 @@ func (ss *styleSheet) GetFill(styleID int) *parsedFill {
 		return nil
 	}
 	xf := ss.cellXfs[styleID]
-	if !xf.ApplyFill {
+	if !xf.ApplyFill && xf.FillID == 0 {
 		return nil
 	}
 	if xf.FillID < 0 || xf.FillID >= len(ss.fills) {
@@ -386,7 +386,7 @@ func (ss *styleSheet) GetBorder(styleID int) []parsedBorderEdge {
 		return nil
 	}
 	xf := ss.cellXfs[styleID]
-	if !xf.ApplyBorder {
+	if !xf.ApplyBorder && xf.BorderID == 0 {
 		return nil
 	}
 	if xf.BorderID < 0 || xf.BorderID >= len(ss.borders) {
