@@ -39,20 +39,10 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 	}
 	defer r.Close()
 
-	// workbook.xml.rels を読んでリレーション情報を取得
-	relsData, err := readZipFile(r, "xl/_rels/workbook.xml.rels")
+	// workbook.xml.rels を読んでリレーション種別を取得
+	relTypes, err := readRels(r, "xl/_rels/workbook.xml.rels")
 	if err != nil {
-		relsData = nil
-	}
-	var relsEntries xmlRelationships
-	if relsData != nil {
-		xml.Unmarshal(relsData, &relsEntries)
-	}
-	relTypes := make(map[string]string)
-	relTargets := make(map[string]string)
-	for _, rel := range relsEntries.Rels {
-		relTypes[rel.ID] = rel.Type
-		relTargets[rel.ID] = rel.Target
+		return nil, err
 	}
 
 	// workbook.xml を読んでシートと定義名を取得
@@ -74,23 +64,11 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 				sheetType = "macrosheet"
 			}
 		}
-		// dimension を高速取得（XML先頭のみ読む）
-		var dim string
-		if target, ok := relTargets[s.RID]; ok {
-			xmlPath := target
-			if !strings.HasPrefix(xmlPath, "/") {
-				xmlPath = "xl/" + xmlPath
-			} else {
-				xmlPath = xmlPath[1:]
-			}
-			dim = LoadDimensionOnly(r, xmlPath)
-		}
 		sheets[i] = SheetInfo{
-			Index:     i,
-			Name:      s.Name,
-			Type:      sheetType,
-			Hidden:    s.State != "",
-			Dimension: dim,
+			Index:  i,
+			Name:   s.Name,
+			Type:   sheetType,
+			Hidden: s.State != "",
 		}
 	}
 

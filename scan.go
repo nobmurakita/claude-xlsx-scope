@@ -23,15 +23,14 @@ var scanCmd = &cobra.Command{
 }
 
 type scanOutput struct {
-	Sheet         string                   `json:"sheet"`
-	UsedRange     string                   `json:"used_range,omitempty"`
-	TabColor      string                   `json:"tab_color,omitempty"`
-	DefaultFont   excel.FontInfo           `json:"default_font"`
-	DefaultWidth  float64                  `json:"default_width"`
-	DefaultHeight float64                  `json:"default_height"`
-	ColWidths     map[string]float64       `json:"col_widths,omitempty"`
-	RowHeights    map[string]float64       `json:"row_heights,omitempty"`
-	Regions       []excel.Region           `json:"regions,omitempty"`
+	Sheet         string             `json:"sheet"`
+	UsedRange     string             `json:"used_range,omitempty"`
+	TabColor      string             `json:"tab_color,omitempty"`
+	DefaultFont   excel.FontInfo     `json:"default_font"`
+	DefaultWidth  float64            `json:"default_width"`
+	DefaultHeight float64            `json:"default_height"`
+	ColWidths     map[string]float64 `json:"col_widths,omitempty"`
+	RowHeights    map[string]float64 `json:"row_heights,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -64,33 +63,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// デフォルトフォント
 	out.DefaultFont = f.DetectDefaultFontLite()
 
-	// 列幅（SheetMeta.Cols からデフォルトと異なるもののみ取得）
+	// 列幅（デフォルトと異なるもののみ）
 	out.ColWidths = collectColWidthsFromMeta(meta, meta.EffectiveDefaultWidth())
 
-	// dimension で全行走査の要否を判定
+	// used_range: dimension があればそのまま使用、なければフルスキャン
 	dim := meta.Dimension
-	fullScan := dim != "" && dim != "A1:A1"
-
-	if fullScan {
-		// StreamSheet で RowCache を構築
+	if dim != "" && dim != "A1:A1" {
+		out.UsedRange = dim
+	} else {
+		// dimension がないファイル: 全セル走査で used_range を算出
 		rowCache := buildRowCacheFromStream(f, sheet)
+		out.UsedRange = rowCache.CalcUsedRange()
+	}
 
-		usedRangeStr := rowCache.CalcUsedRange()
-		out.UsedRange = usedRangeStr
-
-		var usedRange excel.CellRange
-		if usedRangeStr != "" {
-			usedRange, _ = excel.ParseRange(usedRangeStr, "")
-		}
-
+	// 行高（used_range 内でデフォルトと異なるもののみ）
+	if out.UsedRange != "" {
+		usedRange, _ := excel.ParseRange(out.UsedRange, "")
 		if !usedRange.IsEmpty() {
 			out.RowHeights = collectRowHeightsFromMeta(meta, usedRange, out.DefaultHeight)
-
-			regions, err := excel.DetectRegionsFromCache(usedRange, rowCache)
-			if err != nil {
-				return err
-			}
-			out.Regions = regions
 		}
 	}
 
@@ -136,7 +126,7 @@ func collectRowHeightsFromMeta(meta *excel.SheetMeta, usedRange excel.CellRange,
 
 // buildRowCacheFromStream は StreamSheet を使って RowCache を構築する
 func buildRowCacheFromStream(f *excel.File, sheet string) *excel.RowCache {
-	rc := excel.NewRowCache(false)
+	rc := excel.NewRowCache(true) // boundsOnly で十分（used_range 算出のみ）
 	f.StreamSheet(sheet, false, func(raw *excel.RawCell) bool {
 		rc.Add(raw.Col, raw.Row)
 		return true

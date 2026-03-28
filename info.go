@@ -33,11 +33,10 @@ type definedNameOut struct {
 }
 
 type sheetOut struct {
-	Index     int    `json:"index"`
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	Hidden    bool   `json:"hidden,omitempty"`
-	Dimension string `json:"dimension,omitempty"`
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Hidden bool   `json:"hidden,omitempty"`
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
@@ -49,11 +48,10 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	sheetOuts := make([]sheetOut, len(result.Sheets))
 	for i, s := range result.Sheets {
 		sheetOuts[i] = sheetOut{
-			Index:     s.Index,
-			Name:      s.Name,
-			Type:      s.Type,
-			Hidden:    s.Hidden,
-			Dimension: s.Dimension,
+			Index:  s.Index,
+			Name:   s.Name,
+			Type:   s.Type,
+			Hidden: s.Hidden,
 		}
 	}
 
