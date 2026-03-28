@@ -56,6 +56,7 @@ type dumpContext struct {
 	defaultFont   excel.FontInfo
 	defaultHeight float64
 	mergeInfo     *excel.MergeInfo
+	hyperlinks    excel.HyperlinkMap
 	showStyle     bool
 	showFormula   bool
 	hiddenColCache map[int]bool // 列の非表示キャッシュ
@@ -82,12 +83,15 @@ func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*
 		return nil, err
 	}
 
+	hyperlinks := f.LoadHyperlinks(sheet)
+
 	return &dumpContext{
 		f:              f,
 		sheet:          sheet,
 		defaultFont:    defaultFont,
 		defaultHeight:  defaultHeight,
 		mergeInfo:      mergeInfo,
+		hyperlinks:     hyperlinks,
 		showStyle:      showStyle,
 		showFormula:    showFormula,
 		hiddenColCache: make(map[int]bool),
@@ -104,10 +108,8 @@ func (dc *dumpContext) isHiddenCol(col int) bool {
 	return hidden
 }
 
-func (dc *dumpContext) getCellStyle(col, row int) *styleResult {
-	axis := excel.CellRef(col, row)
-	styleID, err := dc.f.GetCellStyle(dc.sheet, axis)
-	if err != nil || styleID == 0 {
+func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
+	if styleID == 0 {
 		return nil
 	}
 	if cached, ok := dc.styleCache[styleID]; ok {
@@ -168,14 +170,14 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData) cellO
 		out.Merge = merge
 	}
 
-	out.Link = dc.f.GetHyperlink(dc.sheet, out.Cell)
+	out.Link = dc.hyperlinks[out.Cell]
 
 	if dc.isHiddenCol(col) {
 		out.HiddenCol = true
 	}
 
 	if dc.showStyle {
-		sr := dc.getCellStyle(col, row)
+		sr := dc.getCellStyleByID(data.StyleID)
 		if sr != nil {
 			out.Font = sr.font
 			out.Fill = sr.fill
@@ -266,7 +268,11 @@ func runDump(cmd *cobra.Command, args []string) error {
 			return true
 		}
 
-		data, err := f.ReadCell(sheet, col, row)
+		data, err := f.ReadCell(sheet, col, row, excel.ReadCellOpts{
+			Value:       value,
+			HasValue:    true,
+			NeedFormula: showFormula,
+		})
 		if err != nil {
 			return true
 		}

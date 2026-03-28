@@ -123,7 +123,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return true
 		}
 
-		data, err := f.ReadCell(sheet, col, row)
+		data, err := f.ReadCell(sheet, col, row, excel.ReadCellOpts{
+			Value:       value,
+			HasValue:    true,
+			NeedFormula: showFormula,
+		})
 		if err != nil || (!data.HasValue && data.Type == excel.CellTypeEmpty) {
 			return true
 		}

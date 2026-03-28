@@ -20,7 +20,11 @@ func OpenFile(path string) (*File, error) {
 	if ext != ".xlsx" && ext != ".xlsm" {
 		return nil, fmt.Errorf(".xlsx / .xlsm 形式のみ対応しています")
 	}
-	f, err := excelize.OpenFile(path)
+	f, err := excelize.OpenFile(path, excelize.Options{
+		// 数値フォーマット処理をスキップし、生の値を返す。
+		// セル値のフォーマットは ReadCell 側で行うため excelize 側は不要。
+		RawCellValue: true,
+	})
 	if err != nil {
 		return nil, err
 	}

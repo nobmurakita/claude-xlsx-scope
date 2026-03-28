@@ -40,19 +40,13 @@ type sheetOut struct {
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
-	f, err := excel.OpenFile(args[0])
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	sheets, err := f.GetSheetList()
+	result, err := excel.QuickInfo(args[0])
 	if err != nil {
 		return err
 	}
 
-	sheetOuts := make([]sheetOut, len(sheets))
-	for i, s := range sheets {
+	sheetOuts := make([]sheetOut, len(result.Sheets))
+	for i, s := range result.Sheets {
 		sheetOuts[i] = sheetOut{
 			Index:  s.Index,
 			Name:   s.Name,
@@ -61,9 +55,8 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	definedNames := f.GetDefinedNames()
-	dnOuts := make([]definedNameOut, len(definedNames))
-	for i, dn := range definedNames {
+	dnOuts := make([]definedNameOut, len(result.DefinedNames))
+	for i, dn := range result.DefinedNames {
 		scope := dn.Scope
 		if scope == "" {
 			scope = "Workbook"
@@ -76,7 +69,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	out := infoOutput{
-		File:         f.Name,
+		File:         result.FileName,
 		DefinedNames: dnOuts,
 		Sheets:       sheetOuts,
 	}

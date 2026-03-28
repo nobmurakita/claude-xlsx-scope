@@ -32,10 +32,18 @@ type CellData struct {
 	HasValue  bool
 	NumFmtID  int
 	NumFmtStr string
+	StyleID   int // getCellStyle でのキャッシュキーとして再利用
+}
+
+// ReadCellOpts は ReadCell のオプション
+type ReadCellOpts struct {
+	Value       string // StreamRows から取得済みの値
+	HasValue    bool   // Value が設定済みか（true なら GetCellValue を省略）
+	NeedFormula bool   // 数式文字列を取得するか
 }
 
 // ReadCell はセルの値を読み取る
-func (f *File) ReadCell(sheet string, col, row int) (*CellData, error) {
+func (f *File) ReadCell(sheet string, col, row int, opts ReadCellOpts) (*CellData, error) {
 	axis := CellRef(col, row)
 
 	cellType, err := f.File.GetCellType(sheet, axis)
@@ -43,9 +51,13 @@ func (f *File) ReadCell(sheet string, col, row int) (*CellData, error) {
 		return nil, err
 	}
 
-	rawValue, err := f.File.GetCellValue(sheet, axis)
-	if err != nil {
-		return nil, err
+	// StreamRows から値を受け取れる場合は GetCellValue を省略
+	rawValue := opts.Value
+	if !opts.HasValue {
+		rawValue, err = f.File.GetCellValue(sheet, axis)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	styleID, err := f.File.GetCellStyle(sheet, axis)
@@ -55,11 +67,16 @@ func (f *File) ReadCell(sheet string, col, row int) (*CellData, error) {
 
 	numFmtID, numFmtStr := f.getNumFormat(styleID)
 
-	formula, _ := f.File.GetCellFormula(sheet, axis)
+	// 数式の取得: 型が Formula の場合、または呼び出し元が要求した場合のみ
+	var formula string
+	if cellType == excelize.CellTypeFormula || opts.NeedFormula {
+		formula, _ = f.File.GetCellFormula(sheet, axis)
+	}
 
 	data := &CellData{
 		NumFmtID:  numFmtID,
 		NumFmtStr: numFmtStr,
+		StyleID:   styleID,
 	}
 
 	// 数式セル
@@ -81,14 +98,19 @@ func (f *File) ReadCell(sheet string, col, row int) (*CellData, error) {
 		data.Display = rawValue
 
 	case excelize.CellTypeNumber:
-		data.Display = rawValue
 		data.HasValue = true
 		if isDateFormat(numFmtID, numFmtStr) {
 			data.Type = CellTypeDate
 			data.Value = parseDate(rawValue)
+			// RawCellValue モードではシリアル値が返るため、
+			// Display は変換後の日付文字列から adjustDisplay に任せる
+			if s, ok := data.Value.(string); ok {
+				data.Display = s
+			}
 		} else {
 			data.Type = CellTypeNumber
 			data.Value = parseNumber(rawValue)
+			data.Display = rawValue
 		}
 
 	case excelize.CellTypeBool:
@@ -118,10 +140,27 @@ func (f *File) ReadCell(sheet string, col, row int) (*CellData, error) {
 			data.HasValue = false
 			return data, nil
 		}
-		data.Type = CellTypeString
-		data.Value = rawValue
-		data.HasValue = true
-		data.Display = rawValue
+		// CellTypeUnset でも数値+日付フォーマットの場合がある（RawCellValue モード）
+		if _, err := strconv.ParseFloat(rawValue, 64); err == nil {
+			if isDateFormat(numFmtID, numFmtStr) {
+				data.Type = CellTypeDate
+				data.HasValue = true
+				data.Value = parseDate(rawValue)
+				if s, ok := data.Value.(string); ok {
+					data.Display = s
+				}
+			} else {
+				data.Type = CellTypeNumber
+				data.HasValue = true
+				data.Value = parseNumber(rawValue)
+				data.Display = rawValue
+			}
+		} else {
+			data.Type = CellTypeString
+			data.Value = rawValue
+			data.HasValue = true
+			data.Display = rawValue
+		}
 	}
 
 	// エラー値の判定
@@ -296,6 +335,30 @@ func (f *File) GetHyperlink(sheet, axis string) *HyperlinkData {
 	if err != nil || !hasLink {
 		return nil
 	}
+	return parseHyperlinkTarget(target)
+}
+
+// HyperlinkMap はシート内の全ハイパーリンクを保持するマップ
+type HyperlinkMap map[string]*HyperlinkData
+
+// LoadHyperlinks はシートの全ハイパーリンクを一括取得する。
+// セルごとの GetCellHyperLink 呼び出しを不要にする。
+func (f *File) LoadHyperlinks(sheet string) HyperlinkMap {
+	m := make(HyperlinkMap)
+	cells, err := f.File.GetHyperLinkCells(sheet, "")
+	if err != nil {
+		return m
+	}
+	for _, axis := range cells {
+		link := f.GetHyperlink(sheet, axis)
+		if link != nil {
+			m[axis] = link
+		}
+	}
+	return m
+}
+
+func parseHyperlinkTarget(target string) *HyperlinkData {
 	link := &HyperlinkData{}
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "mailto:") {
 		link.URL = target
