@@ -8,6 +8,56 @@ type Region struct {
 	NonEmptyCells int    `json:"non_empty_cells"`
 }
 
+// DetectRegionsFromCache は RowCache から領域を検出する（excelize 不要）
+func DetectRegionsFromCache(usedRange CellRange, rowCache *RowCache) ([]Region, error) {
+	if usedRange.IsEmpty() || rowCache == nil {
+		return []Region{}, nil
+	}
+
+	occupiedRows := make(map[int]bool)
+	occupiedCols := make(map[int]bool)
+	type cell struct{ col, row int }
+	var cells []cell
+
+	for r := usedRange.StartRow; r <= usedRange.EndRow; r++ {
+		for c := usedRange.StartCol; c <= usedRange.EndCol; c++ {
+			if rowCache.HasValue(c, r) {
+				cells = append(cells, cell{c, r})
+				occupiedRows[r] = true
+				occupiedCols[c] = true
+			}
+		}
+	}
+
+	if len(cells) == 0 {
+		return []Region{}, nil
+	}
+
+	rowBands := splitIntoBands(occupiedRows, usedRange.StartRow, usedRange.EndRow, 3)
+	colBands := splitIntoBands(occupiedCols, usedRange.StartCol, usedRange.EndCol, 3)
+
+	var regions []Region
+	for _, rb := range rowBands {
+		for _, cb := range colBands {
+			count := 0
+			for _, c := range cells {
+				if c.row >= rb[0] && c.row <= rb[1] && c.col >= cb[0] && c.col <= cb[1] {
+					count++
+				}
+			}
+			if count > 0 {
+				r := CellRange{cb[0], rb[0], cb[1], rb[1]}
+				regions = append(regions, Region{
+					Range:         r.String(),
+					NonEmptyCells: count,
+				})
+			}
+		}
+	}
+
+	return regions, nil
+}
+
 // DetectRegions はシート内の非空セルの分布から領域を検出する。
 // 3行以上の空行、3列以上の空列で分割する。
 // rowCache が非nilの場合はキャッシュから値の有無を判定する。

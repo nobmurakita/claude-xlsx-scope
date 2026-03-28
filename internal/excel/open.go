@@ -141,11 +141,48 @@ func (f *File) DetectDefaultFontLite() FontInfo {
 	if name == "" {
 		name = "Calibri"
 	}
-	size := 11.0
-	if len(f.styles.fonts) > 0 {
-		size = f.styles.fonts[0].Size
+	return FontInfo{Name: name, Size: 11}
+}
+
+// DetectDefaultFontFromMeta は SheetMeta の列スタイルから最頻フォントを検出する
+func (f *File) DetectDefaultFontFromMeta(meta *SheetMeta) FontInfo {
+	bookDefault := f.DetectDefaultFontLite()
+	if f.styles == nil || len(meta.Cols) == 0 {
+		return bookDefault
 	}
-	return FontInfo{Name: name, Size: size}
+
+	type fontKey struct {
+		name string
+		size float64
+	}
+	counts := make(map[fontKey]int)
+
+	for _, ci := range meta.Cols {
+		if ci.StyleID == 0 {
+			continue
+		}
+		pf := f.styles.GetFont(ci.StyleID)
+		if pf == nil || pf.Name == "" {
+			continue
+		}
+		key := fontKey{name: pf.Name, size: pf.Size}
+		colCount := ci.Max - ci.Min + 1
+		counts[key] += colCount
+	}
+
+	if len(counts) == 0 {
+		return bookDefault
+	}
+
+	maxCount := 0
+	var best fontKey
+	for key, count := range counts {
+		if count > maxCount {
+			maxCount = count
+			best = key
+		}
+	}
+	return FontInfo{Name: best.name, Size: best.size}
 }
 
 // ResolveSheetLite は lite モードでのシート名解決
@@ -168,6 +205,17 @@ func (f *File) ResolveSheetLite(sheet string) (string, error) {
 		return "", fmt.Errorf("シートインデックス %d が範囲外です", idx)
 	}
 	return "", fmt.Errorf("シート %q が見つかりません", sheet)
+}
+
+// ResolveTabColor は SheetMeta のタブ色をRGB文字列に解決する
+func (f *File) ResolveTabColor(meta *SheetMeta) string {
+	if meta.TabColorRGB != "" {
+		return normalizeHexColor(meta.TabColorRGB)
+	}
+	if meta.TabColorTheme != nil {
+		return resolveColorLite("", meta.TabColorTheme, meta.TabColorTint, f.theme)
+	}
+	return ""
 }
 
 // initStreamData は StreamSheet に必要な共有文字列テーブルとシートパスを遅延初期化する

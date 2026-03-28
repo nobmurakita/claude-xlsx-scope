@@ -87,6 +87,38 @@ func (rc *RowCache) HasValue(col, row int) bool {
 	return rc.occupied[[2]int{col, row}]
 }
 
+// NewRowCache は新しい RowCache を作成する。StreamSheet から構築する用途。
+func NewRowCache(boundsOnly bool) *RowCache {
+	rc := &RowCache{
+		minCol: -1, maxCol: -1, minRow: -1, maxRow: -1,
+		boundsOnly: boundsOnly,
+	}
+	if !boundsOnly {
+		rc.occupied = make(map[[2]int]bool)
+	}
+	return rc
+}
+
+// Add はセル座標を RowCache に追加する
+func (rc *RowCache) Add(col, row int) {
+	rc.cellCount++
+	if !rc.boundsOnly {
+		rc.occupied[[2]int{col, row}] = true
+	}
+	if rc.minRow == -1 || row < rc.minRow {
+		rc.minRow = row
+	}
+	if rc.maxRow == -1 || row > rc.maxRow {
+		rc.maxRow = row
+	}
+	if rc.minCol == -1 || col < rc.minCol {
+		rc.minCol = col
+	}
+	if rc.maxCol == -1 || col > rc.maxCol {
+		rc.maxCol = col
+	}
+}
+
 // CellCount は非空セルの総数を返す
 func (rc *RowCache) CellCount() int {
 	return rc.cellCount
