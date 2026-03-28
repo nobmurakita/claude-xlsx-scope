@@ -452,21 +452,15 @@ func (sm *SheetMeta) BuildHyperlinkMap(sheetRels map[string]string) HyperlinkMap
 	return m
 }
 
-// LoadSheetRels はシートのリレーションファイルを読み、rId → target のマップを返す。
+// LoadSheetRelsFromZip はシートのリレーションファイルを読み、rId → target のマップを返す。
 // 主にハイパーリンクの外部URL解決に使用。
 func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]string {
-	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
-	if err != nil {
+	rels := loadSheetRelsAll(zr, sheetXMLPath)
+	if len(rels) == 0 {
 		return nil
 	}
-
-	var rels xmlRelationships
-	if err := xml.Unmarshal(data, &rels); err != nil {
-		return nil
-	}
-
-	m := make(map[string]string, len(rels.Rels))
-	for _, r := range rels.Rels {
+	m := make(map[string]string, len(rels))
+	for _, r := range rels {
 		m[r.ID] = r.Target
 	}
 	return m

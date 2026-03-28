@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// numericEpsilon は数値比較で等価とみなす閾値
+const numericEpsilon = 1e-9
+
 // Filter は search コマンドのセル検索条件。
 // Query, Numeric, Type の各条件は AND で結合される。
 type Filter struct {
@@ -68,7 +71,7 @@ func (e *NumericExpr) Match(v float64) bool {
 	case "<=":
 		return v <= e.Value
 	case "=":
-		return math.Abs(v-e.Value) <= 1e-9
+		return math.Abs(v-e.Value) <= numericEpsilon
 	case ":":
 		return v >= e.Value && v <= e.Upper
 	}

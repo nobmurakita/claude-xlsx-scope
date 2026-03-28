@@ -3,21 +3,12 @@ package excel
 import (
 	"encoding/xml"
 	"log"
-	"strings"
 )
 
 // shapeParseState は parseShape の SAX パーサー状態
 type shapeParseState struct {
 	inNvSpPr bool
 	inSpPr   bool
-	inTxBody bool
-	inP      bool
-	inR      bool
-	inRPr    bool
-	inDefRPr bool
-	inLn     bool
-	inFill   bool   // solidFill 直下
-	fillCtx  string // "sp", "ln", "rPr", "defRPr"
 }
 
 // parseShape は <sp> 要素を末尾まで読み、ShapeInfo を返す
@@ -26,21 +17,9 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 
 	depth := 1
 	var st shapeParseState
-	var (
-		textParts   []string // 段落ごとのテキスト
-		currentPara strings.Builder
-		runs        []RichTextRun
-		currentRunText strings.Builder
-		currentFont    *parsedFont
-		hasRuns        bool
-
-		// スタイル
-		shapeFill string
-		lineStyle *LineStyle
-		shapeFont *parsedFont
-
-		excelID int
-	)
+	var ts drawingTextState
+	sh := drawingStyleHandler{p: p}
+	var excelID int
 
 	for depth > 0 {
 		tok, err := decoder.Token()
@@ -51,6 +30,19 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 		switch t := tok.(type) {
 		case xml.StartElement:
 			depth++
+
+			// テキスト処理
+			ts.handleStartElement(t, p.includeStyle)
+
+			// スタイル処理（色・線・塗り）
+			if handled, adj := sh.handleStartElement(t, decoder, st.inSpPr, ts.inRPr, ts.inDefRPr, ts.currentFont, ts.shapeFont); handled {
+				depth += adj
+				continue
+			}
+
+			// 矢印処理
+			sh.handleArrow(t, &shape.Arrow)
+
 			switch t.Name.Local {
 			case "nvSpPr":
 				st.inNvSpPr = true
@@ -66,99 +58,10 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 				}
 			case "prstGeom":
 				if st.inSpPr {
-					for _, attr := range t.Attr {
-						if attr.Name.Local == "prst" {
-							shape.Type = attr.Value
-						}
+					if v := attrVal(t, "prst"); v != "" {
+						shape.Type = v
 					}
 				}
-			case "txBody":
-				st.inTxBody = true
-				textParts = nil
-				runs = nil
-				hasRuns = false
-			case "p":
-				if st.inTxBody {
-					st.inP = true
-					currentPara.Reset()
-				}
-			case "r":
-				if st.inP {
-					st.inR = true
-					currentRunText.Reset()
-					currentFont = nil
-					hasRuns = true
-				}
-			case "rPr":
-				if st.inR {
-					st.inRPr = true
-					currentFont = &parsedFont{}
-				}
-			case "defRPr":
-				if st.inP && st.inTxBody && !st.inR {
-					st.inDefRPr = true
-					if p.includeStyle && shapeFont == nil {
-						shapeFont = &parsedFont{}
-					}
-				}
-			case "t":
-				// テキスト要素（処理は CharData で）
-			case "ln":
-				if st.inSpPr {
-					st.inLn = true
-					if p.includeStyle {
-						lineStyle = parseLineWidth(t)
-					}
-				}
-			case "solidFill":
-				st.inFill = true
-				st.fillCtx = determineFillCtx(st.inLn, st.inRPr, st.inDefRPr, st.inSpPr)
-			case "srgbClr":
-				if st.inFill {
-					clr := attrVal(t, "val")
-					clr = p.applyColorMods(decoder, depth, clr)
-					depth-- // applyColorMods が EndElement まで消費
-					p.assignColor(clr, st.fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
-				}
-			case "schemeClr":
-				if st.inFill {
-					clr := p.resolveSchemeColor(attrVal(t, "val"), decoder, depth)
-					depth-- // resolveSchemeColor が EndElement まで消費
-					p.assignColor(clr, st.fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
-				}
-			case "prstDash":
-				if st.inLn && lineStyle != nil {
-					lineStyle.Style = attrVal(t, "val")
-				}
-			case "headEnd":
-				if st.inLn {
-					updateArrow(&shape.Arrow, "head", attrVal(t, "type"))
-				}
-			case "tailEnd":
-				if st.inLn {
-					updateArrow(&shape.Arrow, "tail", attrVal(t, "type"))
-				}
-			// rPr / defRPr 内のフォント属性
-			case "latin", "ea":
-				font := currentFont
-				if st.inDefRPr {
-					font = shapeFont
-				}
-				if font != nil {
-					if v := attrVal(t, "typeface"); v != "" {
-						font.Name = v
-					}
-				}
-			case "sz":
-				// DrawingML では sz は属性ではなく rPr の属性
-			}
-
-			// rPr / defRPr の属性からフォント情報取得
-			if t.Name.Local == "rPr" && st.inR && currentFont != nil {
-				parseDrawingFontAttrs(t, currentFont)
-			}
-			if t.Name.Local == "defRPr" && st.inDefRPr && shapeFont != nil {
-				parseDrawingFontAttrs(t, shapeFont)
 			}
 
 		case xml.EndElement:
@@ -168,61 +71,27 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 				st.inNvSpPr = false
 			case "spPr":
 				st.inSpPr = false
-			case "txBody":
-				st.inTxBody = false
-			case "p":
-				if st.inP {
-					textParts = append(textParts, currentPara.String())
-					st.inP = false
-				}
-			case "r":
-				if st.inR {
-					text := currentRunText.String()
-					currentPara.WriteString(text)
-					run := RichTextRun{Text: text}
-					if currentFont != nil && p.includeStyle {
-						run.Font = richTextFontDiffFromDrawing(currentFont, p.theme)
-					}
-					runs = append(runs, run)
-					st.inR = false
-				}
-			case "rPr":
-				st.inRPr = false
-			case "defRPr":
-				st.inDefRPr = false
-			case "ln":
-				st.inLn = false
-			case "solidFill":
-				st.inFill = false
-				st.fillCtx = ""
 			}
+			ts.handleEndElement(t.Name.Local, p.includeStyle, p.theme)
+			sh.handleEndElement(t.Name.Local)
 
 		case xml.CharData:
-			if st.inP && !st.inR {
-				// 段落直下のテキスト（<a:t> in <a:p> without <a:r>）
-				text := string(t)
-				if strings.TrimSpace(text) != "" {
-					currentPara.Write(t)
-				}
-			}
-			if st.inR {
-				currentRunText.Write(t)
-			}
+			ts.handleCharData(t)
 		}
 	}
 
 	// テキスト・スタイルの組み立て
-	shape.Text = strings.Join(textParts, "\n")
-	if hasRuns && len(runs) > 1 && p.includeStyle {
-		shape.RichText = runs
+	shape.Text = ts.buildText()
+	if ts.hasRuns && len(ts.runs) > 1 && p.includeStyle {
+		shape.RichText = ts.runs
 	}
 	if p.includeStyle {
-		if shapeFill != "" {
-			shape.Fill = shapeFill
+		if sh.shapeFill != "" {
+			shape.Fill = sh.shapeFill
 		}
-		shape.Line = finalizeLineStyle(lineStyle)
-		if shapeFont != nil {
-			shape.Font = buildDrawingFontObj(shapeFont, p.theme)
+		shape.Line = finalizeLineStyle(sh.lineStyle)
+		if ts.shapeFont != nil {
+			shape.Font = buildDrawingFontObj(ts.shapeFont, p.theme)
 		}
 	}
 	p.registerExcelID(excelID, shape.ID)

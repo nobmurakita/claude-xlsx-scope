@@ -12,12 +12,6 @@ type connectorParseState struct {
 	inNvCxnSpPr bool
 	inCxnSpPr   bool // cNvCxnSpPr
 	inSpPr      bool
-	inLn        bool
-	inFill      bool
-	fillCtx     string
-	inTxBody    bool
-	inP         bool
-	inR         bool
 }
 
 // parseConnector は <cxnSp> 要素を末尾まで読み、ShapeInfo を返す
@@ -29,12 +23,15 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 
 	depth := 1
 	var st connectorParseState
+	sh := drawingStyleHandler{p: p}
 	var (
 		textParts   []string
 		currentPara strings.Builder
+		inTxBody    bool
+		inP         bool
+		inR         bool
 
-		lineStyle *LineStyle
-		excelID   int
+		excelID int
 	)
 
 	for depth > 0 {
@@ -46,6 +43,16 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 		switch t := tok.(type) {
 		case xml.StartElement:
 			depth++
+
+			// スタイル処理（色・線・塗り）
+			if handled, adj := sh.handleStartElement(t, decoder, st.inSpPr, false, false, nil, nil); handled {
+				depth += adj
+				continue
+			}
+
+			// 矢印処理
+			sh.handleArrow(t, &shape.Arrow)
+
 			switch t.Name.Local {
 			case "nvCxnSpPr":
 				st.inNvCxnSpPr = true
@@ -81,56 +88,17 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				if st.inSpPr {
 					shape.ConnectorType = attrVal(t, "prst")
 				}
-			case "ln":
-				if st.inSpPr {
-					st.inLn = true
-					if p.includeStyle {
-						lineStyle = parseLineWidth(t)
-					}
-				}
-			case "solidFill":
-				st.inFill = true
-				if st.inLn {
-					st.fillCtx = "ln"
-				} else {
-					st.fillCtx = ""
-				}
-			case "srgbClr":
-				if st.inFill {
-					clr := attrVal(t, "val")
-					clr = p.applyColorMods(decoder, depth, clr)
-					depth--
-					p.assignColor(clr, st.fillCtx, nil, lineStyle, nil, nil)
-				}
-			case "schemeClr":
-				if st.inFill {
-					clr := p.resolveSchemeColor(attrVal(t, "val"), decoder, depth)
-					depth--
-					p.assignColor(clr, st.fillCtx, nil, lineStyle, nil, nil)
-				}
-			case "prstDash":
-				if st.inLn && lineStyle != nil {
-					lineStyle.Style = attrVal(t, "val")
-				}
-			case "headEnd":
-				if st.inLn {
-					updateArrow(&shape.Arrow, "head", attrVal(t, "type"))
-				}
-			case "tailEnd":
-				if st.inLn {
-					updateArrow(&shape.Arrow, "tail", attrVal(t, "type"))
-				}
 			case "txBody":
-				st.inTxBody = true
+				inTxBody = true
 				textParts = nil
 			case "p":
-				if st.inTxBody {
-					st.inP = true
+				if inTxBody {
+					inP = true
 					currentPara.Reset()
 				}
 			case "r":
-				if st.inP {
-					st.inR = true
+				if inP {
+					inR = true
 				}
 			}
 
@@ -143,24 +111,20 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				st.inCxnSpPr = false
 			case "spPr":
 				st.inSpPr = false
-			case "ln":
-				st.inLn = false
-			case "solidFill":
-				st.inFill = false
-				st.fillCtx = ""
 			case "txBody":
-				st.inTxBody = false
+				inTxBody = false
 			case "p":
-				if st.inP {
+				if inP {
 					textParts = append(textParts, currentPara.String())
-					st.inP = false
+					inP = false
 				}
 			case "r":
-				st.inR = false
+				inR = false
 			}
+			sh.handleEndElement(t.Name.Local)
 
 		case xml.CharData:
-			if st.inR || (st.inP && !st.inR) {
+			if inR || (inP && !inR) {
 				text := string(t)
 				if strings.TrimSpace(text) != "" {
 					currentPara.Write(t)
@@ -171,13 +135,10 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 
 	// テキスト
 	shape.Label = strings.Join(textParts, "\n")
-	if shape.Label == "" {
-		shape.Label = ""
-	}
 
 	// スタイル
 	if p.includeStyle {
-		shape.Line = finalizeLineStyle(lineStyle)
+		shape.Line = finalizeLineStyle(sh.lineStyle)
 	}
 
 	// Excel ID マッピング

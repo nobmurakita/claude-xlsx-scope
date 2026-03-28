@@ -9,6 +9,16 @@ import (
 	"strings"
 )
 
+// XML セル値型（worksheet XML の c 要素の t 属性）
+const (
+	vtSharedString = "s"         // 共有文字列
+	vtFormulaStr   = "str"       // 数式の文字列結果
+	vtInlineStr    = "inlineStr" // インライン文字列
+	vtBool         = "b"         // ブール値
+	vtError        = "e"         // エラー値
+	vtNumber       = "n"         // 数値
+)
+
 // RawCell はワークシートXMLから直接パースしたセルデータ。
 // 1回のSAX走査で全属性を取得するため、excelize へのAPIコールが不要。
 type RawCell struct {
@@ -17,8 +27,8 @@ type RawCell struct {
 	Value        string // 共有文字列は解決済み
 	StyleID      int
 	Formula      string
-	ValueType      string // "s", "str", "inlineStr", "b", "e", "n", ""
-	SharedStrIdx int    // 共有文字列のインデックス（ValueType=="s" の場合のみ有効、-1 = 無効）
+	ValueType    string // vtSharedString, vtFormulaStr, vtInlineStr, vtBool, vtError, vtNumber, ""
+	SharedStrIdx int    // 共有文字列のインデックス（ValueType==vtSharedString の場合のみ有効、-1 = 無効）
 }
 
 // StreamSheet はワークシートXMLを自前でSAXパースし、全セル属性を1パスで取得する。
@@ -167,9 +177,9 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				st.inCell = false
 
 				// 値の解決
-				if cell.ValueType == "inlineStr" {
+				if cell.ValueType == vtInlineStr {
 					cell.Value = inlineBuf.String()
-				} else if cell.ValueType == "s" {
+				} else if cell.ValueType == vtSharedString {
 					// 共有文字列のインデックスを解決
 					if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
 						cell.Value = ss.Get(idx)
@@ -180,7 +190,7 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 
 				// 数式
-				if needFormula || cell.ValueType == "str" {
+				if needFormula || cell.ValueType == vtFormulaStr {
 					cell.Formula = formulaBuf.String()
 				} else {
 					// 数式は不要だが、値が数式の結果かどうかの判定用にフラグを保持

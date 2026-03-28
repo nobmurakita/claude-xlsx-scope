@@ -275,16 +275,6 @@ func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {
 
 // buildDrawingFontObj は DrawingML の parsedFont から FontObj を構築する
 func buildDrawingFontObj(font *parsedFont, theme *themeColors) *FontObj {
-	return fontObjFromDrawingFont(font, theme)
-}
-
-// richTextFontDiffFromDrawing は DrawingML の parsedFont から差分フォントを構築する
-func richTextFontDiffFromDrawing(font *parsedFont, theme *themeColors) *FontObj {
-	return fontObjFromDrawingFont(font, theme)
-}
-
-// fontObjFromDrawingFont は DrawingML の parsedFont から FontObj を構築する共通実装
-func fontObjFromDrawingFont(font *parsedFont, theme *themeColors) *FontObj {
 	if font == nil {
 		return nil
 	}

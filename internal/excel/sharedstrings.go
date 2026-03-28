@@ -64,14 +64,14 @@ func parseSharedStringsEntry(f *zip.File) (*sharedStrings, error) {
 
 func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 
-	type state struct {
+	type saxState struct {
 		inSI  bool
 		inR   bool // <r> リッチテキストラン内
 		inRPr bool // <rPr> フォントプロパティ内
 		inRPh bool // <rPh> ルビ内
 		inT   bool // <t> テキスト内
 	}
-	var s state
+	var st saxState
 	var textBuf strings.Builder
 	var runs []richTextRunRaw
 	var currentFont *parsedFont
@@ -90,34 +90,34 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 		case xml.StartElement:
 			switch t.Name.Local {
 			case "si":
-				s.inSI = true
+				st.inSI = true
 				textBuf.Reset()
 				runs = nil
 
 			case "r":
-				if s.inSI && !s.inRPh {
-					s.inR = true
+				if st.inSI && !st.inRPh {
+					st.inR = true
 					currentFont = nil
 					runText.Reset()
 				}
 
 			case "rPr":
-				if s.inR {
-					s.inRPr = true
+				if st.inR {
+					st.inRPr = true
 					currentFont = &parsedFont{}
 				}
 
 			case "rPh":
-				s.inRPh = true
+				st.inRPh = true
 
 			case "t":
-				if s.inSI && !s.inRPh {
-					s.inT = true
+				if st.inSI && !st.inRPh {
+					st.inT = true
 				}
 
 			// rPr 内のフォント属性
 			case "rFont":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					for _, attr := range t.Attr {
 						if attr.Name.Local == "val" {
 							currentFont.Name = attr.Value
@@ -125,7 +125,7 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 					}
 				}
 			case "sz":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					for _, attr := range t.Attr {
 						if attr.Name.Local == "val" {
 							currentFont.Size, _ = strconv.ParseFloat(attr.Value, 64)
@@ -133,19 +133,19 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 					}
 				}
 			case "b":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					currentFont.Bold = true
 				}
 			case "i":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					currentFont.Italic = true
 				}
 			case "strike":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					currentFont.Strike = true
 				}
 			case "u":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					val := "single"
 					for _, attr := range t.Attr {
 						if attr.Name.Local == "val" {
@@ -155,7 +155,7 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 					currentFont.Underline = val
 				}
 			case "color":
-				if s.inRPr && currentFont != nil {
+				if st.inRPr && currentFont != nil {
 					for _, attr := range t.Attr {
 						switch attr.Name.Local {
 						case "rgb":
@@ -178,32 +178,32 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 					item.Runs = runs
 				}
 				ss.items = append(ss.items, item)
-				s.inSI = false
+				st.inSI = false
 
 			case "r":
-				if s.inR {
+				if st.inR {
 					text := runText.String()
 					runs = append(runs, richTextRunRaw{
 						Text: text,
 						Font: currentFont,
 					})
-					s.inR = false
+					st.inR = false
 				}
 
 			case "rPr":
-				s.inRPr = false
+				st.inRPr = false
 
 			case "rPh":
-				s.inRPh = false
+				st.inRPh = false
 
 			case "t":
-				s.inT = false
+				st.inT = false
 			}
 
 		case xml.CharData:
-			if s.inT {
+			if st.inT {
 				textBuf.Write(t)
-				if s.inR {
+				if st.inR {
 					runText.Write(t)
 				}
 			}

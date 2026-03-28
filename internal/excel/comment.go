@@ -42,7 +42,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	// レガシーコメントを読む
 	comments := make(CommentMap)
 	for _, rel := range rels {
-		if strings.Contains(rel.Type, "/comments") {
+		if strings.Contains(rel.Type, relKeywordComments) {
 			commentsPath := resolveRelTarget(xmlPath, rel.Target)
 			parseComments(f.zr, commentsPath, comments)
 		}
@@ -50,7 +50,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 
 	// スレッドコメントを読む
 	for _, rel := range rels {
-		if strings.Contains(rel.Type, "threadedcomments") || strings.Contains(rel.Type, "threadedComments") {
+		if strings.Contains(strings.ToLower(rel.Type), relKeywordThreadedComments) {
 			threadPath := resolveRelTarget(xmlPath, rel.Target)
 			parseThreadedComments(f.zr, threadPath, comments)
 		}
@@ -114,15 +114,13 @@ type commentParseState struct {
 }
 
 func parseCommentsEntry(entry *zip.File, comments CommentMap) {
-	rc, err := entry.Open()
-	if err != nil {
-		log.Printf("[WARN] parseCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
-		return
-	}
-	defer rc.Close()
+	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
+		parseCommentsSAX(decoder, comments)
+		return nil
+	})
+}
 
-	decoder := xml.NewDecoder(rc)
-
+func parseCommentsSAX(decoder *xml.Decoder, comments CommentMap) {
 	var st commentParseState
 	var (
 		authors    []string
@@ -237,15 +235,15 @@ type threadedCommentRaw struct {
 }
 
 func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
-	rc, err := entry.Open()
-	if err != nil {
-		log.Printf("[WARN] parseThreadedCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
-		return
-	}
-	defer rc.Close()
+	var items []threadedCommentRaw
+	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
+		items = parseThreadedCommentsSAX(decoder)
+		return nil
+	})
+	resolveThreadedComments(items, comments)
+}
 
-	decoder := xml.NewDecoder(rc)
-
+func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
 	var items []threadedCommentRaw
 	var current threadedCommentRaw
 	var st threadedCommentState
@@ -257,8 +255,7 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] parseThreadedCommentsEntry: XMLトークン読み取りに失敗: %v", err)
-			return
+			return items
 		}
 
 		switch t := tok.(type) {
@@ -303,10 +300,14 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 			}
 		}
 	}
+	return items
+}
 
-	// personId → 名前のマップを構築（レガシーコメントの著者名を流用）
-	// スレッドコメントの personId は GUID なので、レガシーコメントの著者名と直接対応しない
-	// ただし、同じセルのレガシーコメントの著者名を使う
+// resolveThreadedComments はパース済みスレッドコメントをレガシーコメントに統合する
+func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
+	if len(items) == 0 {
+		return
+	}
 
 	// 親コメントのIDマップ
 	idMap := make(map[string]*threadedCommentRaw, len(items))
@@ -322,19 +323,13 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 		item := &items[i]
 
 		if item.parentID == "" {
-			// 親コメント: レガシーコメントが既にあればそのauthorを保持
 			cd, ok := comments[item.ref]
 			if !ok {
 				cd = &CommentData{}
 				comments[item.ref] = cd
 			}
-			// スレッドコメントのテキストで上書き（より新しい）
 			cd.Text = item.text
-			if item.date != "" {
-				// 日付は親コメントには付けない（thread エントリにのみ）
-			}
 		} else {
-			// 返信: 親コメントのセルを特定
 			parent, ok := idMap[item.parentID]
 			if !ok {
 				continue

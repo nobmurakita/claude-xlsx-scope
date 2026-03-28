@@ -249,13 +249,13 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 	}
 
 	switch raw.ValueType {
-	case "s", "str", "inlineStr":
+	case vtSharedString, vtFormulaStr, vtInlineStr:
 		data.Type = CellTypeString
 		data.Value = raw.Value
 		data.HasValue = raw.Value != ""
 		data.Display = raw.Value
 
-	case "b":
+	case vtBool:
 		data.Type = CellTypeBool
 		data.HasValue = true
 		data.Value = raw.Value == "1" || strings.EqualFold(raw.Value, "true")
@@ -265,13 +265,13 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 			data.Display = "FALSE"
 		}
 
-	case "e":
+	case vtError:
 		data.Type = CellTypeError
 		data.HasValue = true
 		data.Value = raw.Value
 		data.Display = raw.Value
 
-	case "n", "":
+	case vtNumber, "":
 		data.HasValue = true
 		fillNumericOrDate(data, raw.Value, numFmtID, numFmtStr)
 

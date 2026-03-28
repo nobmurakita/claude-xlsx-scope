@@ -62,16 +62,7 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 	// シート情報を構築
 	sheets := make([]SheetInfo, len(wb.Sheets))
 	for i, s := range wb.Sheets {
-		sheetType := "worksheet"
-		if rel, ok := relTypes[s.RID]; ok {
-			if strings.Contains(rel, "chartsheet") {
-				sheetType = "chartsheet"
-			} else if strings.Contains(rel, "dialogsheet") {
-				sheetType = "dialogsheet"
-			} else if strings.Contains(rel, "macrosheetx") {
-				sheetType = "macrosheet"
-			}
-		}
+		sheetType := detectSheetType(relTypes[s.RID])
 		sheets[i] = SheetInfo{
 			Index:  i,
 			Name:   s.Name,
@@ -102,6 +93,20 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 		Sheets:       sheets,
 		DefinedNames: definedNames,
 	}, nil
+}
+
+// detectSheetType はリレーション種別からシートタイプを判定する
+func detectSheetType(relType string) string {
+	switch {
+	case strings.Contains(relType, "chartsheet"):
+		return "chartsheet"
+	case strings.Contains(relType, "dialogsheet"):
+		return "dialogsheet"
+	case strings.Contains(relType, "macrosheetx"):
+		return "macrosheet"
+	default:
+		return "worksheet"
+	}
 }
 
 // relsPathFor は XML パスから対応する .rels ファイルのパスを構築する

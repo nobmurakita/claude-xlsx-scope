@@ -2,7 +2,6 @@ package excel
 
 import (
 	"archive/zip"
-	"encoding/xml"
 	"fmt"
 	"strings"
 )
@@ -115,18 +114,12 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
 func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelationship {
-	data, err := readZipFile(zr, relsPathFor(drawingPath))
-	if err != nil {
+	rels := loadSheetRelsAll(zr, drawingPath)
+	if len(rels) == 0 {
 		return nil
 	}
-
-	var rels xmlRelationships
-	if err := xml.Unmarshal(data, &rels); err != nil {
-		return nil
-	}
-
-	m := make(map[string]xmlRelationship, len(rels.Rels))
-	for _, r := range rels.Rels {
+	m := make(map[string]xmlRelationship, len(rels))
+	for _, r := range rels {
 		m[r.ID] = r
 	}
 	return m
@@ -134,22 +127,12 @@ func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelat
 
 // getDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
 func getDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
-	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
-	if err != nil {
-		return ""
-	}
-
-	var rels xmlRelationships
-	if err := xml.Unmarshal(data, &rels); err != nil {
-		return ""
-	}
-
-	for _, r := range rels.Rels {
-		if strings.Contains(r.Type, "drawing") {
+	rels := loadSheetRelsAll(zr, sheetXMLPath)
+	for _, r := range rels {
+		if strings.Contains(r.Type, relKeywordDrawing) {
 			return r.Target
 		}
 	}
 	return ""
 }
-
 

@@ -2,7 +2,15 @@ package excel
 
 import "encoding/xml"
 
-// workbook.xml のパース用構造体
+// リレーション種別のキーワード（Relationship の Type 属性に含まれる文字列で判定する）
+const (
+	relKeywordDrawing          = "drawing"
+	relKeywordComments         = "/comments"
+	relKeywordThreadedComments = "threadedcomments" // 大文字小文字混在あり、小文字で比較する
+)
+
+// workbook.xml のパース用構造体（複数モジュールで共有）
+// ※ 各パーサー固有の XML 構造体は対応する *_parse.go ファイルに定義
 
 type xmlWorkbook struct {
 	Sheets       []xmlSheet       `xml:"sheets>sheet"`
