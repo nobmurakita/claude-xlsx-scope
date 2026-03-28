@@ -46,15 +46,16 @@ type parsedBorderEdge struct {
 }
 
 type parsedCellXf struct {
-	NumFmtID    int
-	FontID      int
-	FillID      int
-	BorderID    int
-	ApplyFont   bool
-	ApplyFill   bool
-	ApplyBorder bool
-	ApplyAlign  bool
-	Alignment   parsedAlignment
+	NumFmtID     int
+	FontID       int
+	FillID       int
+	BorderID     int
+	ApplyFont    bool
+	ApplyFill    bool
+	ApplyBorder  bool
+	ApplyAlign   bool
+	HasAlignment bool // <alignment> 要素が存在するか
+	Alignment    parsedAlignment
 }
 
 type parsedAlignment struct {
@@ -294,6 +295,7 @@ func parseStyleSheet(data []byte) (*styleSheet, error) {
 			ApplyAlign:  xf.ApplyAlign == "1" || strings.EqualFold(xf.ApplyAlign, "true"),
 		}
 		if xf.Alignment != nil {
+			px.HasAlignment = true
 			px.Alignment = parsedAlignment{
 				Horizontal:   xf.Alignment.Horizontal,
 				Vertical:     xf.Alignment.Vertical,
@@ -401,7 +403,7 @@ func (ss *styleSheet) GetAlignment(styleID int) *parsedAlignment {
 		return nil
 	}
 	xf := ss.cellXfs[styleID]
-	if !xf.ApplyAlign {
+	if !xf.ApplyAlign && !xf.HasAlignment {
 		return nil
 	}
 	a := xf.Alignment
