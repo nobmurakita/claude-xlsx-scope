@@ -175,7 +175,7 @@ func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) {
 	enc.Encode(ri)
 }
 
-func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData) cellOutput {
+func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
 	out := cellOutput{
 		Cell: excel.CellRef(col, row),
 	}
@@ -222,7 +222,9 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData) cellO
 			out.Border = sr.border
 			out.Alignment = sr.alignment
 		}
-		if !dc.f.IsLite() {
+		if raw != nil {
+			out.RichText = dc.f.GetRichTextLite(raw.SharedStrIdx, out.Font, dc.defaultFont)
+		} else {
 			out.RichText = dc.f.GetRichText(dc.sheet, col, row, out.Font, dc.defaultFont)
 		}
 	}
@@ -326,7 +328,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 			lastRow = row
 		}
 
-		out := dc.buildCellOutput(col, row, data)
+		out := dc.buildCellOutput(col, row, data, raw)
 		enc.Encode(out)
 		outputCount++
 		return true

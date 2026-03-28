@@ -136,7 +136,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return false
 		}
 
-		out := dc.buildCellOutput(col, row, data)
+		out := dc.buildCellOutput(col, row, data, raw)
 		enc.Encode(out)
 		outputCount++
 		return true

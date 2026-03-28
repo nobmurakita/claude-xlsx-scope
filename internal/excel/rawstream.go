@@ -12,12 +12,13 @@ import (
 // RawCell はワークシートXMLから直接パースしたセルデータ。
 // 1回のSAX走査で全属性を取得するため、excelize へのAPIコールが不要。
 type RawCell struct {
-	Col     int
-	Row     int
-	Value   string // 共有文字列は解決済み
-	StyleID int
-	Formula string
-	XMLType string // "s", "str", "inlineStr", "b", "e", "n", ""
+	Col          int
+	Row          int
+	Value        string // 共有文字列は解決済み
+	StyleID      int
+	Formula      string
+	XMLType      string // "s", "str", "inlineStr", "b", "e", "n", ""
+	SharedStrIdx int    // 共有文字列のインデックス（XMLType=="s" の場合のみ有効、-1 = 無効）
 }
 
 // StreamSheet はワークシートXMLを自前でSAXパースし、全セル属性を1パスで取得する。
@@ -109,7 +110,7 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 					continue
 				}
 				inCell = true
-				cell = RawCell{Row: currentRow}
+				cell = RawCell{Row: currentRow, SharedStrIdx: -1}
 				valueBuf.Reset()
 				formulaBuf.Reset()
 				inlineBuf.Reset()
@@ -174,6 +175,7 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 					// 共有文字列のインデックスを解決
 					if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
 						cell.Value = ss.Get(idx)
+						cell.SharedStrIdx = idx
 					}
 				} else {
 					cell.Value = valueBuf.String()
