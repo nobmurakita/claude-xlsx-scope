@@ -9,11 +9,15 @@ import (
 	"strings"
 )
 
+// DefaultColWidth は XML に defaultColWidth が未指定の場合に使用する
+// Excel の標準デフォルト列幅（標準フォント8文字幅 + パディング）
+const DefaultColWidth = 9.140625
+
 // SheetMeta はワークシートXMLから直接パースしたシートメタデータ。
 // StreamSheet の前に1パスで取得し、excelize の各種メタデータAPIを置き換える。
 type SheetMeta struct {
 	Dimension     string  // "A1:N27653"
-	DefaultWidth  float64 // デフォルト列幅
+	DefaultWidth  float64 // デフォルト列幅（XML未指定時は 0）
 	DefaultHeight float64 // デフォルト行高
 
 	// sheetPr
@@ -272,6 +276,15 @@ func parseHyperlink(t xml.StartElement, meta *SheetMeta) {
 	if hl.Ref != "" {
 		meta.Hyperlinks = append(meta.Hyperlinks, hl)
 	}
+}
+
+// EffectiveDefaultWidth は実効デフォルト列幅を返す。
+// XML に defaultColWidth がなければ Excel 標準値を返す。
+func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
+	if sm.DefaultWidth > 0 {
+		return sm.DefaultWidth
+	}
+	return DefaultColWidth
 }
 
 // BuildMergeInfo は SheetMeta のマージセル情報から MergeInfo を構築する

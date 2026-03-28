@@ -54,7 +54,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	out := scanOutput{
 		Sheet:         sheet,
-		DefaultWidth:  meta.DefaultWidth,
+		DefaultWidth:  meta.EffectiveDefaultWidth(),
 		DefaultHeight: meta.DefaultHeight,
 	}
 
@@ -64,8 +64,8 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// デフォルトフォント
 	out.DefaultFont = f.DetectDefaultFontLite()
 
-	// 列幅（SheetMeta.Cols から取得）
-	out.ColWidths = collectColWidthsFromMeta(meta, out.DefaultWidth)
+	// 列幅（SheetMeta.Cols からデフォルトと異なるもののみ取得）
+	out.ColWidths = collectColWidthsFromMeta(meta, meta.EffectiveDefaultWidth())
 
 	// dimension で全行走査の要否を判定
 	dim := meta.Dimension
