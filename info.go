@@ -39,7 +39,7 @@ type sheetOutput struct {
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
-	result, err := excel.QuickInfo(args[0])
+	result, err := excel.BookInfo(args[0])
 	if err != nil {
 		return err
 	}

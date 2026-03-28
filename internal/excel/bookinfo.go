@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// QuickInfo は ZIP から直接メタデータを取得する。
+// BookInfo は ZIP から直接メタデータを取得する。
 // info コマンド用の軽量パス。
 
 // SheetInfo はシートの基本情報
@@ -20,8 +20,8 @@ type SheetInfo struct {
 	Hidden bool   `json:"hidden,omitempty"`
 }
 
-// QuickInfoResult は QuickInfo の結果
-type QuickInfoResult struct {
+// BookInfoResult は BookInfo の結果
+type BookInfoResult struct {
 	FileName     string
 	Sheets       []SheetInfo
 	DefinedNames []DefinedNameInfo
@@ -34,8 +34,8 @@ type DefinedNameInfo struct {
 	RefersTo string
 }
 
-// QuickInfo は ZIP から workbook.xml のみを読み、シート一覧と定義名を返す。
-func QuickInfo(path string) (*QuickInfoResult, error) {
+// BookInfo は ZIP から workbook.xml のみを読み、シート一覧と定義名を返す。
+func BookInfo(path string) (*BookInfoResult, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext != ".xlsx" && ext != ".xlsm" {
 		return nil, fmt.Errorf(".xlsx / .xlsm 形式のみ対応しています")
@@ -88,7 +88,7 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 		})
 	}
 
-	return &QuickInfoResult{
+	return &BookInfoResult{
 		FileName:     filepath.Base(path),
 		Sheets:       sheets,
 		DefinedNames: definedNames,
