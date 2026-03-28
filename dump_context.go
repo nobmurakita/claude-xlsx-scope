@@ -95,6 +95,7 @@ type cellOutput struct {
 	Value     any                  `json:"value,omitempty"`
 	Display   string               `json:"display,omitempty"`
 	Type      excel.CellType       `json:"type,omitempty"`
+	Error     bool                 `json:"error,omitempty"`
 	Merge     string               `json:"merge,omitempty"`
 	Formula   string               `json:"formula,omitempty"`
 	Link      *excel.HyperlinkData `json:"link,omitempty"`
@@ -112,15 +113,11 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *
 		Cell: excel.CellRef(col, row),
 	}
 
+	out.Error = data.Error
+
 	switch data.Type {
 	case excel.CellTypeEmpty:
 		// value, type ともに省略
-	case excel.CellTypeError:
-		out.Type = excel.CellTypeError
-		out.Value = data.Value
-		if dc.showFormula {
-			out.Formula = data.Formula
-		}
 	case excel.CellTypeDate:
 		out.Type = excel.CellTypeDate
 		out.Value = data.Value

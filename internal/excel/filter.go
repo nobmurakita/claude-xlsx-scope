@@ -135,9 +135,6 @@ func matchesCachedType(data *CellData, targetType CellType) bool {
 	case CellTypeBool:
 		_, ok := data.Value.(bool)
 		return ok
-	case CellTypeError:
-		s, ok := data.Value.(string)
-		return ok && isErrorValue(s)
 	}
 	return false
 }

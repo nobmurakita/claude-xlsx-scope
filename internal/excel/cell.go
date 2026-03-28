@@ -17,7 +17,6 @@ const (
 	CellTypeBool    CellType = "bool"
 	CellTypeDate    CellType = "date"
 	CellTypeFormula CellType = "formula"
-	CellTypeError   CellType = "error"
 	CellTypeEmpty   CellType = "empty"
 )
 
@@ -44,6 +43,7 @@ type CellData struct {
 	Value     any      // パース済みの値（string, float64, bool, nil）
 	Display   string   // 表示文字列（Value の JSON 表現と同一なら空）
 	Formula   string   // 数式文字列（数式セルの場合のみ）
+	Error     bool     // true: 値がExcelエラー（#N/A, #REF! 等）
 	HasValue  bool     // true: セルに値がある
 	NumFmtID  int      // 数値フォーマットID
 	NumFmtStr string   // カスタム数値フォーマット文字列
@@ -244,6 +244,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		data.Formula = raw.Formula
 		data.Type = CellTypeFormula
 		data.HasValue = true
+		data.Error = raw.ValueType == vtError || isErrorValue(raw.Value)
 		data.Value = parseCachedValue(raw.Value, numFmtID, numFmtStr)
 		data.Display = displayFromCachedValue(data.Value, raw.Value)
 		adjustDisplay(data)
@@ -268,8 +269,9 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		}
 
 	case vtError:
-		data.Type = CellTypeError
+		data.Type = CellTypeString
 		data.HasValue = true
+		data.Error = true
 		data.Value = raw.Value
 		data.Display = raw.Value
 
@@ -293,11 +295,6 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 			data.HasValue = true
 			data.Display = raw.Value
 		}
-	}
-
-	// エラー値の判定
-	if data.Type == CellTypeString && isErrorValue(raw.Value) {
-		data.Type = CellTypeError
 	}
 
 	adjustDisplay(data)

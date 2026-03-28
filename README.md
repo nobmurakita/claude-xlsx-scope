@@ -165,6 +165,7 @@ exceldump search --numeric ">100" 見積計算.xlsx
 | `--range` | セル範囲 | 全体 |
 | `--start` | 開始セル位置。`--range` と排他 | 先頭 |
 | `--style` | 書式情報を出力する | OFF |
+| `--formula` | 数式文字列を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
 
 `--query`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。

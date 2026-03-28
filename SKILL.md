@@ -202,22 +202,22 @@ dump の最初の行に出力。シートのレイアウト基準値を含む。
 
 ### セルの型の判定
 
-`type` フィールドは `date` と `error` のみ出力。他は JSON 値から判定する:
+`type` フィールドは `date` のみ出力。他は JSON 値から判定する:
 
 | 条件 | 型 |
 |------|-----|
-| `value` が JSON 文字列 | string |
+| `value` が JSON 文字列 | string（エラー値 `#N/A`, `#REF!` 等も文字列として出力） |
 | `value` が JSON 数値 | number |
 | `value` が true/false | bool |
 | `formula` フィールドあり | formula（`value` はキャッシュ値） |
 | `value` なし | empty |
 | `type: "date"` | 日付（`value` は ISO 8601: `"2025-03-15"`, `"2025-03-15T10:30:00"`, `"10:30:00"`） |
-| `type: "error"` | エラー（`value` は `#N/A`, `#REF!`, `#VALUE!` 等） |
 
 ### セルの追加フィールド
 
 | フィールド | 出力条件 | 説明 |
 |-----------|---------|------|
+| `error` | 値がExcelエラーの場合 | `true`。`#N/A`, `#REF!` 等のエラー値を文字列と区別する |
 | `merge` | 結合セルの場合 | 結合範囲（例: `"B4:B5"`）。左上セルのみ出力される |
 | `link` | ハイパーリンクがある場合 | `{"url":"https://..."}` または `{"location":"Sheet2!A1"}` |
 | `hidden_col` | 列が非表示の場合 | `true` |
