@@ -136,7 +136,7 @@ cc-read-excel shapes --sheet 0 --extract-images /tmp/images 設計書.xlsx
 ### search — セル値を検索
 
 ```bash
-cc-read-excel search --query "マスタ" 運用シナリオ.xlsx
+cc-read-excel search --text "マスタ" 運用シナリオ.xlsx
 ```
 
 ```jsonl
@@ -158,7 +158,7 @@ cc-read-excel search --numeric ">100" 見積計算.xlsx
 
 | オプション | 説明 | デフォルト |
 |-----------|------|-----------|
-| `--query` | 検索文字列（部分一致、大文字小文字無視） | — |
+| `--text` | 検索文字列（部分一致、大文字小文字無視） | — |
 | `--numeric` | 数値比較（`">100"`, `"100:200"`, `"=42"`） | — |
 | `--type` | 型フィルタ（`string`, `number`, `bool`, `formula`） | — |
 | `--sheet` | 対象シート | 最初のシート |
@@ -168,6 +168,6 @@ cc-read-excel search --numeric ">100" 見積計算.xlsx
 | `--formula` | 数式文字列を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
 
-`--query`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。
+`--text`, `--numeric`, `--type` のうち少なくとも1つが必須。複数指定時は AND 条件。
 
 出力形式やフィールドの詳細は [DESIGN.md](DESIGN.md) を参照。

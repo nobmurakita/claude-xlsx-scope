@@ -10,9 +10,9 @@ import (
 
 func init() {
 	searchCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	searchCmd.Flags().String("query", "", "検索文字列（部分一致）")
+	searchCmd.Flags().String("text", "", "検索文字列（部分一致）")
 	searchCmd.Flags().String("numeric", "", "数値比較（例: \">100\", \"100:200\", \"=42\"）")
-	searchCmd.Flags().String("type", "", "セルの型でフィルタ（string, number, date, bool, formula）")
+	searchCmd.Flags().String("type", "", "セルの型でフィルタ（string, number, bool, formula）")
 	searchCmd.Flags().String("range", "", "セル範囲（例: A1:H20）")
 	searchCmd.Flags().String("start", "", "開始セル位置（例: A51）")
 	searchCmd.Flags().Bool("style", false, "書式情報を出力する")
@@ -30,7 +30,7 @@ var searchCmd = &cobra.Command{
 
 func runSearch(cmd *cobra.Command, args []string) error {
 	sheetFlag, _ := cmd.Flags().GetString("sheet")
-	queryFlag, _ := cmd.Flags().GetString("query")
+	queryFlag, _ := cmd.Flags().GetString("text")
 	numericFlag, _ := cmd.Flags().GetString("numeric")
 	typeFlag, _ := cmd.Flags().GetString("type")
 	rangeFlag, _ := cmd.Flags().GetString("range")
@@ -40,7 +40,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	limit, _ := cmd.Flags().GetInt("limit")
 
 	if queryFlag == "" && numericFlag == "" && typeFlag == "" {
-		return fmt.Errorf("--query, --numeric, --type のうち少なくとも1つを指定してください")
+		return fmt.Errorf("--text, --numeric, --type のうち少なくとも1つを指定してください")
 	}
 
 	scanRange, startCol, startRow, err := parseScanRange(rangeFlag, startFlag)
@@ -88,8 +88,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 }
 
 // buildFilter はフラグからフィルタを構築する
-func buildFilter(query, numeric, typeStr string) (*excel.Filter, error) {
-	filter := &excel.Filter{Query: query}
+func buildFilter(text, numeric, typeStr string) (*excel.Filter, error) {
+	filter := &excel.Filter{Text: text}
 	if numeric != "" {
 		expr, err := excel.ParseNumericExpr(numeric)
 		if err != nil {

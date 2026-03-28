@@ -140,31 +140,31 @@ func TestMatchCell(t *testing.T) {
 		// --query フィルタ
 		{
 			"query display match",
-			Filter{Query: "合計"},
+			Filter{Text: "合計"},
 			CellData{Type: CellTypeString, Value: "小合計", Display: "小合計"},
 			true,
 		},
 		{
 			"query value match",
-			Filter{Query: "100"},
+			Filter{Text: "100"},
 			CellData{Type: CellTypeNumber, Value: 100.0},
 			true,
 		},
 		{
 			"query case insensitive",
-			Filter{Query: "hello"},
+			Filter{Text: "hello"},
 			CellData{Type: CellTypeString, Value: "Hello World", Display: "Hello World"},
 			true,
 		},
 		{
 			"query no match",
-			Filter{Query: "xyz"},
+			Filter{Text: "xyz"},
 			CellData{Type: CellTypeString, Value: "hello", Display: "hello"},
 			false,
 		},
 		{
 			"query bool TRUE",
-			Filter{Query: "TRUE"},
+			Filter{Text: "TRUE"},
 			CellData{Type: CellTypeBool, Value: true},
 			true,
 		},
@@ -198,31 +198,31 @@ func TestMatchCell(t *testing.T) {
 		// AND 結合
 		{
 			"AND query + type match",
-			Filter{Query: "100", Type: CellTypeNumber},
+			Filter{Text: "100", Type: CellTypeNumber},
 			CellData{Type: CellTypeNumber, Value: 100.0},
 			true,
 		},
 		{
 			"AND query match but type mismatch",
-			Filter{Query: "100", Type: CellTypeString},
+			Filter{Text: "100", Type: CellTypeString},
 			CellData{Type: CellTypeNumber, Value: 100.0},
 			false,
 		},
 		{
 			"AND query + numeric both match",
-			Filter{Query: "50", Numeric: &NumericExpr{Op: ">=", Value: 50}},
+			Filter{Text: "50", Numeric: &NumericExpr{Op: ">=", Value: 50}},
 			CellData{Type: CellTypeNumber, Value: 150.0, Display: "150"},
 			true, // query "50" は "150" に部分一致する
 		},
 		{
 			"AND query match but numeric mismatch",
-			Filter{Query: "30", Numeric: &NumericExpr{Op: ">", Value: 100}},
+			Filter{Text: "30", Numeric: &NumericExpr{Op: ">", Value: 100}},
 			CellData{Type: CellTypeNumber, Value: 30.0},
 			false,
 		},
 		{
 			"AND all three match",
-			Filter{Query: "500", Type: CellTypeNumber, Numeric: &NumericExpr{Op: ">=", Value: 100}},
+			Filter{Text: "500", Type: CellTypeNumber, Numeric: &NumericExpr{Op: ">=", Value: 100}},
 			CellData{Type: CellTypeNumber, Value: 500.0},
 			true,
 		},

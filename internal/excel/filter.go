@@ -13,7 +13,7 @@ const numericEpsilon = 1e-9
 // Filter は search コマンドのセル検索条件。
 // Query, Numeric, Type の各条件は AND で結合される。
 type Filter struct {
-	Query   string       // テキスト部分一致（大文字小文字無視）
+	Text    string       // テキスト部分一致（大文字小文字無視）
 	Numeric *NumericExpr // 数値比較条件
 	Type    CellType     // セル型フィルタ（空なら全型）
 }
@@ -88,9 +88,9 @@ func (f *Filter) MatchCell(data *CellData) bool {
 		}
 	}
 
-	// --query フィルタ
-	if f.Query != "" {
-		query := strings.ToLower(f.Query)
+	// --text フィルタ
+	if f.Text != "" {
+		query := strings.ToLower(f.Text)
 		matched := false
 		if data.Display != "" && strings.Contains(strings.ToLower(data.Display), query) {
 			matched = true

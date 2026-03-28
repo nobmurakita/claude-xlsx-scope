@@ -168,7 +168,7 @@ cc-read-excel search [options] <file>
 
 | オプション | 説明 |
 |-----------|------|
-| `--query <text>` | 部分一致検索（大文字小文字無視。display と value の両方を検索） |
+| `--text <text>` | 部分一致検索（大文字小文字無視。display と value の両方を検索） |
 | `--numeric <expr>` | 数値比較。`">100"`, `">=50"`, `"<10"`, `"100:200"`（範囲）, `"=42"`（等値） |
 | `--type <type>` | 型フィルタ: `string`, `number`, `bool`, `formula` |
 
@@ -176,7 +176,7 @@ cc-read-excel search [options] <file>
 
 出力例:
 ```bash
-cc-read-excel search --query "合計" --sheet 0 example.xlsx
+cc-read-excel search --text "合計" --sheet 0 example.xlsx
 ```
 ```jsonl
 {"cell":"A10","value":"合計"}
