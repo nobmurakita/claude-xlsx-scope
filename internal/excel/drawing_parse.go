@@ -52,14 +52,8 @@ type groupContext struct {
 	children []int
 }
 
-func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) (*DrawingResult, error) {
-	rc, err := entry.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	p := &drawingParser{
+func newDrawingParser(theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) *drawingParser {
+	return &drawingParser{
 		theme:        theme,
 		includeStyle: includeStyle,
 		excelIDMap:   make(map[int]int),
@@ -69,6 +63,16 @@ func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, dra
 		zipEntries:   zipEntries,
 		extractDir:   extractDir,
 	}
+}
+
+func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) (*DrawingResult, error) {
+	rc, err := entry.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	p := newDrawingParser(theme, includeStyle, drawingPath, drawingRels, zipEntries, extractDir)
 
 	if err := p.parse(rc); err != nil {
 		return nil, err

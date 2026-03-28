@@ -16,7 +16,7 @@ type connectorParseState struct {
 
 // parseConnector は <cxnSp> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	shape, _ := p.newShapeInfo(ShapeTypeConnector, z, cell, groupStack)
+	shape := p.newShapeInfo(ShapeTypeConnector, z, cell, groupStack)
 
 	var cr connRef
 	cr.shapeIndex = len(p.shapes)

@@ -113,6 +113,7 @@ type commentParseState struct {
 }
 
 func parseCommentsEntry(entry *zip.File, comments CommentMap) {
+	// コメントはベストエフォートで読み取る（読めなくても出力に影響しない補助情報）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		parseCommentsSAX(decoder, comments)
 		return nil
@@ -235,6 +236,7 @@ type threadedCommentRaw struct {
 
 func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 	var items []threadedCommentRaw
+	// スレッドコメントもベストエフォート（レガシーコメントの補助情報）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		items = parseThreadedCommentsSAX(decoder)
 		return nil

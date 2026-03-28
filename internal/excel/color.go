@@ -172,10 +172,18 @@ func applyLuminance(hexColor string, lumMod, lumOff float64) string {
 
 // ---------- テーマカラー解決 ----------
 
+// resolveThemeIndex はテーマインデックスからベースカラーを取得する
+func resolveThemeIndex(idx int, tc *themeColors) string {
+	if tc == nil {
+		return ""
+	}
+	return tc.Get(idx)
+}
+
 // resolveColorLite は自前パーサーのテーマカラーを解決する
 func resolveColorLite(color string, theme *int, tint float64, tc *themeColors) string {
-	if theme != nil && tc != nil {
-		base := tc.Get(*theme)
+	if theme != nil {
+		base := resolveThemeIndex(*theme, tc)
 		if base != "" {
 			if tint != 0 {
 				return applyTint(base, tint)

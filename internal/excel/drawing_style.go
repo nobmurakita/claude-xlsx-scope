@@ -93,8 +93,8 @@ func (cm colorMods) applyTo(base string) string {
 func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, startDepth int) string {
 	idx, ok := schemeColorIndex[scheme]
 	base := ""
-	if ok && p.theme != nil {
-		base = p.theme.Get(idx)
+	if ok {
+		base = resolveThemeIndex(idx, p.theme)
 	}
 
 	cm := collectColorMods(decoder)
@@ -184,7 +184,7 @@ func finalizeLineStyle(ls *LineStyle) *LineStyle {
 }
 
 // newShapeInfo は共通のシェイプ初期化を行う
-func (p *drawingParser) newShapeInfo(shapeType string, z int, cell string, groupStack []groupContext) (ShapeInfo, int) {
+func (p *drawingParser) newShapeInfo(shapeType string, z int, cell string, groupStack []groupContext) ShapeInfo {
 	id := p.nextID
 	p.nextID++
 	shape := ShapeInfo{
@@ -197,7 +197,7 @@ func (p *drawingParser) newShapeInfo(shapeType string, z int, cell string, group
 		parentID := groupStack[len(groupStack)-1].seqID
 		shape.Parent = &parentID
 	}
-	return shape, id
+	return shape
 }
 
 // registerExcelID は Excel ID から連番 ID へのマッピングを登録する
@@ -234,7 +234,7 @@ func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {
 			font.Italic = attr.Value == "1"
 		case "strike":
 			if attr.Value != "" && attr.Value != "noStrike" {
-				font.Strike = true
+				font.Strikethrough = true
 			}
 		case "u":
 			if attr.Value != "" && attr.Value != "none" {
@@ -252,7 +252,7 @@ func buildDrawingFontObj(font *parsedFont, theme *themeColors) *FontObj {
 	obj := &FontObj{
 		Bold:          font.Bold,
 		Italic:        font.Italic,
-		Strikethrough: font.Strike,
+		Strikethrough: font.Strikethrough,
 		Underline:     font.Underline,
 	}
 	if font.Name != "" {

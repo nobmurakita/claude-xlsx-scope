@@ -19,7 +19,7 @@ type parsedFont struct {
 	Size       float64
 	Bold       bool
 	Italic     bool
-	Strike     bool
+	Strikethrough bool
 	Underline  string
 	Color      string // RGB色（ARGBの先頭2バイト除去済み）
 	ColorTheme *int
@@ -222,7 +222,7 @@ func parseStyleSheet(data []byte) (*styleSheet, error) {
 			pf.Italic = xmlBoolTrue(f.I.Val)
 		}
 		if f.Strike != nil {
-			pf.Strike = xmlBoolTrue(f.Strike.Val)
+			pf.Strikethrough = xmlBoolTrue(f.Strike.Val)
 		}
 		if f.U != nil {
 			if f.U.Val == "" {

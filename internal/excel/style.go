@@ -73,7 +73,7 @@ func buildFontObjFromParsed(pf *parsedFont, defaultFont FontInfo, tc *themeColor
 	}
 	obj.Bold = pf.Bold
 	obj.Italic = pf.Italic
-	obj.Strikethrough = pf.Strike
+	obj.Strikethrough = pf.Strikethrough
 	obj.Underline = pf.Underline
 
 	color := resolveColorLite(pf.Color, pf.ColorTheme, pf.ColorTint, tc)

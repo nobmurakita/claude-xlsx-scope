@@ -142,7 +142,7 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 				}
 			case "strike":
 				if st.inRPr && currentFont != nil {
-					currentFont.Strike = true
+					currentFont.Strikethrough = true
 				}
 			case "u":
 				if st.inRPr && currentFont != nil {

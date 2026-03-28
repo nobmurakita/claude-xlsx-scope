@@ -79,11 +79,15 @@ type sheetMetaFullState struct {
 	skipDepth    int // sheetData 内のネスト深さ（スキップ用）
 }
 
-// parseSheetMetaFull はワークシートXML全体をパースし、全メタデータを取得する。
-func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
-	meta := &SheetMeta{
+func newSheetMeta() *SheetMeta {
+	return &SheetMeta{
 		Rows: make(map[int]RowInfo),
 	}
+}
+
+// parseSheetMetaFull はワークシートXML全体をパースし、全メタデータを取得する。
+func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
+	meta := newSheetMeta()
 	err := withZipXML(entry, func(decoder *xml.Decoder) error {
 		var st sheetMetaFullState
 
