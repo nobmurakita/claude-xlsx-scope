@@ -1,34 +1,6 @@
 package excel
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/xuri/excelize/v2"
-)
-
-// ResolveColor はexcelizeのスタイル色情報からHEX RGB文字列を解決する。
-// テーマカラーの場合はRGBに変換し、tint値がある場合は明度を調整する。
-func ResolveColor(color string, theme *int, tint float64, f *excelize.File) string {
-	// GetBaseColor でテーマカラー/インデックスカラーをRGBに解決
-	baseRGB := f.GetBaseColor(color, 0, theme)
-	if baseRGB == "" {
-		if color != "" {
-			return normalizeHexColor(color)
-		}
-		if theme != nil {
-			return fmt.Sprintf("theme:%d", *theme)
-		}
-		return ""
-	}
-
-	// tint値がある場合は excelize.ThemeColor で明度調整
-	if tint != 0 {
-		result := excelize.ThemeColor(baseRGB, tint)
-		return normalizeHexColor(result)
-	}
-	return normalizeHexColor(baseRGB)
-}
+import "strings"
 
 // NormalizeColor はカラー文字列を #RRGGBB 形式に正規化する
 func NormalizeColor(c string) string {
@@ -52,4 +24,24 @@ func normalizeHexColor(c string) string {
 		}
 	}
 	return "#" + strings.ToUpper(c)
+}
+
+// resolveColorLite は自前パーサーのテーマカラーを解決する
+func resolveColorLite(color string, theme *int, tint float64, tc *themeColors) string {
+	if theme != nil && tc != nil {
+		base := tc.Get(*theme)
+		if base != "" {
+			if tint != 0 {
+				return applyTint(base, tint)
+			}
+			return base
+		}
+	}
+	if color != "" {
+		if tint != 0 {
+			return applyTint(color, tint)
+		}
+		return normalizeHexColor(color)
+	}
+	return ""
 }

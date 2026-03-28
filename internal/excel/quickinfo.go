@@ -12,6 +12,14 @@ import (
 // QuickInfo は excelize を使わず ZIP から直接メタデータを取得する。
 // info コマンド用の軽量パス。
 
+// SheetInfo はシートの基本情報
+type SheetInfo struct {
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Hidden bool   `json:"hidden,omitempty"`
+}
+
 // QuickInfoResult は QuickInfo の結果
 type QuickInfoResult struct {
 	FileName     string

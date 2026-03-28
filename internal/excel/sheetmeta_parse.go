@@ -385,7 +385,7 @@ func (sm *SheetMeta) BuildHyperlinkMap(sheetRels map[string]string) HyperlinkMap
 
 // LoadSheetRels はシートのリレーションファイルを読み、rId → target のマップを返す。
 // 主にハイパーリンクの外部URL解決に使用。
-func LoadSheetRels(zr *zip.ReadCloser, sheetXMLPath string) map[string]string {
+func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]string {
 	// xl/worksheets/sheet1.xml → xl/worksheets/_rels/sheet1.xml.rels
 	dir := sheetXMLPath[:strings.LastIndex(sheetXMLPath, "/")+1]
 	base := sheetXMLPath[strings.LastIndex(sheetXMLPath, "/")+1:]

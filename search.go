@@ -59,12 +59,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		filter.Type = excel.CellType(typeFlag)
 	}
 
-	f, err := excel.OpenFileLite(args[0])
+	f, err := excel.OpenFile(args[0])
 	if err != nil {
 		return err
 	}
 
-	sheet, err := f.ResolveSheetLite(sheetFlag)
+	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {
 		return err
 	}

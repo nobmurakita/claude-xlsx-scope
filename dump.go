@@ -79,41 +79,26 @@ type styleResult struct {
 }
 
 func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*dumpContext, error) {
+	meta, err := f.LoadSheetMeta(sheet)
+	if err != nil {
+		return nil, err
+	}
+
 	dc := &dumpContext{
 		f:              f,
 		sheet:          sheet,
+		sheetMeta:      meta,
+		defaultHeight:  meta.DefaultHeight,
+		mergeInfo:      meta.BuildMergeInfo(),
+		hyperlinks:     meta.BuildHyperlinkMap(f.LoadSheetRels(sheet)),
 		showStyle:      showStyle,
 		showFormula:    showFormula,
 		hiddenColCache: make(map[int]bool),
 		styleCache:     make(map[int]*styleResult),
 	}
 
-	if f.IsLite() {
-		// lite モード: SheetMeta からメタデータを取得
-		meta, err := f.LoadSheetMetaLite(sheet)
-		if err != nil {
-			return nil, err
-		}
-		dc.sheetMeta = meta
-		dc.defaultHeight = meta.DefaultHeight
-		dc.mergeInfo = meta.BuildMergeInfo()
-		dc.hyperlinks = meta.BuildHyperlinkMap(f.LoadSheetRelsLite(sheet))
-		if showStyle {
-			dc.defaultFont = f.DetectDefaultFontLite()
-		}
-	} else {
-		// excelize モード
-		_, _, defaultHeight, _ := f.GetSheetMeta(sheet)
-		dc.defaultHeight = defaultHeight
-		mergeInfo, err := f.LoadMergeInfo(sheet)
-		if err != nil {
-			return nil, err
-		}
-		dc.mergeInfo = mergeInfo
-		dc.hyperlinks = f.LoadHyperlinks(sheet)
-		if showStyle {
-			dc.defaultFont = f.DetectDefaultFont(sheet, excel.CellRange{})
-		}
+	if showStyle {
+		dc.defaultFont = f.DetectDefaultFont()
 	}
 
 	return dc, nil
@@ -131,8 +116,6 @@ func (dc *dumpContext) isHiddenCol(col int) bool {
 				break
 			}
 		}
-	} else {
-		hidden = dc.f.IsHiddenCol(dc.sheet, col)
 	}
 	dc.hiddenColCache[col] = hidden
 	return hidden
@@ -145,37 +128,25 @@ func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
 	if cached, ok := dc.styleCache[styleID]; ok {
 		return cached
 	}
-	var result *styleResult
-	if dc.f.IsLite() {
-		font, fill, border, alignment := dc.f.StyleByIDLite(styleID, dc.defaultFont)
-		result = &styleResult{font: font, fill: fill, border: border, alignment: alignment}
-	} else {
-		font, fill, border, alignment, _ := dc.f.StyleByID(styleID, dc.defaultFont)
-		result = &styleResult{font: font, fill: fill, border: border, alignment: alignment}
-	}
+	font, fill, border, alignment := dc.f.StyleByID(styleID, dc.defaultFont)
+	result := &styleResult{font: font, fill: fill, border: border, alignment: alignment}
 	dc.styleCache[styleID] = result
 	return result
 }
 
 func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) {
-	ri := rowOutput{Row: row}
-	if dc.sheetMeta != nil {
-		if info, ok := dc.sheetMeta.Rows[row]; ok {
-			if info.Height != dc.defaultHeight {
-				ri.Height = info.Height
-			}
-			ri.Hidden = info.Hidden
-		}
-	} else {
-		h, err := dc.f.GetRowHeight(dc.sheet, row)
-		if err == nil && h != dc.defaultHeight {
-			ri.Height = h
-		}
-		if dc.f.IsHiddenRow(dc.sheet, row) {
-			ri.Hidden = true
-		}
+	if dc.sheetMeta == nil {
+		return
 	}
-	// height も hidden もデフォルトなら行情報を省略
+	info, ok := dc.sheetMeta.Rows[row]
+	if !ok {
+		return
+	}
+	ri := rowOutput{Row: row}
+	if info.Height != dc.defaultHeight {
+		ri.Height = info.Height
+	}
+	ri.Hidden = info.Hidden
 	if ri.Height == 0 && !ri.Hidden {
 		return
 	}
@@ -230,9 +201,7 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *
 			out.Alignment = sr.alignment
 		}
 		if raw != nil {
-			out.RichText = dc.f.GetRichTextLite(raw.SharedStrIdx, out.Font, dc.defaultFont)
-		} else {
-			out.RichText = dc.f.GetRichText(dc.sheet, col, row, out.Font, dc.defaultFont)
+			out.RichText = dc.f.GetRichText(raw.SharedStrIdx, out.Font, dc.defaultFont)
 		}
 	}
 
@@ -252,12 +221,12 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--range と --start は同時に指定できません")
 	}
 
-	f, err := excel.OpenFileLite(args[0])
+	f, err := excel.OpenFile(args[0])
 	if err != nil {
 		return err
 	}
 
-	sheet, err := f.ResolveSheetLite(sheetFlag)
+	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {
 		return err
 	}

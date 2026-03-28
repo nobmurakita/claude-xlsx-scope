@@ -29,12 +29,12 @@ type scanOutput struct {
 func runScan(cmd *cobra.Command, args []string) error {
 	sheetFlag, _ := cmd.Flags().GetString("sheet")
 
-	f, err := excel.OpenFileLite(args[0])
+	f, err := excel.OpenFile(args[0])
 	if err != nil {
 		return err
 	}
 
-	sheet, err := f.ResolveSheetLite(sheetFlag)
+	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	out := scanOutput{Sheet: sheet}
 
 	// dimension があればそのまま使用、なければフルスキャン
-	dim := f.LoadDimensionLite(sheet)
+	dim := f.LoadDimension(sheet)
 	if dim != "" && dim != "A1:A1" {
 		out.UsedRange = dim
 	} else {
