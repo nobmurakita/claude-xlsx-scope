@@ -22,6 +22,18 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 scan は used_range の取得に特化。cells の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → cells で直接データ取得も可能。
 図形がある場合は shapes で構造を把握する。画像を確認するには `--extract-images <dir>` で抽出し、出力の `image.path` を Read ツールで読む。
 
+**書式情報（`--style`）の取得判断:**
+
+罫線・背景色・フォント等の書式情報はデフォルトでは出力されない。書式がレイアウトの理解に必要かどうかは実際に見るまで判断できないため、各シートの初回 cells 取得時は `--style` をつけて取得し、書式の有無を確認する。書式が構造の把握に不要と判断したシートでは、以降は `--style` を外して取得する。
+
+**大量データの取得戦略:**
+
+used_range が広いシートでは、まず `--range` で必要な領域を絞って取得する。全体が必要な場合は `--limit`（デフォルト1000）で分割し、`--start` でページングする。
+
+**空セルの扱い（`--include-empty`）:**
+
+デフォルトでは空セルは出力されない。表形式のデータで空セルの位置（どの列が空か）が重要な場合は `--include-empty` をつけて取得する。
+
 ## コマンドリファレンス
 
 ### info
@@ -50,10 +62,8 @@ cc-read-excel scan --sheet <name|index> <file>
 {"sheet":"機能一覧","used_range":"A1:H200","has_drawings":true}
 ```
 
-- `used_range`: シートのデータ使用範囲
+- `used_range`: シートのデータ使用範囲。空シートの場合は省略
 - `has_drawings`: 図形が存在する場合のみ `true`。`shapes` コマンドを使うべきか判断に使う
-- dimension（XML属性）があれば即座に返す（数十ms）。なければ全セル走査で算出
-- dimension なし（Google Sheets 由来等）で空シートの場合は `used_range` を省略
 
 ### cells
 
@@ -78,7 +88,6 @@ cc-read-excel cells [options] <file>
 {"cell":"A1","value":"項目名"}
 {"cell":"B1","value":"数量"}
 {"cell":"C1","value":"単価"}
-{"_row":2}
 {"cell":"A2","value":"商品A","merge":"A2:A3"}
 {"cell":"B2","value":100}
 ```
@@ -87,7 +96,7 @@ cc-read-excel cells [options] <file>
 
 | フィールド | 説明 |
 |-----------|------|
-| `default_width` | デフォルト列幅（未指定時は Excel 標準値 9.14） |
+| `default_width` | デフォルト列幅 |
 | `default_height` | デフォルト行高 |
 | `col_widths` | デフォルトと異なる列幅のマップ |
 
@@ -143,7 +152,7 @@ cc-read-excel shapes [options] <file>
 
 **図形種別:**
 
-- シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision`, `flowChartTerminator` 等（`a:prstGeom` の `prst` 値）
+- シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision`, `flowChartTerminator` 等
 - コネクタ: `type` は常に `"connector"`。`from`/`to` で接続先の図形IDを参照。`connector_type` でコネクタ形状
 - グループ: `type` は `"group"`。`children` に子要素ID配列。子要素は `parent` で親を参照
 - 画像: `type` は `"picture"`。`--extract-images` 未指定時はスキップされる
