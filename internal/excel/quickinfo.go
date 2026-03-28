@@ -140,6 +140,17 @@ func relsPathFor(xmlPath string) string {
 	return dir + "_rels/" + base + ".rels"
 }
 
+// withZipXML は ZIP エントリを開いて xml.Decoder を渡し、終了後にクローズする。
+// SAX パーサーの共通ボイラープレートを吸収する。
+func withZipXML(entry *zip.File, fn func(decoder *xml.Decoder) error) error {
+	rc, err := entry.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	return fn(xml.NewDecoder(rc))
+}
+
 // findZipEntry は ZIP 内の指定パスのエントリを探す
 func findZipEntry(zr *zip.ReadCloser, name string) *zip.File {
 	for _, f := range zr.File {

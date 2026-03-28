@@ -52,14 +52,17 @@ func parseSharedStringsFromZip(zr *zip.ReadCloser) (*sharedStrings, error) {
 }
 
 func parseSharedStringsEntry(f *zip.File) (*sharedStrings, error) {
-	rc, err := f.Open()
+	ss := &sharedStrings{}
+	err := withZipXML(f, func(decoder *xml.Decoder) error {
+		return parseSharedStringsSAX(decoder, ss)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	return ss, nil
+}
 
-	ss := &sharedStrings{}
-	decoder := xml.NewDecoder(rc)
+func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 
 	type state struct {
 		inSI  bool
@@ -80,7 +83,7 @@ func parseSharedStringsEntry(f *zip.File) (*sharedStrings, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		switch t := tok.(type) {
@@ -207,5 +210,5 @@ func parseSharedStringsEntry(f *zip.File) (*sharedStrings, error) {
 		}
 	}
 
-	return ss, nil
+	return nil
 }

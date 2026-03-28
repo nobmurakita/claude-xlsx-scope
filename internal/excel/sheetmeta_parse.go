@@ -15,28 +15,21 @@ import (
 const DefaultColWidth = 9.140625
 
 // SheetMeta はワークシートXMLから直接パースしたシートメタデータ。
-// StreamSheet の前に1パスで取得し、excelize の各種メタデータAPIを置き換える。
+// LoadSheetMeta / LoadSheetMetaQuick で取得する。
 type SheetMeta struct {
-	Dimension     string  // "A1:N27653"
-	DefaultWidth  float64 // デフォルト列幅（XML未指定時は 0）
-	DefaultHeight float64 // デフォルト行高
+	Dimension     string  // dimension 属性（例: "A1:N27653"）
+	DefaultWidth  float64 // デフォルト列幅（XML未指定時は 0、EffectiveDefaultWidth で標準値を取得）
+	DefaultHeight float64 // デフォルト行高（ポイント単位）
 
-	// sheetPr
+	// sheetPr のタブ色（テーマ参照・tint 付き）
 	TabColorRGB   string
 	TabColorTheme *int
 	TabColorTint  float64
 
-	// 列情報
-	Cols []ColInfo
-
-	// 行情報（高さ・非表示）
-	Rows map[int]RowInfo
-
-	// マージセル
-	MergeCells []MergeCellRange
-
-	// ハイパーリンク（内部リンク = location のみ。外部リンクは rels で解決）
-	Hyperlinks []HyperlinkEntry
+	Cols       []ColInfo        // 列幅・非表示等の列定義
+	Rows       map[int]RowInfo  // 行高・非表示（デフォルトと異なる行のみ）
+	MergeCells []MergeCellRange // マージセル定義
+	Hyperlinks []HyperlinkEntry // ハイパーリンク（外部リンクは rels で URL 解決）
 }
 
 // ColInfo はワークシートの列定義
@@ -73,7 +66,7 @@ func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
 	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return parseSheetMeta(entry, false)
+	return parseSheetMetaFull(entry)
 }
 
 // LoadSheetMetaQuick はワークシートXMLの先頭部分（sheetData の前）のみを読む軽量版。
@@ -83,137 +76,207 @@ func LoadSheetMetaQuick(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) 
 	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return parseSheetMeta(entry, true)
+	return parseSheetMetaQuick(entry)
 }
 
-func parseSheetMeta(entry *zip.File, quickMode bool) (*SheetMeta, error) {
-	rc, err := entry.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
+// parseSheetMetaQuick は sheetData の前の要素のみを読む軽量パーサー。
+// sheetData に到達した時点で即座に返す。
+func parseSheetMetaQuick(entry *zip.File) (*SheetMeta, error) {
 	meta := &SheetMeta{
 		Rows: make(map[int]RowInfo),
 	}
-	decoder := xml.NewDecoder(rc)
+	err := withZipXML(entry, func(decoder *xml.Decoder) error {
+		var (
+			inCols    bool
+			inSheetPr bool
+		)
 
-	var (
-		inSheetData  bool
-		inMergeCells bool
-		inHyperlinks bool
-		inCols       bool
-		inSheetPr    bool
-		skipDepth    int // sheetData 内のネスト深さ（スキップ用）
-	)
+		for {
+			tok, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
 
-	for {
-		tok, err := decoder.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		switch t := tok.(type) {
-		case xml.StartElement:
-			if inSheetData {
-				if quickMode {
-					// quickMode: sheetData に入ったら終了
-					return meta, nil
-				}
-				skipDepth++
-				// sheetData 内では行の属性だけ取得する
-				if t.Name.Local == "row" {
-					parseRowMeta(t, meta)
+			se, ok := tok.(xml.StartElement)
+			if !ok {
+				if ee, ok := tok.(xml.EndElement); ok {
+					switch ee.Name.Local {
+					case "sheetPr":
+						inSheetPr = false
+					case "cols":
+						inCols = false
+					}
 				}
 				continue
 			}
 
-			switch t.Name.Local {
+			switch se.Name.Local {
+			case "sheetData":
+				// sheetData に到達したら終了
+				return nil
 			case "dimension":
-				for _, attr := range t.Attr {
-					if attr.Name.Local == "ref" {
-						meta.Dimension = attr.Value
-					}
-				}
-
+				parseMetaDimension(se, meta)
 			case "sheetPr":
 				inSheetPr = true
-
 			case "tabColor":
 				if inSheetPr {
-					parseTabColor(t, meta)
+					parseTabColor(se, meta)
 				}
-
 			case "sheetFormatPr":
-				for _, attr := range t.Attr {
-					switch attr.Name.Local {
-					case "defaultColWidth":
-						meta.DefaultWidth, _ = strconv.ParseFloat(attr.Value, 64)
-					case "defaultRowHeight":
-						meta.DefaultHeight, _ = strconv.ParseFloat(attr.Value, 64)
-					}
-				}
-
+				parseMetaFormatPr(se, meta)
 			case "cols":
 				inCols = true
-
 			case "col":
 				if inCols {
-					parseColInfo(t, meta)
+					parseColInfo(se, meta)
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// parseSheetMetaFull はワークシートXML全体をパースし、全メタデータを取得する。
+func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
+	meta := &SheetMeta{
+		Rows: make(map[int]RowInfo),
+	}
+	err := withZipXML(entry, func(decoder *xml.Decoder) error {
+		var (
+			inSheetData  bool
+			inMergeCells bool
+			inHyperlinks bool
+			inCols       bool
+			inSheetPr    bool
+			skipDepth    int // sheetData 内のネスト深さ（スキップ用）
+		)
+
+		for {
+			tok, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+
+			switch t := tok.(type) {
+			case xml.StartElement:
+				if inSheetData {
+					skipDepth++
+					// sheetData 内では行の属性だけ取得する
+					if t.Name.Local == "row" {
+						parseRowMeta(t, meta)
+					}
+					continue
 				}
 
-			case "sheetData":
-				inSheetData = true
-				skipDepth = 0
+				switch t.Name.Local {
+				case "dimension":
+					parseMetaDimension(t, meta)
 
-			case "mergeCells":
-				inMergeCells = true
+				case "sheetPr":
+					inSheetPr = true
 
-			case "mergeCell":
-				if inMergeCells {
-					for _, attr := range t.Attr {
-						if attr.Name.Local == "ref" {
-							meta.MergeCells = append(meta.MergeCells, MergeCellRange{Ref: attr.Value})
+				case "tabColor":
+					if inSheetPr {
+						parseTabColor(t, meta)
+					}
+
+				case "sheetFormatPr":
+					parseMetaFormatPr(t, meta)
+
+				case "cols":
+					inCols = true
+
+				case "col":
+					if inCols {
+						parseColInfo(t, meta)
+					}
+
+				case "sheetData":
+					inSheetData = true
+					skipDepth = 0
+
+				case "mergeCells":
+					inMergeCells = true
+
+				case "mergeCell":
+					if inMergeCells {
+						for _, attr := range t.Attr {
+							if attr.Name.Local == "ref" {
+								meta.MergeCells = append(meta.MergeCells, MergeCellRange{Ref: attr.Value})
+							}
 						}
+					}
+
+				case "hyperlinks":
+					inHyperlinks = true
+
+				case "hyperlink":
+					if inHyperlinks {
+						parseHyperlink(t, meta)
 					}
 				}
 
-			case "hyperlinks":
-				inHyperlinks = true
-
-			case "hyperlink":
-				if inHyperlinks {
-					parseHyperlink(t, meta)
+			case xml.EndElement:
+				if inSheetData {
+					if t.Name.Local == "sheetData" {
+						inSheetData = false
+					} else {
+						skipDepth--
+					}
+					continue
 				}
-			}
 
-		case xml.EndElement:
-			if inSheetData {
-				if t.Name.Local == "sheetData" {
-					inSheetData = false
-				} else {
-					skipDepth--
+				switch t.Name.Local {
+				case "sheetPr":
+					inSheetPr = false
+				case "cols":
+					inCols = false
+				case "mergeCells":
+					inMergeCells = false
+				case "hyperlinks":
+					inHyperlinks = false
 				}
-				continue
-			}
-
-			switch t.Name.Local {
-			case "sheetPr":
-				inSheetPr = false
-			case "cols":
-				inCols = false
-			case "mergeCells":
-				inMergeCells = false
-			case "hyperlinks":
-				inHyperlinks = false
 			}
 		}
-	}
 
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	return meta, nil
+}
+
+// parseMetaDimension は dimension 要素からレンジ文字列を取得する
+func parseMetaDimension(t xml.StartElement, meta *SheetMeta) {
+	for _, attr := range t.Attr {
+		if attr.Name.Local == "ref" {
+			meta.Dimension = attr.Value
+		}
+	}
+}
+
+// parseMetaFormatPr は sheetFormatPr 要素からデフォルト幅・高さを取得する
+func parseMetaFormatPr(t xml.StartElement, meta *SheetMeta) {
+	for _, attr := range t.Attr {
+		switch attr.Name.Local {
+		case "defaultColWidth":
+			meta.DefaultWidth, _ = strconv.ParseFloat(attr.Value, 64)
+		case "defaultRowHeight":
+			meta.DefaultHeight, _ = strconv.ParseFloat(attr.Value, 64)
+		}
+	}
 }
 
 func parseRowMeta(t xml.StartElement, meta *SheetMeta) {

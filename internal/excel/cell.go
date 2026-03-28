@@ -25,16 +25,17 @@ const (
 // この値を超える場合、FormatFloat の結果が不正確になりうる。
 const maxExactIntFloat = 1e15
 
-// CellData はセルから読み取った値情報
+// CellData はセルから読み取った値情報。
+// RawCell を RawCellToCellData() で変換して得る。
 type CellData struct {
-	Type      CellType
-	Value     any
-	Display   string
-	Formula   string
-	HasValue  bool
-	NumFmtID  int
-	NumFmtStr string
-	StyleID   int // getCellStyle でのキャッシュキーとして再利用
+	Type      CellType // セル値の型
+	Value     any      // パース済みの値（string, float64, bool, nil）
+	Display   string   // 表示文字列（Value の JSON 表現と同一なら空）
+	Formula   string   // 数式文字列（数式セルの場合のみ）
+	HasValue  bool     // true: セルに値がある
+	NumFmtID  int      // 数値フォーマットID
+	NumFmtStr string   // カスタム数値フォーマット文字列
+	StyleID   int      // スタイルID
 }
 
 
@@ -129,7 +130,9 @@ func excelDateToTime(serial float64) (time.Time, error) {
 	return t, nil
 }
 
-func parseCachedValueOld(rawValue string, numFmtID int, numFmtStr string) any {
+// parseCachedValue は数式セルのキャッシュ値をパースする。
+// エラー値・数値（日付判定含む）・ブール・文字列の順で判定する。
+func parseCachedValue(rawValue string, numFmtID int, numFmtStr string) any {
 	if rawValue == "" {
 		return nil
 	}
@@ -226,7 +229,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		data.Formula = raw.Formula
 		data.Type = CellTypeFormula
 		data.HasValue = true
-		data.Value = parseCachedValueRaw(raw.Value, numFmtID, numFmtStr)
+		data.Value = parseCachedValue(raw.Value, numFmtID, numFmtStr)
 		data.Display = displayFromCachedValue(data.Value, raw.Value)
 		adjustDisplay(data)
 		return data
@@ -309,25 +312,3 @@ func displayFromCachedValue(value any, rawValue string) string {
 	return rawValue
 }
 
-// parseCachedValueRaw は RawCell 用のキャッシュ値パーサー
-func parseCachedValueRaw(rawValue string, numFmtID int, numFmtStr string) any {
-	if rawValue == "" {
-		return nil
-	}
-	if isErrorValue(rawValue) {
-		return rawValue
-	}
-	if _, err := strconv.ParseFloat(rawValue, 64); err == nil {
-		if isDateFormat(numFmtID, numFmtStr) {
-			return parseDate(rawValue)
-		}
-		return parseNumber(rawValue)
-	}
-	if rawValue == "TRUE" || rawValue == "true" {
-		return true
-	}
-	if rawValue == "FALSE" || rawValue == "false" {
-		return false
-	}
-	return rawValue
-}

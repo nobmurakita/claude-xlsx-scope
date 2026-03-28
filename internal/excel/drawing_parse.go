@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"encoding/xml"
 	"io"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 type drawingParser struct {
 	theme        *themeColors
 	includeStyle bool
+	warnings     *ParseWarnings
 
 	// 結果
 	shapes    []ShapeInfo
@@ -62,6 +62,7 @@ func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, dra
 	p := &drawingParser{
 		theme:        theme,
 		includeStyle: includeStyle,
+		warnings:     &ParseWarnings{},
 		excelIDMap:   make(map[int]int),
 		nextID:       1,
 		drawingPath:  drawingPath,
@@ -76,6 +77,9 @@ func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, dra
 
 	// コネクタの接続先を解決
 	p.resolveConnectors()
+
+	// 収集した警告を出力
+	p.warnings.Flush()
 
 	return &DrawingResult{
 		Meta: ShapesMeta{
@@ -296,7 +300,7 @@ func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) (col, row int) {
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			log.Printf("[WARN] parseAnchorPos: XMLトークン読み取りに失敗: %v", err)
+			p.warnings.Add("parseAnchorPos: XMLトークン読み取りに失敗: %v", err)
 			return 0, 0
 		}
 		switch t := tok.(type) {

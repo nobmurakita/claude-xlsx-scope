@@ -2,28 +2,30 @@ package excel
 
 import (
 	"encoding/xml"
-	"log"
-	"strconv"
 	"strings"
 )
+
+// shapeParseState は parseShape の SAX パーサー状態
+type shapeParseState struct {
+	inNvSpPr bool
+	inSpPr   bool
+	inTxBody bool
+	inP      bool
+	inR      bool
+	inRPr    bool
+	inDefRPr bool
+	inLn     bool
+	inFill   bool   // solidFill 直下
+	fillCtx  string // "sp", "ln", "rPr", "defRPr"
+}
 
 // parseShape は <sp> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
 	shape, _ := p.newShapeInfo("customShape", z, cell, groupStack)
 
 	depth := 1
+	var st shapeParseState
 	var (
-		inNvSpPr  bool
-		inSpPr    bool
-		inTxBody  bool
-		inP       bool
-		inR       bool
-		inRPr     bool
-		inDefRPr  bool
-		inLn      bool
-		inFill    bool // solidFill 直下
-		fillCtx   string // "sp", "ln", "rPr", "defRPr"
-
 		textParts   []string // 段落ごとのテキスト
 		currentPara strings.Builder
 		runs        []RichTextRun
@@ -42,7 +44,7 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			log.Printf("[WARN] parseShape: XMLトークン読み取りに失敗: %v", err)
+			p.warnings.Add("parseShape: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -50,26 +52,19 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 			depth++
 			switch t.Name.Local {
 			case "nvSpPr":
-				inNvSpPr = true
+				st.inNvSpPr = true
 			case "cNvPr":
-				if inNvSpPr {
-					for _, attr := range t.Attr {
-						switch attr.Name.Local {
-						case "name":
-							shape.Name = attr.Value
-						case "id":
-							excelID, _ = strconv.Atoi(attr.Value)
-						}
-					}
+				if st.inNvSpPr {
+					shape.Name, excelID = parseCNvPr(t)
 				}
 			case "spPr":
-				inSpPr = true
+				st.inSpPr = true
 			case "xfrm":
-				if inSpPr {
+				if st.inSpPr {
 					shape.Rotation, shape.Flip = parseXfrm(t)
 				}
 			case "prstGeom":
-				if inSpPr {
+				if st.inSpPr {
 					for _, attr := range t.Attr {
 						if attr.Name.Local == "prst" {
 							shape.Type = attr.Value
@@ -77,30 +72,30 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 					}
 				}
 			case "txBody":
-				inTxBody = true
+				st.inTxBody = true
 				textParts = nil
 				runs = nil
 				hasRuns = false
 			case "p":
-				if inTxBody {
-					inP = true
+				if st.inTxBody {
+					st.inP = true
 					currentPara.Reset()
 				}
 			case "r":
-				if inP {
-					inR = true
+				if st.inP {
+					st.inR = true
 					currentRunText.Reset()
 					currentFont = nil
 					hasRuns = true
 				}
 			case "rPr":
-				if inR {
-					inRPr = true
+				if st.inR {
+					st.inRPr = true
 					currentFont = &parsedFont{}
 				}
 			case "defRPr":
-				if inP && inTxBody && !inR {
-					inDefRPr = true
+				if st.inP && st.inTxBody && !st.inR {
+					st.inDefRPr = true
 					if p.includeStyle && shapeFont == nil {
 						shapeFont = &parsedFont{}
 					}
@@ -108,44 +103,44 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 			case "t":
 				// テキスト要素（処理は CharData で）
 			case "ln":
-				if inSpPr {
-					inLn = true
+				if st.inSpPr {
+					st.inLn = true
 					if p.includeStyle {
 						lineStyle = parseLineWidth(t)
 					}
 				}
 			case "solidFill":
-				inFill = true
-				fillCtx = determineFillCtx(inLn, inRPr, inDefRPr, inSpPr)
+				st.inFill = true
+				st.fillCtx = determineFillCtx(st.inLn, st.inRPr, st.inDefRPr, st.inSpPr)
 			case "srgbClr":
-				if inFill {
+				if st.inFill {
 					clr := attrVal(t, "val")
 					clr = p.applyColorMods(decoder, depth, clr)
 					depth-- // applyColorMods が EndElement まで消費
-					p.assignColor(clr, fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
+					p.assignColor(clr, st.fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
 				}
 			case "schemeClr":
-				if inFill {
+				if st.inFill {
 					clr := p.resolveSchemeColor(attrVal(t, "val"), decoder, depth)
 					depth-- // resolveSchemeColor が EndElement まで消費
-					p.assignColor(clr, fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
+					p.assignColor(clr, st.fillCtx, &shapeFill, lineStyle, currentFont, shapeFont)
 				}
 			case "prstDash":
-				if inLn && lineStyle != nil {
+				if st.inLn && lineStyle != nil {
 					lineStyle.Style = attrVal(t, "val")
 				}
 			case "headEnd":
-				if inLn {
+				if st.inLn {
 					updateArrow(&shape.Arrow, "head", attrVal(t, "type"))
 				}
 			case "tailEnd":
-				if inLn {
+				if st.inLn {
 					updateArrow(&shape.Arrow, "tail", attrVal(t, "type"))
 				}
 			// rPr / defRPr 内のフォント属性
 			case "latin", "ea":
 				font := currentFont
-				if inDefRPr {
+				if st.inDefRPr {
 					font = shapeFont
 				}
 				if font != nil {
@@ -158,10 +153,10 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 			}
 
 			// rPr / defRPr の属性からフォント情報取得
-			if t.Name.Local == "rPr" && inR && currentFont != nil {
+			if t.Name.Local == "rPr" && st.inR && currentFont != nil {
 				parseDrawingFontAttrs(t, currentFont)
 			}
-			if t.Name.Local == "defRPr" && inDefRPr && shapeFont != nil {
+			if t.Name.Local == "defRPr" && st.inDefRPr && shapeFont != nil {
 				parseDrawingFontAttrs(t, shapeFont)
 			}
 
@@ -169,18 +164,18 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 			depth--
 			switch t.Name.Local {
 			case "nvSpPr":
-				inNvSpPr = false
+				st.inNvSpPr = false
 			case "spPr":
-				inSpPr = false
+				st.inSpPr = false
 			case "txBody":
-				inTxBody = false
+				st.inTxBody = false
 			case "p":
-				if inP {
+				if st.inP {
 					textParts = append(textParts, currentPara.String())
-					inP = false
+					st.inP = false
 				}
 			case "r":
-				if inR {
+				if st.inR {
 					text := currentRunText.String()
 					currentPara.WriteString(text)
 					run := RichTextRun{Text: text}
@@ -188,28 +183,28 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 						run.Font = richTextFontDiffFromDrawing(currentFont, p.theme)
 					}
 					runs = append(runs, run)
-					inR = false
+					st.inR = false
 				}
 			case "rPr":
-				inRPr = false
+				st.inRPr = false
 			case "defRPr":
-				inDefRPr = false
+				st.inDefRPr = false
 			case "ln":
-				inLn = false
+				st.inLn = false
 			case "solidFill":
-				inFill = false
-				fillCtx = ""
+				st.inFill = false
+				st.fillCtx = ""
 			}
 
 		case xml.CharData:
-			if inP && !inR {
+			if st.inP && !st.inR {
 				// 段落直下のテキスト（<a:t> in <a:p> without <a:r>）
 				text := string(t)
 				if strings.TrimSpace(text) != "" {
 					currentPara.Write(t)
 				}
 			}
-			if inR {
+			if st.inR {
 				currentRunText.Write(t)
 			}
 		}
@@ -262,7 +257,7 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
-			log.Printf("[WARN] startGroup: XMLトークン読み取りに失敗: %v", err)
+			p.warnings.Add("startGroup: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -271,15 +266,9 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 			switch t.Name.Local {
 			case "cNvPr":
 				if depth <= 2 {
-					for _, attr := range t.Attr {
-						switch attr.Name.Local {
-						case "name":
-							shape.Name = attr.Value
-						case "id":
-							excelID, _ := strconv.Atoi(attr.Value)
-							p.registerExcelID(excelID, shape.ID)
-						}
-					}
+					name, eid := parseCNvPr(t)
+					shape.Name = name
+					p.registerExcelID(eid, shape.ID)
 				}
 			case "xfrm":
 				if depth <= 2 {

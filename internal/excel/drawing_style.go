@@ -2,7 +2,6 @@ package excel
 
 import (
 	"encoding/xml"
-	"log"
 	"math"
 )
 
@@ -46,7 +45,7 @@ func collectColorMods(decoder *xml.Decoder) colorMods {
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			log.Printf("[WARN] collectColorMods: XMLトークン読み取りに失敗: %v", err)
+			// XMLトークン読み取り失敗: 色変換をスキップ
 			break
 		}
 		switch t := tok.(type) {
@@ -111,25 +110,6 @@ func (p *drawingParser) applyColorMods(decoder *xml.Decoder, startDepth int, col
 	clr := normalizeHexColor(color)
 	cm := collectColorMods(decoder)
 	return cm.applyTo(clr)
-}
-
-// applyLuminance は lumMod/lumOff を適用する
-func applyLuminance(hexColor string, lumMod, lumOff float64) string {
-	r, g, b, ok := parseHexRGB(hexColor)
-	if !ok {
-		return normalizeHexColor(hexColor)
-	}
-
-	h, s, l := rgbToHSL(r, g, b)
-	l = l*lumMod + lumOff
-	if l < 0 {
-		l = 0
-	}
-	if l > 1 {
-		l = 1
-	}
-	rr, gg, bb := hslToRGB(h, s, l)
-	return formatHexRGB(rr, gg, bb)
 }
 
 // assignColor は解決済み色を適切なターゲットに割り当てる
@@ -227,6 +207,21 @@ func (p *drawingParser) registerExcelID(excelID, seqID int) {
 	}
 }
 
+// parseCNvPr は cNvPr 要素から name, id (excelID) を取得する共通ヘルパー
+func parseCNvPr(t xml.StartElement) (name string, excelID int) {
+	for _, attr := range t.Attr {
+		switch attr.Name.Local {
+		case "name":
+			name = attr.Value
+		case "id":
+			excelID = safeAtoi(attr.Value)
+		case "descr":
+			// parsePicture でのみ使用（呼び出し元で個別に取得）
+		}
+	}
+	return
+}
+
 // attrVal は StartElement から指定属性の値を返す
 func attrVal(t xml.StartElement, name string) string {
 	for _, attr := range t.Attr {
@@ -243,7 +238,7 @@ func skipElement(decoder *xml.Decoder) {
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			log.Printf("[WARN] skipElement: XMLトークン読み取りに失敗: %v", err)
+			// XMLトークン読み取り失敗: スキップ中断
 			return
 		}
 		switch tok.(type) {

@@ -104,6 +104,15 @@ func parseComments(zr *zip.ReadCloser, path string, comments CommentMap) {
 	}
 }
 
+// commentParseState は parseCommentsEntry の SAX パーサー状態
+type commentParseState struct {
+	inAuthors bool
+	inAuthor  bool
+	inComment bool
+	inText    bool
+	inT       bool
+}
+
 func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 	rc, err := entry.Open()
 	if err != nil {
@@ -114,17 +123,13 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 
 	decoder := xml.NewDecoder(rc)
 
+	var st commentParseState
 	var (
-		authors     []string
-		inAuthors   bool
-		inAuthor    bool
-		inComment   bool
-		inText      bool
-		inT         bool
-		commentRef  string
-		authorID    int
-		textBuf     strings.Builder
-		authorBuf   strings.Builder
+		authors    []string
+		commentRef string
+		authorID   int
+		textBuf    strings.Builder
+		authorBuf  strings.Builder
 	)
 
 	for {
@@ -141,14 +146,14 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 		case xml.StartElement:
 			switch t.Name.Local {
 			case "authors":
-				inAuthors = true
+				st.inAuthors = true
 			case "author":
-				if inAuthors {
-					inAuthor = true
+				if st.inAuthors {
+					st.inAuthor = true
 					authorBuf.Reset()
 				}
 			case "comment":
-				inComment = true
+				st.inComment = true
 				commentRef = ""
 				authorID = 0
 				for _, attr := range t.Attr {
@@ -160,27 +165,27 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 					}
 				}
 			case "text":
-				if inComment {
-					inText = true
+				if st.inComment {
+					st.inText = true
 					textBuf.Reset()
 				}
 			case "t":
-				if inText {
-					inT = true
+				if st.inText {
+					st.inT = true
 				}
 			}
 
 		case xml.EndElement:
 			switch t.Name.Local {
 			case "authors":
-				inAuthors = false
+				st.inAuthors = false
 			case "author":
-				if inAuthor {
+				if st.inAuthor {
 					authors = append(authors, authorBuf.String())
-					inAuthor = false
+					st.inAuthor = false
 				}
 			case "comment":
-				if inComment && commentRef != "" {
+				if st.inComment && commentRef != "" {
 					cd := &CommentData{
 						Text: textBuf.String(),
 					}
@@ -189,18 +194,18 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 					}
 					comments[commentRef] = cd
 				}
-				inComment = false
+				st.inComment = false
 			case "text":
-				inText = false
+				st.inText = false
 			case "t":
-				inT = false
+				st.inT = false
 			}
 
 		case xml.CharData:
-			if inAuthor {
+			if st.inAuthor {
 				authorBuf.Write(t)
 			}
-			if inT && inText {
+			if st.inT && st.inText {
 				textBuf.Write(t)
 			}
 		}

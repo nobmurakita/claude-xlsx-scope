@@ -15,18 +15,19 @@ type FontInfo struct {
 	Size float64 `json:"size"`
 }
 
-// File はオープンしたExcelファイルを表す
+// File はオープンしたExcelファイルを表す。
+// OpenFile() で生成し、使用後は Close() で解放する。
 type File struct {
-	Name string
+	Name string // ファイル名（パス除去済み）
 	path string
-	zr   *zip.ReadCloser // ZIP リーダー（Close() で解放）
+	zr   *zip.ReadCloser
 
-	// 自前パースデータ
+	// ZIP 内 XML から自前でパー��したデータ
 	sharedStrings *sharedStrings
 	sheetPaths    map[string]string // シート名 → ZIP内のXMLパス
 	sheetNames    []string          // シート名（workbook.xml の順序）
-	styles        *styleSheet       // styles.xml
-	theme         *themeColors      // theme1.xml
+	styles        *styleSheet
+	theme         *themeColors
 }
 
 // OpenFile はExcelファイルを開き、メタデータをZIPから直接パースする。

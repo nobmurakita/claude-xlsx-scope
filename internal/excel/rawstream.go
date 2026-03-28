@@ -43,14 +43,12 @@ func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *R
 }
 
 func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
-	rc, err := entry.Open()
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
+	return withZipXML(entry, func(decoder *xml.Decoder) error {
+		return streamWorksheetSAX(decoder, ss, needFormula, callback)
+	})
+}
 
-	decoder := xml.NewDecoder(rc)
-
+func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
 	// 状態管理
 	var (
 		inSheetData bool

@@ -7,17 +7,18 @@ import (
 	"strings"
 )
 
-// Filter は検索条件
+// Filter は search コマンドのセル検索条件。
+// Query, Numeric, Type の各条件は AND で結合される。
 type Filter struct {
-	Query   string
-	Numeric *NumericExpr
-	Type    CellType
+	Query   string       // テキスト部分一致（大文字小文字無視）
+	Numeric *NumericExpr // 数値比較条件
+	Type    CellType     // セル型フィルタ（空なら全型）
 }
 
-// NumericExpr は数値比較式
+// NumericExpr は数値比較式。">100", "<=50", "100:200" 等を表す。
 type NumericExpr struct {
-	Op    string  // ">", ">=", "<", "<=", "=", ":"
-	Value float64 // 単一比較の値 or 範囲の下限
+	Op    string  // ">", ">=", "<", "<=", "=", ":"（範囲）
+	Value float64 // 単一比較の値、または範囲の下限
 	Upper float64 // 範囲指定時の上限
 }
 

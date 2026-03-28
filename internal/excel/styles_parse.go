@@ -2,7 +2,6 @@ package excel
 
 import (
 	"encoding/xml"
-	"math"
 	"strings"
 )
 
@@ -414,97 +413,3 @@ func (ss *styleSheet) DefaultFontName() string {
 	return ss.fonts[0].Name
 }
 
-// applyTint はHEXカラー文字列にtint値（明度調整）を適用する。
-// excelize.ThemeColor と同等の処理を行う。
-func applyTint(hexColor string, tint float64) string {
-	if tint == 0 {
-		return hexColor
-	}
-	r, g, b, ok := parseHexRGB(hexColor)
-	if !ok {
-		return hexColor
-	}
-
-	h, s, l := rgbToHSL(r, g, b)
-
-	if tint < 0 {
-		l = l * (1.0 + tint)
-	} else {
-		l = l*(1.0-tint) + tint
-	}
-	l = math.Max(0, math.Min(1, l))
-
-	rr, gg, bb := hslToRGB(h, s, l)
-	return formatHexRGB(rr, gg, bb)
-}
-
-// rgbToHSL は RGB (0-1) を HSL (0-1) に変換する
-func rgbToHSL(r, g, b float64) (h, s, l float64) {
-	max := math.Max(r, math.Max(g, b))
-	min := math.Min(r, math.Min(g, b))
-	l = (max + min) / 2.0
-
-	if max == min {
-		return 0, 0, l
-	}
-
-	d := max - min
-	if l > 0.5 {
-		s = d / (2.0 - max - min)
-	} else {
-		s = d / (max + min)
-	}
-
-	switch max {
-	case r:
-		h = (g - b) / d
-		if g < b {
-			h += 6.0
-		}
-	case g:
-		h = (b-r)/d + 2.0
-	case b:
-		h = (r-g)/d + 4.0
-	}
-	h /= 6.0
-	return h, s, l
-}
-
-// hslToRGB は HSL (0-1) を RGB (0-1) に変換する
-func hslToRGB(h, s, l float64) (r, g, b float64) {
-	if s == 0 {
-		return l, l, l
-	}
-
-	var q float64
-	if l < 0.5 {
-		q = l * (1.0 + s)
-	} else {
-		q = l + s - l*s
-	}
-	p := 2.0*l - q
-
-	r = hueToRGB(p, q, h+1.0/3.0)
-	g = hueToRGB(p, q, h)
-	b = hueToRGB(p, q, h-1.0/3.0)
-	return r, g, b
-}
-
-func hueToRGB(p, q, t float64) float64 {
-	if t < 0 {
-		t += 1
-	}
-	if t > 1 {
-		t -= 1
-	}
-	if t < 1.0/6.0 {
-		return p + (q-p)*6.0*t
-	}
-	if t < 1.0/2.0 {
-		return q
-	}
-	if t < 2.0/3.0 {
-		return p + (q-p)*(2.0/3.0-t)*6.0
-	}
-	return p
-}

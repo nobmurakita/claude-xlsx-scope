@@ -7,23 +7,24 @@ import (
 	"strings"
 )
 
-// LineStyle は図形の枠線情報
+// LineStyle は図形の枠線スタイル（色・線種・太さ）
 type LineStyle struct {
-	Color string  `json:"color,omitempty"`
-	Style string  `json:"style,omitempty"`
-	Width float64 `json:"width,omitempty"`
+	Color string  `json:"color,omitempty"`  // #RRGGBB
+	Style string  `json:"style,omitempty"`  // "solid", "dash", "dot" 等
+	Width float64 `json:"width,omitempty"`  // ポイント単位
 }
 
-// ImageInfo は画像のメタデータ
+// ImageInfo は埋め込み画像のメタデータ
 type ImageInfo struct {
-	Format string `json:"format"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
-	Size   int64  `json:"size,omitempty"`
-	Path   string `json:"path,omitempty"`
+	Format string `json:"format"`           // 拡張子（"png", "jpg" 等）
+	Width  int    `json:"width,omitempty"`   // ピクセル
+	Height int    `json:"height,omitempty"`  // ピクセル
+	Size   int64  `json:"size,omitempty"`    // バイト数
+	Path   string `json:"path,omitempty"`    // 抽出先パス（--extract-images 時のみ）
 }
 
-// ShapeInfo は出力用の図形情報
+// ShapeInfo は Drawing XML から取得した図形情報。
+// shape, connector, group, picture を統一的に表現する。
 type ShapeInfo struct {
 	ID            int           `json:"id"`
 	Type          string        `json:"type"`
@@ -70,10 +71,10 @@ func (f *File) HasDrawings(sheet string) bool {
 	return getDrawingTarget(f.zr, xmlPath) != ""
 }
 
-// DrawingOptions は LoadDrawing のオプション
+// DrawingOptions は LoadDrawing の動作を制御するオプション
 type DrawingOptions struct {
-	IncludeStyle bool   // 書式情報を含める
-	ExtractDir   string // 画像抽出先ディレクトリ（空なら抽出しない）
+	IncludeStyle bool   // true: fill/line/font 等の書式情報を出力に含める
+	ExtractDir   string // 非空: 画像を指定ディレクトリに抽出する
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
