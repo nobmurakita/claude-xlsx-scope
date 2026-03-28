@@ -133,18 +133,35 @@ type xmlRelationship struct {
 	Target string `xml:"Target,attr"`
 }
 
-func readZipFile(r *zip.ReadCloser, name string) ([]byte, error) {
-	for _, f := range r.File {
+// relsPathFor は XML パスから対応する .rels ファイルのパスを構築する
+func relsPathFor(xmlPath string) string {
+	dir := xmlPath[:strings.LastIndex(xmlPath, "/")+1]
+	base := xmlPath[strings.LastIndex(xmlPath, "/")+1:]
+	return dir + "_rels/" + base + ".rels"
+}
+
+// findZipEntry は ZIP 内の指定パスのエントリを探す
+func findZipEntry(zr *zip.ReadCloser, name string) *zip.File {
+	for _, f := range zr.File {
 		if f.Name == name {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
+			return f
 		}
 	}
-	return nil, fmt.Errorf("ZIP内に %s が見つかりません", name)
+	return nil
+}
+
+// readZipFile は ZIP 内の指定パスのファイルを読み込む
+func readZipFile(r *zip.ReadCloser, name string) ([]byte, error) {
+	entry := findZipEntry(r, name)
+	if entry == nil {
+		return nil, fmt.Errorf("ZIP内に %s が見つかりません", name)
+	}
+	rc, err := entry.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(rc)
 }
 
 func readWorkbook(r *zip.ReadCloser, name string) (*xmlWorkbook, error) {

@@ -2,27 +2,14 @@ package excel
 
 import (
 	"encoding/xml"
-	"math"
+	"log"
 	"strconv"
 	"strings"
 )
 
 // parseConnector は <cxnSp> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	id := p.nextID
-	p.nextID++
-
-	shape := ShapeInfo{
-		ID:   id,
-		Type: "connector",
-		Z:    z,
-		Cell: cell,
-	}
-
-	if len(groupStack) > 0 {
-		parentID := groupStack[len(groupStack)-1].seqID
-		shape.Parent = &parentID
-	}
+	shape, _ := p.newShapeInfo("connector", z, cell, groupStack)
 
 	var cr connRef
 	cr.shapeIndex = len(p.shapes)
@@ -49,6 +36,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] parseConnector: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -100,13 +88,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				if inSpPr {
 					inLn = true
 					if p.includeStyle {
-						lineStyle = &LineStyle{}
-						for _, attr := range t.Attr {
-							if attr.Name.Local == "w" {
-								w, _ := strconv.Atoi(attr.Value)
-								lineStyle.Width = math.Round(float64(w)/12700*100) / 100
-							}
-						}
+						lineStyle = parseLineWidth(t)
 					}
 				}
 			case "solidFill":
@@ -135,25 +117,11 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				}
 			case "headEnd":
 				if inLn {
-					headType := attrVal(t, "type")
-					if headType != "" && headType != "none" {
-						if shape.Arrow == "end" {
-							shape.Arrow = "both"
-						} else {
-							shape.Arrow = "start"
-						}
-					}
+					updateArrow(&shape.Arrow, "head", attrVal(t, "type"))
 				}
 			case "tailEnd":
 				if inLn {
-					tailType := attrVal(t, "type")
-					if tailType != "" && tailType != "none" {
-						if shape.Arrow == "start" {
-							shape.Arrow = "both"
-						} else {
-							shape.Arrow = "end"
-						}
-					}
+					updateArrow(&shape.Arrow, "tail", attrVal(t, "type"))
 				}
 			case "txBody":
 				inTxBody = true
@@ -211,17 +179,12 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 	}
 
 	// スタイル
-	if p.includeStyle && lineStyle != nil && (lineStyle.Color != "" || lineStyle.Style != "" || lineStyle.Width > 0) {
-		if lineStyle.Style == "" && (lineStyle.Color != "" || lineStyle.Width > 0) {
-			lineStyle.Style = "solid"
-		}
-		shape.Line = lineStyle
+	if p.includeStyle {
+		shape.Line = finalizeLineStyle(lineStyle)
 	}
 
 	// Excel ID マッピング
-	if excelID > 0 {
-		p.excelIDMap[excelID] = id
-	}
+	p.registerExcelID(excelID, shape.ID)
 
 	// 接続情報を記録（後処理で解決）
 	if cr.hasStart || cr.hasEnd {

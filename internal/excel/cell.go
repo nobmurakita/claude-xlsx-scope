@@ -115,9 +115,11 @@ func excelDateToTime(serial float64) (time.Time, error) {
 	fraction := serial - float64(days)
 	t := base.AddDate(0, 0, days)
 	// 時刻部分（小数部）
-	totalSeconds := fraction * 86400
-	hours := int(totalSeconds / 3600)
-	minutes := int(math.Mod(totalSeconds, 3600) / 60)
+	const secondsPerDay = 86400
+	const secondsPerHour = 3600
+	totalSeconds := fraction * secondsPerDay
+	hours := int(totalSeconds / secondsPerHour)
+	minutes := int(math.Mod(totalSeconds, secondsPerHour) / 60)
 	seconds := int(math.Mod(totalSeconds, 60))
 	t = t.Add(time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second)
 	return t, nil

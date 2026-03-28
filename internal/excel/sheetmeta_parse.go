@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -68,23 +69,21 @@ type HyperlinkEntry struct {
 // LoadSheetMeta はワークシートXMLから sheetData 以外のメタデータを読み取る。
 // SAX パースで sheetData 内の行属性も取得する。
 func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
-	for _, entry := range zr.File {
-		if entry.Name == xmlPath {
-			return parseSheetMeta(entry, false)
-		}
+	entry := findZipEntry(zr, xmlPath)
+	if entry == nil {
+		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
+	return parseSheetMeta(entry, false)
 }
 
 // LoadSheetMetaQuick はワークシートXMLの先頭部分（sheetData の前）のみを読む軽量版。
 // dimension, sheetFormatPr, cols, sheetPr を取得し、行属性・マージ・ハイパーリンクは取得しない。
 func LoadSheetMetaQuick(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
-	for _, entry := range zr.File {
-		if entry.Name == xmlPath {
-			return parseSheetMeta(entry, true)
-		}
+	entry := findZipEntry(zr, xmlPath)
+	if entry == nil {
+		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
+	return parseSheetMeta(entry, true)
 }
 
 func parseSheetMeta(entry *zip.File, quickMode bool) (*SheetMeta, error) {
@@ -305,38 +304,40 @@ func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
 // LoadDimensionOnly はワークシートXMLから dimension 属性のみを高速に取得する。
 // XML 先頭付近の <dimension> 要素を見つけた時点で即座に返す。
 func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
-	for _, entry := range zr.File {
-		if entry.Name == xmlPath {
-			rc, err := entry.Open()
-			if err != nil {
-				return ""
-			}
-			defer rc.Close()
+	entry := findZipEntry(zr, xmlPath)
+	if entry == nil {
+		return ""
+	}
+	rc, err := entry.Open()
+	if err != nil {
+		log.Printf("[WARN] LoadDimensionOnly: ZIPエントリ %s のオープンに失敗: %v", xmlPath, err)
+		return ""
+	}
+	defer rc.Close()
 
-			decoder := xml.NewDecoder(rc)
-			for {
-				tok, err := decoder.Token()
-				if err != nil {
-					return ""
-				}
-				if se, ok := tok.(xml.StartElement); ok {
-					switch se.Name.Local {
-					case "dimension":
-						for _, attr := range se.Attr {
-							if attr.Name.Local == "ref" {
-								return attr.Value
-							}
-						}
-						return ""
-					case "sheetData":
-						// dimension がない場合、sheetData に達したら終了
-						return ""
+	decoder := xml.NewDecoder(rc)
+	for {
+		tok, err := decoder.Token()
+		if err != nil {
+			if err != io.EOF {
+				log.Printf("[WARN] LoadDimensionOnly: XMLトークン読み取りに失敗: %v", err)
+			}
+			return ""
+		}
+		if se, ok := tok.(xml.StartElement); ok {
+			switch se.Name.Local {
+			case "dimension":
+				for _, attr := range se.Attr {
+					if attr.Name.Local == "ref" {
+						return attr.Value
 					}
 				}
+				return ""
+			case "sheetData":
+				return ""
 			}
 		}
 	}
-	return ""
 }
 
 // BuildMergeInfo は SheetMeta のマージセル情報から MergeInfo を構築する
@@ -386,12 +387,7 @@ func (sm *SheetMeta) BuildHyperlinkMap(sheetRels map[string]string) HyperlinkMap
 // LoadSheetRels はシートのリレーションファイルを読み、rId → target のマップを返す。
 // 主にハイパーリンクの外部URL解決に使用。
 func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]string {
-	// xl/worksheets/sheet1.xml → xl/worksheets/_rels/sheet1.xml.rels
-	dir := sheetXMLPath[:strings.LastIndex(sheetXMLPath, "/")+1]
-	base := sheetXMLPath[strings.LastIndex(sheetXMLPath, "/")+1:]
-	relsPath := dir + "_rels/" + base + ".rels"
-
-	data, err := readZipFileFromReader(zr, relsPath)
+	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
 	if err != nil {
 		return nil
 	}
@@ -408,17 +404,3 @@ func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]st
 	return m
 }
 
-// readZipFileFromReader は zip.ReadCloser から指定パスのファイルを読む
-func readZipFileFromReader(zr *zip.ReadCloser, name string) ([]byte, error) {
-	for _, f := range zr.File {
-		if f.Name == name {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
-		}
-	}
-	return nil, fmt.Errorf("not found: %s", name)
-}

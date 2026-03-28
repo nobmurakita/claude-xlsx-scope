@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/xml"
 	"io"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -158,65 +159,50 @@ func (p *drawingParser) parse(r io.Reader) error {
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZ(groupStack)
+				z := p.currentZOrder(groupStack)
 				cell := p.buildCell(anchorType, anchorFromCol, anchorFromRow, anchorToCol, anchorToRow, hasTo)
 				shape := p.parseShape(decoder, z, cell, groupStack)
-				p.incrementZ(groupStack)
-				idx := len(p.shapes)
-				p.shapes = append(p.shapes, shape)
-				if len(groupStack) > 0 {
-					groupStack[len(groupStack)-1].children = append(groupStack[len(groupStack)-1].children, shape.ID)
-				}
-				_ = idx
+				p.incrementZOrder(groupStack)
+				p.addShape(shape, groupStack)
 
 			case "cxnSp":
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZ(groupStack)
+				z := p.currentZOrder(groupStack)
 				cell := p.buildCell(anchorType, anchorFromCol, anchorFromRow, anchorToCol, anchorToRow, hasTo)
 				shape := p.parseConnector(decoder, z, cell, groupStack)
-				p.incrementZ(groupStack)
+				p.incrementZOrder(groupStack)
 				p.connCount++
-				p.shapes = append(p.shapes, shape)
-				if len(groupStack) > 0 {
-					groupStack[len(groupStack)-1].children = append(groupStack[len(groupStack)-1].children, shape.ID)
-				}
+				p.addShape(shape, groupStack)
 
 			case "grpSp":
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZ(groupStack)
+				z := p.currentZOrder(groupStack)
 				cell := p.buildCell(anchorType, anchorFromCol, anchorFromRow, anchorToCol, anchorToRow, hasTo)
 				grpShape := p.startGroup(decoder, z, cell, groupStack)
-				p.incrementZ(groupStack)
+				p.incrementZOrder(groupStack)
+				p.addShape(grpShape, groupStack)
 				groupStack = append(groupStack, groupContext{
 					seqID: grpShape.ID,
 				})
-				p.shapes = append(p.shapes, grpShape)
-				if len(groupStack) > 1 {
-					groupStack[len(groupStack)-2].children = append(groupStack[len(groupStack)-2].children, grpShape.ID)
-				}
 
 			case "pic":
 				if !inAnchor {
 					continue
 				}
 				if p.extractDir == "" {
-					// 画像抽出なし: スキップ
 					skipDepth = 1
 					continue
 				}
-				z := p.currentZ(groupStack)
+				z := p.currentZOrder(groupStack)
 				cell := p.buildCell(anchorType, anchorFromCol, anchorFromRow, anchorToCol, anchorToRow, hasTo)
 				shape := p.parsePicture(decoder, z, cell, groupStack)
-				p.incrementZ(groupStack)
+				p.incrementZOrder(groupStack)
 				p.picCount++
-				p.shapes = append(p.shapes, shape)
-				if len(groupStack) > 0 {
-					groupStack[len(groupStack)-1].children = append(groupStack[len(groupStack)-1].children, shape.ID)
-				}
+				p.addShape(shape, groupStack)
 
 			case "graphicFrame":
 				// スキップ対象
@@ -238,17 +224,7 @@ func (p *drawingParser) parse(r io.Reader) error {
 				p.topZ++
 
 			case "grpSp":
-				if len(groupStack) > 0 {
-					top := groupStack[len(groupStack)-1]
-					groupStack = groupStack[:len(groupStack)-1]
-					// グループの children を設定
-					for i := range p.shapes {
-						if p.shapes[i].ID == top.seqID {
-							p.shapes[i].Children = top.children
-							break
-						}
-					}
-				}
+				p.closeGroup(&groupStack)
 			}
 		}
 	}
@@ -256,14 +232,37 @@ func (p *drawingParser) parse(r io.Reader) error {
 	return nil
 }
 
-func (p *drawingParser) currentZ(groupStack []groupContext) int {
+// addShape は図形を shapes に追加し、グループの children を更新する
+func (p *drawingParser) addShape(shape ShapeInfo, groupStack []groupContext) {
+	p.shapes = append(p.shapes, shape)
+	if len(groupStack) > 0 {
+		groupStack[len(groupStack)-1].children = append(groupStack[len(groupStack)-1].children, shape.ID)
+	}
+}
+
+// closeGroup はグループスタックの先頭を取り出し、children を設定する
+func (p *drawingParser) closeGroup(groupStack *[]groupContext) {
+	if len(*groupStack) == 0 {
+		return
+	}
+	top := (*groupStack)[len(*groupStack)-1]
+	*groupStack = (*groupStack)[:len(*groupStack)-1]
+	for i := range p.shapes {
+		if p.shapes[i].ID == top.seqID {
+			p.shapes[i].Children = top.children
+			break
+		}
+	}
+}
+
+func (p *drawingParser) currentZOrder(groupStack []groupContext) int {
 	if len(groupStack) > 0 {
 		return groupStack[len(groupStack)-1].childZ
 	}
 	return p.topZ
 }
 
-func (p *drawingParser) incrementZ(groupStack []groupContext) {
+func (p *drawingParser) incrementZOrder(groupStack []groupContext) {
 	if len(groupStack) > 0 {
 		groupStack[len(groupStack)-1].childZ++
 	}
@@ -297,6 +296,7 @@ func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) (col, row int) {
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] parseAnchorPos: XMLトークン読み取りに失敗: %v", err)
 			return 0, 0
 		}
 		switch t := tok.(type) {
@@ -335,7 +335,7 @@ func parseXfrm(t xml.StartElement) (rotation float64, flip string) {
 		switch attr.Name.Local {
 		case "rot":
 			rot, _ := strconv.Atoi(attr.Value)
-			rotation = math.Round(float64(rot)/60000*100) / 100
+			rotation = math.Round(float64(rot)/drawingMLRotUnit*100) / 100
 		case "flipH":
 			flipH = attr.Value == "1"
 		case "flipV":

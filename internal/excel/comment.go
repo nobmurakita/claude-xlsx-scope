@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/xml"
 	"io"
+	"log"
 	"strings"
 )
 
@@ -62,11 +63,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 
 // loadSheetRelsAll はシートの .rels から全リレーションを返す
 func loadSheetRelsAll(zr *zip.ReadCloser, sheetXMLPath string) []xmlRelationship {
-	dir := sheetXMLPath[:strings.LastIndex(sheetXMLPath, "/")+1]
-	base := sheetXMLPath[strings.LastIndex(sheetXMLPath, "/")+1:]
-	relsPath := dir + "_rels/" + base + ".rels"
-
-	data, err := readZipFileFromReader(zr, relsPath)
+	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
 	if err != nil {
 		return nil
 	}
@@ -101,17 +98,15 @@ func resolveRelTarget(sheetXMLPath, target string) string {
 
 // parseComments はレガシーコメント（comments.xml）をパースする
 func parseComments(zr *zip.ReadCloser, path string, comments CommentMap) {
-	for _, entry := range zr.File {
-		if entry.Name == path {
-			parseCommentsEntry(entry, comments)
-			return
-		}
+	if entry := findZipEntry(zr, path); entry != nil {
+		parseCommentsEntry(entry, comments)
 	}
 }
 
 func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 	rc, err := entry.Open()
 	if err != nil {
+		log.Printf("[WARN] parseCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return
 	}
 	defer rc.Close()
@@ -137,6 +132,7 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 			break
 		}
 		if err != nil {
+			log.Printf("[WARN] parseCommentsEntry: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 
@@ -212,11 +208,8 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 
 // parseThreadedComments はスレッドコメント（threadedComment.xml）をパースする
 func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap) {
-	for _, entry := range zr.File {
-		if entry.Name == path {
-			parseThreadedCommentsEntry(entry, comments)
-			return
-		}
+	if entry := findZipEntry(zr, path); entry != nil {
+		parseThreadedCommentsEntry(entry, comments)
 	}
 }
 
@@ -234,6 +227,7 @@ type threadedCommentRaw struct {
 func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 	rc, err := entry.Open()
 	if err != nil {
+		log.Printf("[WARN] parseThreadedCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return
 	}
 	defer rc.Close()
@@ -251,6 +245,7 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 			break
 		}
 		if err != nil {
+			log.Printf("[WARN] parseThreadedCommentsEntry: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 

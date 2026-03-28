@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,20 +15,7 @@ import (
 
 // parsePicture は <pic> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	id := p.nextID
-	p.nextID++
-
-	shape := ShapeInfo{
-		ID:   id,
-		Type: "picture",
-		Z:    z,
-		Cell: cell,
-	}
-
-	if len(groupStack) > 0 {
-		parentID := groupStack[len(groupStack)-1].seqID
-		shape.Parent = &parentID
-	}
+	shape, _ := p.newShapeInfo("picture", z, cell, groupStack)
 
 	depth := 1
 	var (
@@ -42,6 +30,7 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] parsePicture: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -106,9 +95,7 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 	}
 
 	// Excel ID マッピング
-	if excelID > 0 {
-		p.excelIDMap[excelID] = id
-	}
+	p.registerExcelID(excelID, shape.ID)
 
 	// 画像情報の構築と抽出
 	shape.Image = p.resolveAndExtractImage(embedRID, extCX, extCY)
@@ -128,7 +115,7 @@ func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int
 	}
 
 	// 画像ファイルの ZIP パスを解決
-	imagePath := resolveDrawingPath(p.drawingPath, rel.Target)
+	imagePath := resolveRelTarget(p.drawingPath, rel.Target)
 
 	// 拡張子から形式を判定
 	ext := ""
@@ -142,10 +129,10 @@ func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int
 
 	// EMU → ピクセル変換（1px = 9525 EMU）
 	if extCX > 0 {
-		info.Width = int(math.Round(float64(extCX) / 9525))
+		info.Width = int(math.Round(float64(extCX) / emuPerPixel))
 	}
 	if extCY > 0 {
-		info.Height = int(math.Round(float64(extCY) / 9525))
+		info.Height = int(math.Round(float64(extCY) / emuPerPixel))
 	}
 
 	// ZIP エントリからファイルサイズを取得
@@ -170,6 +157,7 @@ func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int
 func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
 	rc, err := entry.Open()
 	if err != nil {
+		log.Printf("[WARN] extractImage: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return ""
 	}
 	defer rc.Close()
@@ -180,11 +168,13 @@ func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
 
 	outFile, err := os.Create(outPath)
 	if err != nil {
+		log.Printf("[WARN] extractImage: ファイル %s の作成に失敗: %v", outPath, err)
 		return ""
 	}
 	defer outFile.Close()
 
 	if _, err := io.Copy(outFile, rc); err != nil {
+		log.Printf("[WARN] extractImage: 画像の書き込みに失敗: %v", err)
 		os.Remove(outPath)
 		return ""
 	}

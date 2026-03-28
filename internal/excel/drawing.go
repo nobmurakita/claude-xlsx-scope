@@ -67,7 +67,7 @@ func (f *File) HasDrawings(sheet string) bool {
 	if !ok {
 		return false
 	}
-	return findDrawingTarget(f.zr, xmlPath) != ""
+	return getDrawingTarget(f.zr, xmlPath) != ""
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
@@ -79,7 +79,7 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (
 	}
 
 	zr := f.zr
-	target := findDrawingTarget(zr, xmlPath)
+	target := getDrawingTarget(zr, xmlPath)
 	if target == "" {
 		// 図形なし
 		return &DrawingResult{
@@ -88,7 +88,7 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (
 	}
 
 	// drawing XML パスを解決
-	drawingPath := resolveDrawingPath(xmlPath, target)
+	drawingPath := resolveRelTarget(xmlPath, target)
 
 	// drawing の .rels を読む（画像パス解決用）
 	drawingRels := loadDrawingRels(zr, drawingPath)
@@ -109,11 +109,7 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
 func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelationship {
-	dir := drawingPath[:strings.LastIndex(drawingPath, "/")+1]
-	base := drawingPath[strings.LastIndex(drawingPath, "/")+1:]
-	relsPath := dir + "_rels/" + base + ".rels"
-
-	data, err := readZipFileFromReader(zr, relsPath)
+	data, err := readZipFile(zr, relsPathFor(drawingPath))
 	if err != nil {
 		return nil
 	}
@@ -130,13 +126,9 @@ func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelat
 	return m
 }
 
-// findDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
-func findDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
-	dir := sheetXMLPath[:strings.LastIndex(sheetXMLPath, "/")+1]
-	base := sheetXMLPath[strings.LastIndex(sheetXMLPath, "/")+1:]
-	relsPath := dir + "_rels/" + base + ".rels"
-
-	data, err := readZipFileFromReader(zr, relsPath)
+// getDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
+func getDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
+	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
 	if err != nil {
 		return ""
 	}
@@ -153,29 +145,5 @@ func findDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
 	}
 	return ""
 }
-
-// resolveDrawingPath は drawing ターゲットを ZIP 内の絶対パスに変換する
-func resolveDrawingPath(sheetXMLPath, target string) string {
-	if strings.HasPrefix(target, "/") {
-		return target[1:]
-	}
-	// 相対パス: シートのディレクトリからの相対
-	dir := sheetXMLPath[:strings.LastIndex(sheetXMLPath, "/")+1]
-	resolved := dir + target
-	// "../drawings/drawing1.xml" のような相対パスを解決
-	parts := strings.Split(resolved, "/")
-	var result []string
-	for _, p := range parts {
-		if p == ".." {
-			if len(result) > 0 {
-				result = result[:len(result)-1]
-			}
-		} else if p != "" && p != "." {
-			result = append(result, p)
-		}
-	}
-	return strings.Join(result, "/")
-}
-
 
 

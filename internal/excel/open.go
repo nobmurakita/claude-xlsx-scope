@@ -62,7 +62,7 @@ func OpenFile(path string) (*File, error) {
 	}
 
 	// styles.xml
-	stylesData, err := readZipFileFromReader(zr, "xl/styles.xml")
+	stylesData, err := readZipFile(zr, "xl/styles.xml")
 	if err != nil {
 		zr.Close()
 		return nil, fmt.Errorf("styles.xml の読み込みに失敗: %w", err)
@@ -74,7 +74,7 @@ func OpenFile(path string) (*File, error) {
 	}
 
 	// theme1.xml（存在しなくてもエラーにしない）
-	themeData, err := readZipFileFromReader(zr, "xl/theme/theme1.xml")
+	themeData, err := readZipFile(zr, "xl/theme/theme1.xml")
 	if err == nil {
 		f.theme = parseThemeColors(themeData)
 	}
@@ -117,16 +117,21 @@ func (f *File) LoadDimension(sheet string) string {
 	return LoadDimensionOnly(f.zr, xmlPath)
 }
 
+const (
+	defaultFontName = "Calibri"
+	defaultFontSize = 11
+)
+
 // DetectDefaultFont は styles.xml からデフォルトフォントを返す
 func (f *File) DetectDefaultFont() FontInfo {
 	if f.styles == nil {
-		return FontInfo{Name: "Calibri", Size: 11}
+		return FontInfo{Name: defaultFontName, Size: defaultFontSize}
 	}
 	name := f.styles.DefaultFontName()
 	if name == "" {
-		name = "Calibri"
+		name = defaultFontName
 	}
-	return FontInfo{Name: name, Size: 11}
+	return FontInfo{Name: name, Size: defaultFontSize}
 }
 
 // ResolveTabColor は SheetMeta のタブ色をRGB文字列に解決する

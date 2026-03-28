@@ -3,9 +3,19 @@ package excel
 import (
 	"encoding/xml"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
+)
+
+// DrawingML の単位変換定数
+const (
+	emuPerPixel          = 9525    // 1px = 9525 EMU
+	emuPerPoint          = 12700   // 1pt = 12700 EMU
+	drawingMLPercentUnit = 100000  // DrawingML の色変換パーセント単位
+	drawingMLRotUnit     = 60000   // DrawingML の回転角度単位（1度 = 60000）
+	drawingMLFontUnit    = 100     // DrawingML のフォントサイズ単位（100分の1ポイント）
 )
 
 // schemeColorIndex はスキームカラー名をテーマインデックスにマッピングする
@@ -24,6 +34,69 @@ var schemeColorIndex = map[string]int{
 	"folHlink": 11,
 }
 
+// colorMods は DrawingML の色変換パラメータ
+type colorMods struct {
+	lumMod  float64
+	lumOff  float64
+	tint    float64
+	hasTint bool
+}
+
+// collectColorMods は decoder から lumMod, lumOff, tint, shade を収集する
+func collectColorMods(decoder *xml.Decoder) colorMods {
+	cm := colorMods{lumMod: 1.0}
+	depth := 1
+	for depth > 0 {
+		tok, err := decoder.Token()
+		if err != nil {
+			log.Printf("[WARN] collectColorMods: XMLトークン読み取りに失敗: %v", err)
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			depth++
+			switch t.Name.Local {
+			case "lumMod":
+				if v := attrVal(t, "val"); v != "" {
+					n, _ := strconv.Atoi(v)
+					cm.lumMod = float64(n) / drawingMLPercentUnit
+				}
+			case "lumOff":
+				if v := attrVal(t, "val"); v != "" {
+					n, _ := strconv.Atoi(v)
+					cm.lumOff = float64(n) / drawingMLPercentUnit
+				}
+			case "tint":
+				if v := attrVal(t, "val"); v != "" {
+					n, _ := strconv.Atoi(v)
+					cm.tint = float64(n) / drawingMLPercentUnit
+					cm.hasTint = true
+				}
+			case "shade":
+				if v := attrVal(t, "val"); v != "" {
+					n, _ := strconv.Atoi(v)
+					cm.tint = -(1.0 - float64(n)/drawingMLPercentUnit)
+					cm.hasTint = true
+				}
+			}
+		case xml.EndElement:
+			depth--
+		}
+	}
+	return cm
+}
+
+// applyTo は色変換パラメータをベースカラーに適用する
+func (cm colorMods) applyTo(base string) string {
+	if cm.hasTint {
+		return applyTint(base, cm.tint)
+	}
+	if cm.lumMod != 1.0 || cm.lumOff != 0 {
+		return applyLuminance(base, cm.lumMod, cm.lumOff)
+	}
+	return base
+}
+
 // resolveSchemeColor はスキームカラーを解決し、子の色変換要素まで消費する
 func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, startDepth int) string {
 	idx, ok := schemeColorIndex[scheme]
@@ -32,121 +105,19 @@ func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, 
 		base = p.theme.Get(idx)
 	}
 
-	// 子要素から lumMod, lumOff, tint, shade を収集
-	var lumMod, lumOff float64
-	lumMod = 1.0 // デフォルト
-	var tint float64
-	hasTint := false
-
-	depth := 1
-	for depth > 0 {
-		tok, err := decoder.Token()
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			depth++
-			switch t.Name.Local {
-			case "lumMod":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					lumMod = float64(n) / 100000.0
-				}
-			case "lumOff":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					lumOff = float64(n) / 100000.0
-				}
-			case "tint":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					tint = float64(n) / 100000.0
-					hasTint = true
-				}
-			case "shade":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					tint = -(1.0 - float64(n)/100000.0)
-					hasTint = true
-				}
-			}
-		case xml.EndElement:
-			depth--
-		}
-	}
+	cm := collectColorMods(decoder)
 
 	if base == "" {
 		return ""
 	}
-
-	// tint を適用
-	if hasTint {
-		return applyTint(base, tint)
-	}
-
-	// lumMod/lumOff を適用
-	if lumMod != 1.0 || lumOff != 0 {
-		return applyLuminance(base, lumMod, lumOff)
-	}
-
-	return base
+	return cm.applyTo(base)
 }
 
 // applyColorMods は srgbClr の子要素（alpha 等）を消費し、色を返す
 func (p *drawingParser) applyColorMods(decoder *xml.Decoder, startDepth int, color string) string {
 	clr := normalizeHexColor(color)
-
-	var lumMod, lumOff float64
-	lumMod = 1.0
-	var tint float64
-	hasTint := false
-
-	depth := 1
-	for depth > 0 {
-		tok, err := decoder.Token()
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			depth++
-			switch t.Name.Local {
-			case "lumMod":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					lumMod = float64(n) / 100000.0
-				}
-			case "lumOff":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					lumOff = float64(n) / 100000.0
-				}
-			case "tint":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					tint = float64(n) / 100000.0
-					hasTint = true
-				}
-			case "shade":
-				if v := attrVal(t, "val"); v != "" {
-					n, _ := strconv.Atoi(v)
-					tint = -(1.0 - float64(n)/100000.0)
-					hasTint = true
-				}
-			}
-		case xml.EndElement:
-			depth--
-		}
-	}
-
-	if hasTint {
-		return applyTint(clr, tint)
-	}
-	if lumMod != 1.0 || lumOff != 0 {
-		return applyLuminance(clr, lumMod, lumOff)
-	}
-	return clr
+	cm := collectColorMods(decoder)
+	return cm.applyTo(clr)
 }
 
 // applyLuminance は lumMod/lumOff を適用する
@@ -197,6 +168,77 @@ func (p *drawingParser) assignColor(color, ctx string, shapeFill *string, lineSt
 	}
 }
 
+// updateArrow は矢印の方向を更新する
+func updateArrow(current *string, headOrTail string, arrowType string) {
+	if arrowType == "" || arrowType == "none" {
+		return
+	}
+	switch headOrTail {
+	case "head":
+		if *current == "end" {
+			*current = "both"
+		} else {
+			*current = "start"
+		}
+	case "tail":
+		if *current == "start" {
+			*current = "both"
+		} else {
+			*current = "end"
+		}
+	}
+}
+
+// parseLineWidth は ln 要素から LineStyle を初期化し線幅を設定する
+func parseLineWidth(t xml.StartElement) *LineStyle {
+	ls := &LineStyle{}
+	for _, attr := range t.Attr {
+		if attr.Name.Local == "w" {
+			w, _ := strconv.Atoi(attr.Value)
+			ls.Width = math.Round(float64(w)/emuPerPoint*100) / 100
+		}
+	}
+	return ls
+}
+
+// finalizeLineStyle は LineStyle を最終形に整える（style 未設定なら "solid"）
+func finalizeLineStyle(ls *LineStyle) *LineStyle {
+	if ls == nil {
+		return nil
+	}
+	if ls.Color == "" && ls.Style == "" && ls.Width == 0 {
+		return nil
+	}
+	if ls.Style == "" && (ls.Color != "" || ls.Width > 0) {
+		ls.Style = "solid"
+	}
+	return ls
+}
+
+// newShapeInfo は共通のシェイプ初期化を行う
+func (p *drawingParser) newShapeInfo(shapeType string, z int, cell string, groupStack []groupContext) (ShapeInfo, int) {
+	id := p.nextID
+	p.nextID++
+	shape := ShapeInfo{
+		ID:   id,
+		Type: shapeType,
+		Z:    z,
+		Cell: cell,
+	}
+	if len(groupStack) > 0 {
+		parentID := groupStack[len(groupStack)-1].seqID
+		shape.Parent = &parentID
+	}
+	return shape, id
+}
+
+// registerExcelID は Excel ID から連番 ID へのマッピングを登録する
+func (p *drawingParser) registerExcelID(excelID, seqID int) {
+	if excelID > 0 {
+		p.excelIDMap[excelID] = seqID
+	}
+}
+
 // attrVal は StartElement から指定属性の値を返す
 func attrVal(t xml.StartElement, name string) string {
 	for _, attr := range t.Attr {
@@ -213,6 +255,7 @@ func skipElement(decoder *xml.Decoder) {
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] skipElement: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 		switch tok.(type) {
@@ -231,7 +274,7 @@ func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {
 		case "sz":
 			// 100分の1ポイント単位
 			sz, _ := strconv.Atoi(attr.Value)
-			font.Size = float64(sz) / 100
+			font.Size = float64(sz) / drawingMLFontUnit
 		case "b":
 			font.Bold = attr.Value == "1"
 		case "i":
@@ -250,50 +293,31 @@ func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {
 
 // buildDrawingFontObj は DrawingML の parsedFont から FontObj を構築する
 func buildDrawingFontObj(font *parsedFont, theme *themeColors) *FontObj {
+	return fontObjFromDrawingFont(font, theme)
+}
+
+// richTextFontDiffFromDrawing は DrawingML の parsedFont から差分フォントを構築する
+func richTextFontDiffFromDrawing(font *parsedFont, theme *themeColors) *FontObj {
+	return fontObjFromDrawingFont(font, theme)
+}
+
+// fontObjFromDrawingFont は DrawingML の parsedFont から FontObj を構築する共通実装
+func fontObjFromDrawingFont(font *parsedFont, theme *themeColors) *FontObj {
 	if font == nil {
 		return nil
 	}
 	obj := &FontObj{
-		Name:          font.Name,
 		Bold:          font.Bold,
 		Italic:        font.Italic,
 		Strikethrough: font.Strike,
 		Underline:     font.Underline,
 	}
-	if font.Size != 0 {
-		obj.Size = font.Size
-	}
-	if font.Color != "" {
-		obj.Color = font.Color
-	} else if font.ColorTheme != nil {
-		color := resolveColorLite("", font.ColorTheme, font.ColorTint, theme)
-		if color != "" && color != "#000000" {
-			obj.Color = color
-		}
-	}
-	if obj.IsEmpty() {
-		return nil
-	}
-	return obj
-}
-
-// richTextFontDiffFromDrawing は DrawingML の parsedFont から差分フォントを構築する
-func richTextFontDiffFromDrawing(font *parsedFont, theme *themeColors) *FontObj {
-	if font == nil {
-		return nil
-	}
-	obj := &FontObj{}
 	if font.Name != "" {
 		obj.Name = font.Name
 	}
 	if font.Size != 0 {
 		obj.Size = font.Size
 	}
-	obj.Bold = font.Bold
-	obj.Italic = font.Italic
-	obj.Strikethrough = font.Strike
-	obj.Underline = font.Underline
-
 	if font.Color != "" {
 		obj.Color = font.Color
 	} else if font.ColorTheme != nil {

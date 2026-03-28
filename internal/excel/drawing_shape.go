@@ -2,27 +2,14 @@ package excel
 
 import (
 	"encoding/xml"
-	"math"
+	"log"
 	"strconv"
 	"strings"
 )
 
 // parseShape は <sp> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	id := p.nextID
-	p.nextID++
-
-	shape := ShapeInfo{
-		ID:   id,
-		Type: "customShape",
-		Z:    z,
-		Cell: cell,
-	}
-
-	if len(groupStack) > 0 {
-		parentID := groupStack[len(groupStack)-1].seqID
-		shape.Parent = &parentID
-	}
+	shape, _ := p.newShapeInfo("customShape", z, cell, groupStack)
 
 	depth := 1
 	var (
@@ -55,6 +42,7 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] parseShape: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -123,28 +111,12 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 				if inSpPr {
 					inLn = true
 					if p.includeStyle {
-						lineStyle = &LineStyle{}
-						for _, attr := range t.Attr {
-							if attr.Name.Local == "w" {
-								w, _ := strconv.Atoi(attr.Value)
-								lineStyle.Width = math.Round(float64(w)/12700*100) / 100
-							}
-						}
+						lineStyle = parseLineWidth(t)
 					}
 				}
 			case "solidFill":
 				inFill = true
-				if inLn {
-					fillCtx = "ln"
-				} else if inRPr {
-					fillCtx = "rPr"
-				} else if inDefRPr {
-					fillCtx = "defRPr"
-				} else if inSpPr {
-					fillCtx = "sp"
-				} else {
-					fillCtx = ""
-				}
+				fillCtx = determineFillCtx(inLn, inRPr, inDefRPr, inSpPr)
 			case "srgbClr":
 				if inFill {
 					clr := attrVal(t, "val")
@@ -164,25 +136,11 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 				}
 			case "headEnd":
 				if inLn {
-					headType := attrVal(t, "type")
-					if headType != "" && headType != "none" {
-						if shape.Arrow == "end" {
-							shape.Arrow = "both"
-						} else {
-							shape.Arrow = "start"
-						}
-					}
+					updateArrow(&shape.Arrow, "head", attrVal(t, "type"))
 				}
 			case "tailEnd":
 				if inLn {
-					tailType := attrVal(t, "type")
-					if tailType != "" && tailType != "none" {
-						if shape.Arrow == "start" {
-							shape.Arrow = "both"
-						} else {
-							shape.Arrow = "end"
-						}
-					}
+					updateArrow(&shape.Arrow, "tail", attrVal(t, "type"))
 				}
 			// rPr / defRPr 内のフォント属性
 			case "latin", "ea":
@@ -257,58 +215,44 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 		}
 	}
 
-	// テキストの組み立て
+	// テキスト・スタイルの組み立て
 	shape.Text = strings.Join(textParts, "\n")
-	if shape.Text == "" {
-		shape.Text = ""
-	}
-
-	// リッチテキスト
 	if hasRuns && len(runs) > 1 && p.includeStyle {
 		shape.RichText = runs
 	}
-
-	// スタイル
 	if p.includeStyle {
 		if shapeFill != "" {
 			shape.Fill = shapeFill
 		}
-		if lineStyle != nil && (lineStyle.Color != "" || lineStyle.Style != "" || lineStyle.Width > 0) {
-			if lineStyle.Style == "" && (lineStyle.Color != "" || lineStyle.Width > 0) {
-				lineStyle.Style = "solid"
-			}
-			shape.Line = lineStyle
-		}
+		shape.Line = finalizeLineStyle(lineStyle)
 		if shapeFont != nil {
 			shape.Font = buildDrawingFontObj(shapeFont, p.theme)
 		}
 	}
-
-	// Excel ID マッピング
-	if excelID > 0 {
-		p.excelIDMap[excelID] = id
-	}
-
+	p.registerExcelID(excelID, shape.ID)
 	return shape
+}
+
+// determineFillCtx は solidFill のコンテキストを判定する
+func determineFillCtx(inLn, inRPr, inDefRPr, inSpPr bool) string {
+	switch {
+	case inLn:
+		return "ln"
+	case inRPr:
+		return "rPr"
+	case inDefRPr:
+		return "defRPr"
+	case inSpPr:
+		return "sp"
+	default:
+		return ""
+	}
 }
 
 // startGroup は <grpSp> の先頭（nvGrpSpPr, grpSpPr）を読み、ShapeInfo を返す
 // grpSp の EndElement は呼び出し元で処理される
 func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	id := p.nextID
-	p.nextID++
-
-	shape := ShapeInfo{
-		ID:   id,
-		Type: "group",
-		Z:    z,
-		Cell: cell,
-	}
-
-	if len(groupStack) > 0 {
-		parentID := groupStack[len(groupStack)-1].seqID
-		shape.Parent = &parentID
-	}
+	shape, _ := p.newShapeInfo("group", z, cell, groupStack)
 
 	// nvGrpSpPr と grpSpPr を読む
 	// grpSp 内の子要素はメインループで処理されるため、ここでは先頭のプロパティだけ読む
@@ -318,6 +262,7 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
+			log.Printf("[WARN] startGroup: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -332,9 +277,7 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 							shape.Name = attr.Value
 						case "id":
 							excelID, _ := strconv.Atoi(attr.Value)
-							if excelID > 0 {
-								p.excelIDMap[excelID] = id
-							}
+							p.registerExcelID(excelID, shape.ID)
 						}
 					}
 				}

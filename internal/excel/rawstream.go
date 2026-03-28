@@ -35,12 +35,11 @@ func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *R
 		return fmt.Errorf("シート %q の XML パスが見つかりません", sheet)
 	}
 
-	for _, entry := range f.zr.File {
-		if entry.Name == xmlPath {
-			return streamWorksheetXML(entry, f.sharedStrings, needFormula, callback)
-		}
+	entry := findZipEntry(f.zr, xmlPath)
+	if entry == nil {
+		return fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
+	return streamWorksheetXML(entry, f.sharedStrings, needFormula, callback)
 }
 
 func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
