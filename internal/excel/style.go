@@ -85,6 +85,11 @@ func (f *File) CellStyle(sheet string, col, row int, defaultFont FontInfo) (*Fon
 
 // StyleByID はスタイルIDから書式情報を取得する（キャッシュ用）
 func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj, *BorderObj, *AlignmentObj, error) {
+	// lite モード: 自前パーサーを使用
+	if f.styles != nil {
+		return f.styleByIDLite(styleID, defaultFont), nil, nil, nil, nil
+	}
+	// excelize モード
 	style, err := f.File.GetStyle(styleID)
 	if err != nil || style == nil {
 		return nil, nil, nil, nil, nil
@@ -96,6 +101,144 @@ func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj,
 	alignment := buildAlignmentObj(style.Alignment)
 
 	return font, fill, border, alignment, nil
+}
+
+// styleByIDLite は自前パーサーのスタイル情報から FontObj を返す（lite モード用）
+// 戻り値は FontObj のみだが、getCellStyleByID で全スタイルを取得するため
+// StyleByIDLite を別途用意する
+func (f *File) styleByIDLite(styleID int, defaultFont FontInfo) *FontObj {
+	pf := f.styles.GetFont(styleID)
+	if pf == nil {
+		return nil
+	}
+	return buildFontObjFromParsed(pf, defaultFont, f.theme)
+}
+
+// StyleByIDLite は自前パーサーから全スタイル情報を返す（lite モード用）
+func (f *File) StyleByIDLite(styleID int, defaultFont FontInfo) (*FontObj, *FillObj, *BorderObj, *AlignmentObj) {
+	font := f.styleByIDLite(styleID, defaultFont)
+	fill := buildFillObjFromParsed(f.styles.GetFill(styleID), f.theme)
+	border := buildBorderObjFromParsed(f.styles.GetBorder(styleID))
+	alignment := buildAlignmentObjFromParsed(f.styles.GetAlignment(styleID))
+	return font, fill, border, alignment
+}
+
+func buildFontObjFromParsed(pf *parsedFont, defaultFont FontInfo, tc *themeColors) *FontObj {
+	if pf == nil {
+		return nil
+	}
+	obj := &FontObj{}
+	if pf.Name != "" && pf.Name != defaultFont.Name {
+		obj.Name = pf.Name
+	}
+	if pf.Size != 0 && pf.Size != defaultFont.Size {
+		obj.Size = pf.Size
+	}
+	obj.Bold = pf.Bold
+	obj.Italic = pf.Italic
+	obj.Strikethrough = pf.Strike
+	obj.Underline = pf.Underline
+
+	color := resolveColorLite(pf.Color, pf.ColorTheme, pf.ColorTint, tc)
+	if color != "" && color != "#000000" {
+		obj.Color = color
+	}
+	if obj.IsEmpty() {
+		return nil
+	}
+	return obj
+}
+
+func buildFillObjFromParsed(pf *parsedFill, tc *themeColors) *FillObj {
+	if pf == nil || pf.PatternType == "" || pf.PatternType == "none" {
+		return nil
+	}
+	color := ""
+	if pf.FgTheme != nil {
+		color = resolveColorLite("", pf.FgTheme, pf.FgTint, tc)
+	} else if pf.FgColor != "" {
+		color = pf.FgColor
+		if pf.FgTint != 0 {
+			color = applyTint(color, pf.FgTint)
+		}
+	}
+	if color == "" {
+		return nil
+	}
+	return &FillObj{Color: color}
+}
+
+func buildBorderObjFromParsed(edges []parsedBorderEdge) *BorderObj {
+	if len(edges) == 0 {
+		return nil
+	}
+	obj := &BorderObj{}
+	for _, e := range edges {
+		edge := &BorderEdge{Style: e.Style}
+		color := normalizeHexColor(e.Color)
+		if color != "" && color != "#000000" {
+			edge.Color = color
+		}
+		switch e.Type {
+		case "top":
+			obj.Top = edge
+		case "bottom":
+			obj.Bottom = edge
+		case "left":
+			obj.Left = edge
+		case "right":
+			obj.Right = edge
+		case "diagonal":
+			// diagonal は diagonalUp と diagonalDown の両方を設定
+			obj.DiagonalUp = edge
+			obj.DiagonalDown = edge
+		}
+	}
+	if obj.IsEmpty() {
+		return nil
+	}
+	return obj
+}
+
+func buildAlignmentObjFromParsed(pa *parsedAlignment) *AlignmentObj {
+	if pa == nil {
+		return nil
+	}
+	obj := &AlignmentObj{}
+	if pa.Horizontal != "" && pa.Horizontal != "general" {
+		obj.Horizontal = pa.Horizontal
+	}
+	if pa.Vertical != "" && pa.Vertical != "bottom" {
+		obj.Vertical = pa.Vertical
+	}
+	obj.Wrap = pa.WrapText
+	obj.Indent = pa.Indent
+	obj.TextRotation = pa.TextRotation
+	obj.ShrinkToFit = pa.ShrinkToFit
+	if obj.IsEmpty() {
+		return nil
+	}
+	return obj
+}
+
+// resolveColorLite は自前パーサーのテーマカラーを解決する
+func resolveColorLite(color string, theme *int, tint float64, tc *themeColors) string {
+	if theme != nil && tc != nil {
+		base := tc.Get(*theme)
+		if base != "" {
+			if tint != 0 {
+				return applyTint(base, tint)
+			}
+			return base
+		}
+	}
+	if color != "" {
+		if tint != 0 {
+			return applyTint(color, tint)
+		}
+		return normalizeHexColor(color)
+	}
+	return ""
 }
 
 func buildFontObj(font *excelize.Font, defaultFont FontInfo, ef *excelize.File) *FontObj {

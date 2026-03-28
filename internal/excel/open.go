@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -12,13 +13,16 @@ import (
 
 // File はオープンしたExcelファイルを表す
 type File struct {
-	*excelize.File
+	*excelize.File       // scan 用（nil の場合は lite モード）
 	Name string
 	path string
 
-	// StreamSheet 用のキャッシュ（遅延初期化）
+	// 自前パースデータ（lite モードおよび StreamSheet で使用）
 	sharedStrings *sharedStrings
 	sheetPaths    map[string]string // シート名 → ZIP内のXMLパス
+	sheetNames    []string          // シート名（workbook.xml の順序）
+	styles        *styleSheet       // styles.xml
+	theme         *themeColors      // theme1.xml
 }
 
 // OpenFile はExcelファイルを開く。.xlsx/.xlsm のみ対応。
@@ -38,6 +42,134 @@ func OpenFile(path string) (*File, error) {
 	return &File{File: f, Name: filepath.Base(path), path: path}, nil
 }
 
+// OpenFileLite は excelize を使わず、必要なメタデータのみをZIPから直接パースする。
+// dump/search コマンド用の軽量オープン。ワークシートXMLの展開を行わない。
+func OpenFileLite(path string) (*File, error) {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext != ".xlsx" && ext != ".xlsm" {
+		return nil, fmt.Errorf(".xlsx / .xlsm 形式のみ対応しています")
+	}
+
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+
+	f := &File{
+		Name: filepath.Base(path),
+		path: path,
+	}
+
+	// 共有文字列テーブル
+	f.sharedStrings, err = parseSharedStringsFromZip(zr)
+	if err != nil {
+		return nil, err
+	}
+
+	// シートパスマップ
+	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zr)
+	if err != nil {
+		return nil, err
+	}
+
+	// styles.xml
+	stylesData, err := readZipFileFromReader(zr, "xl/styles.xml")
+	if err != nil {
+		return nil, fmt.Errorf("styles.xml の読み込みに失敗: %w", err)
+	}
+	f.styles, err = parseStyleSheet(stylesData)
+	if err != nil {
+		return nil, fmt.Errorf("styles.xml のパースに失敗: %w", err)
+	}
+
+	// theme1.xml（存在しなくてもエラーにしない）
+	themeData, err := readZipFileFromReader(zr, "xl/theme/theme1.xml")
+	if err == nil {
+		f.theme = parseThemeColors(themeData)
+	}
+
+	return f, nil
+}
+
+// IsLite は excelize を使わない軽量モードかどうかを返す
+func (f *File) IsLite() bool {
+	return f.File == nil
+}
+
+// Close はファイルを閉じる。lite モードでは何もしない。
+func (f *File) CloseLite() {
+	if f.File != nil {
+		f.File.Close()
+	}
+}
+
+// LoadSheetMetaLite はワークシートXMLからメタデータを直接パースする（lite モード用）
+func (f *File) LoadSheetMetaLite(sheet string) (*SheetMeta, error) {
+	xmlPath, ok := f.sheetPaths[sheet]
+	if !ok {
+		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
+	}
+	zr, err := zip.OpenReader(f.path)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+	return LoadSheetMeta(zr, xmlPath)
+}
+
+// LoadSheetRelsLite はシートのリレーションを読む（lite モード用）
+func (f *File) LoadSheetRelsLite(sheet string) map[string]string {
+	xmlPath, ok := f.sheetPaths[sheet]
+	if !ok {
+		return nil
+	}
+	zr, err := zip.OpenReader(f.path)
+	if err != nil {
+		return nil
+	}
+	defer zr.Close()
+	return LoadSheetRels(zr, xmlPath)
+}
+
+// DetectDefaultFontLite は styles.xml からデフォルトフォントを返す（lite モード用）
+func (f *File) DetectDefaultFontLite() FontInfo {
+	if f.styles == nil {
+		return FontInfo{Name: "Calibri", Size: 11}
+	}
+	name := f.styles.DefaultFontName()
+	if name == "" {
+		name = "Calibri"
+	}
+	size := 11.0
+	if len(f.styles.fonts) > 0 {
+		size = f.styles.fonts[0].Size
+	}
+	return FontInfo{Name: name, Size: size}
+}
+
+// ResolveSheetLite は lite モードでのシート名解決
+func (f *File) ResolveSheetLite(sheet string) (string, error) {
+	if len(f.sheetNames) == 0 {
+		return "", fmt.Errorf("ブックにシートがありません")
+	}
+	if sheet == "" {
+		return f.sheetNames[0], nil
+	}
+	// 名前指定
+	if _, ok := f.sheetPaths[sheet]; ok {
+		return sheet, nil
+	}
+	// インデックス指定
+	if idx, err := strconv.Atoi(sheet); err == nil {
+		if idx >= 0 && idx < len(f.sheetNames) {
+			return f.sheetNames[idx], nil
+		}
+		return "", fmt.Errorf("シートインデックス %d が範囲外です", idx)
+	}
+	return "", fmt.Errorf("シート %q が見つかりません", sheet)
+}
+
 // initStreamData は StreamSheet に必要な共有文字列テーブルとシートパスを遅延初期化する
 func (f *File) initStreamData() error {
 	if f.sharedStrings != nil {
@@ -55,7 +187,7 @@ func (f *File) initStreamData() error {
 		return err
 	}
 
-	f.sheetPaths, err = buildSheetPaths(zr)
+	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zr)
 	if err != nil {
 		return err
 	}
@@ -63,20 +195,20 @@ func (f *File) initStreamData() error {
 	return nil
 }
 
-// buildSheetPaths は workbook.xml と workbook.xml.rels からシート名→XMLパスのマップを構築する
-func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, error) {
+// buildSheetPaths は workbook.xml と workbook.xml.rels からシート名→XMLパスのマップとシート名リストを構築する
+func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, []string, error) {
 	wb, err := readWorkbook(zr, "xl/workbook.xml")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	relsData, err := readZipFile(zr, "xl/_rels/workbook.xml.rels")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var rels xmlRelationships
 	if err := xml.Unmarshal(relsData, &rels); err != nil {
-		return nil, fmt.Errorf("workbook.xml.rels のパースに失敗: %w", err)
+		return nil, nil, fmt.Errorf("workbook.xml.rels のパースに失敗: %w", err)
 	}
 
 	targets := make(map[string]string, len(rels.Rels))
@@ -85,6 +217,7 @@ func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, error) {
 	}
 
 	paths := make(map[string]string, len(wb.Sheets))
+	names := make([]string, 0, len(wb.Sheets))
 	for _, s := range wb.Sheets {
 		target, ok := targets[s.RID]
 		if !ok {
@@ -96,6 +229,7 @@ func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, error) {
 			target = target[1:]
 		}
 		paths[s.Name] = target
+		names = append(names, s.Name)
 	}
-	return paths, nil
+	return paths, names, nil
 }

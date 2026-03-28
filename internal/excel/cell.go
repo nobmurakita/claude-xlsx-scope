@@ -293,6 +293,11 @@ func isDateFormat(numFmtID int, numFmtStr string) bool {
 }
 
 func (f *File) getNumFormat(styleID int) (int, string) {
+	// lite モード: 自前パーサーを使用
+	if f.styles != nil {
+		return f.styles.GetNumFmt(styleID)
+	}
+	// excelize モード
 	style, err := f.File.GetStyle(styleID)
 	if err != nil || style == nil {
 		return 0, ""

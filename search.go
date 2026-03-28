@@ -59,13 +59,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		filter.Type = excel.CellType(typeFlag)
 	}
 
-	f, err := excel.OpenFile(args[0])
+	f, err := excel.OpenFileLite(args[0])
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	sheet, err := f.ResolveWorksheet(sheetFlag)
+	sheet, err := f.ResolveSheetLite(sheetFlag)
 	if err != nil {
 		return err
 	}
@@ -75,8 +74,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	var startCol, startRow int
 
 	if rangeFlag != "" {
-		usedRange, _ := f.GetUsedRange(sheet, nil)
-		r, err := excel.ParseRange(rangeFlag, usedRange)
+		r, err := excel.ParseRange(rangeFlag, "")
 		if err != nil {
 			return err
 		}
