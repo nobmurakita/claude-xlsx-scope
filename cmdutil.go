@@ -1,6 +1,6 @@
 package main
 
-import "github.com/nobmurakita/exceldump/internal/excel"
+import "github.com/nobmurakita/cc-read-excel/internal/excel"
 
 // openAndResolveSheet はファイルを開いてシートを解決する共通処理。
 // 呼び出し元で defer f.Close() すること。

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/nobmurakita/exceldump/internal/excel"
+	"github.com/nobmurakita/cc-read-excel/internal/excel"
 )
 
 // cellStyler はセルのスタイル・リッチテキスト取得機能を抽象化する

@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/nobmurakita/exceldump/internal/excel"
+	"github.com/nobmurakita/cc-read-excel/internal/excel"
 )
 
 // streamConfig はストリーミング走査の設定

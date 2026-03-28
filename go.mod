@@ -1,4 +1,4 @@
-module github.com/nobmurakita/exceldump
+module github.com/nobmurakita/cc-read-excel
 
 go 1.25.0
 

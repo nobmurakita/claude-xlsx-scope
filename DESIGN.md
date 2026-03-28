@@ -1,4 +1,4 @@
-# exceldump 設計ドキュメント
+# cc-read-excel 設計ドキュメント
 
 Excel ファイル（.xlsx / .xlsm）の内容をCLIからダンプするGoツール。
 Claude CodeがExcel資料（通常の表、Excel方眼紙の仕様書など）を読み取る用途を主眼とする。
@@ -15,7 +15,7 @@ Claude Code からの典型的な利用フローは以下の通り:
 
 `scan` を経由せず `info` → `dump` で直接データを取得することも可能。`dump` の `_meta` 行でレイアウト情報を取得でき、`scan` は大きいシートで used_range を事前に把握したい場合に有用
 
-### `exceldump info <file>`
+### `cc-read-excel info <file>`
 
 **役割:** ファイルレベルの概要を把握する。シート一覧から対象シートを特定し、以降の `scan` / `dump` / `search` に渡す `--sheet` を決定する。
 
@@ -51,7 +51,7 @@ Claude Code からの典型的な利用フローは以下の通り:
 | `type` | string | シート種類（`worksheet`, `chartsheet` 等。workbook.xml.rels のリレーション種別から判定） |
 | `hidden` | bool | 非表示の場合のみ `true` を出力（`hidden` / `veryHidden` を区別しない）。表示状態のシートでは省略 |
 
-### `exceldump dump <file>`
+### `cc-read-excel dump <file>`
 
 **役割:** セルの値と書式を取得する。先頭に `_meta` 行でレイアウト情報を出力し、続いてセルデータを出力する。`--range` で範囲を絞るか、`--range` なしで先頭からストリーミング取得する。内部的にワークシートXMLを自前でSAXパースし、`--limit` 到達時に即座に走査を打ち切る。
 
@@ -72,7 +72,7 @@ Claude Code からの典型的な利用フローは以下の通り:
 - `--limit 0` で上限なし
 - `--include-empty` 指定時は空セルも出力対象に含まれるため、対象セル数が大幅に増える。必要に応じて `--range` で範囲を絞るか `--limit` を調整すること
 
-### `exceldump scan <file>`
+### `cc-read-excel scan <file>`
 
 **役割:** 対象シートの使用範囲（used_range）を取得する。`dump` の `--range` を決定するために使う。
 
@@ -97,7 +97,7 @@ Claude Code からの典型的な利用フローは以下の通り:
 - dimension がない場合（Google Sheets 由来等）は全セル走査で算出する
 - レイアウト情報（列幅、行高、デフォルトフォント等）は `dump` の `_meta` 行で取得可能
 
-### `exceldump search <file>`
+### `cc-read-excel search <file>`
 
 **役割:** 特定の値やセル型をシート内から検索する。シート全体を `dump` して手元でフィルタするより効率的。例えば「特定のキーワードを含むセルの位置を特定 → その周辺を `dump --range` で取得」という使い方ができる。
 
@@ -431,7 +431,7 @@ dump の最初の行に出力される。シートのレイアウト基準値を
 - シートにセルが一つもない場合 → `scan` は `used_range` を省略する。`dump` は `_meta` 行のみ出力（セルなし）で正常終了する
 - `search` で結果が0件の場合 → 空出力（0行のJSONL）で正常終了する
 - 終了コード: 0=成功（検索結果なしも含む）、1=エラー。上記のエラーケースはすべて終了コード 1
-- エラーメッセージは stderr に `exceldump: <メッセージ>` の形式で出力する。stdout には常にJSONL（またはJSON）のみを出力する
+- エラーメッセージは stderr に `cc-read-excel: <メッセージ>` の形式で出力する。stdout には常にJSONL（またはJSON）のみを出力する
 
 ## 設計方針
 
@@ -454,17 +454,17 @@ dump の最初の行に出力される。シートのレイアウト基準値を
 
 ## コマンド構成（その他）
 
-### `exceldump version`
+### `cc-read-excel version`
 
 バージョン情報をプレーンテキストで出力する。
 
 ```
-exceldump version 0.1.0
+cc-read-excel version 0.1.0
 ```
 
 バージョン番号は `go build -ldflags` でビルド時に埋め込む。未設定の場合は `dev` を表示する。
 
-### `exceldump shapes <file>`
+### `cc-read-excel shapes <file>`
 
 **役割:** シート上の図形（オートシェイプ、テキストボックス、コネクタ、グループ、画像）を取得する。フローチャートや図解の構造を、図形間の接続関係を含めて把握する。
 

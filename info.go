@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nobmurakita/exceldump/internal/excel"
+	"github.com/nobmurakita/cc-read-excel/internal/excel"
 	"github.com/spf13/cobra"
 )
 
