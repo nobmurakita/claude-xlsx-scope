@@ -2,6 +2,7 @@ package excel
 
 import (
 	"encoding/xml"
+	"log"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			p.warnings.Add("parseShape: XMLトークン読み取りに失敗: %v", err)
+			log.Printf("[WARN] parseShape: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -257,7 +258,7 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, gro
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
-			p.warnings.Add("startGroup: XMLトークン読み取りに失敗: %v", err)
+			log.Printf("[WARN] startGroup: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {

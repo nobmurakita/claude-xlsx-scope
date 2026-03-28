@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			p.warnings.Add("parsePicture: XMLトークン読み取りに失敗: %v", err)
+			log.Printf("[WARN] parsePicture: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
@@ -155,7 +156,7 @@ func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int
 func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
 	rc, err := entry.Open()
 	if err != nil {
-		p.warnings.Add("extractImage: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
+		log.Printf("[WARN] extractImage: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return ""
 	}
 	defer rc.Close()
@@ -166,13 +167,13 @@ func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
 
 	outFile, err := os.Create(outPath)
 	if err != nil {
-		p.warnings.Add("extractImage: ファイル %s の作成に失敗: %v", outPath, err)
+		log.Printf("[WARN] extractImage: ファイル %s の作成に失敗: %v", outPath, err)
 		return ""
 	}
 	defer outFile.Close()
 
 	if _, err := io.Copy(outFile, rc); err != nil {
-		p.warnings.Add("extractImage: 画像の書き込みに失敗: %v", err)
+		log.Printf("[WARN] extractImage: 画像の書き込みに失敗: %v", err)
 		os.Remove(outPath)
 		return ""
 	}

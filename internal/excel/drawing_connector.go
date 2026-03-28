@@ -2,6 +2,7 @@ package excel
 
 import (
 	"encoding/xml"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -39,7 +40,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 	for depth > 0 {
 		tok, err := decoder.Token()
 		if err != nil {
-			p.warnings.Add("parseConnector: XMLトークン読み取りに失敗: %v", err)
+			log.Printf("[WARN] parseConnector: XMLトークン読み取りに失敗: %v", err)
 			break
 		}
 		switch t := tok.(type) {
