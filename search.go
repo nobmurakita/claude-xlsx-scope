@@ -81,7 +81,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return emitTruncated(enc, result.TruncatedNext)
+	if err := emitTruncated(enc, result.TruncatedNext); err != nil {
+		return fmt.Errorf("JSON出力エラー: %w", err)
+	}
+	return nil
 }
 
 // buildFilter はフラグからフィルタを構築する

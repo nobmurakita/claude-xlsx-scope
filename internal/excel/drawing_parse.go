@@ -52,27 +52,37 @@ type groupContext struct {
 	children []int
 }
 
-func newDrawingParser(theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) *drawingParser {
+// drawingParserConfig は drawingParser の初期化パラメータ
+type drawingParserConfig struct {
+	theme        *themeColors
+	includeStyle bool
+	drawingPath  string
+	drawingRels  map[string]xmlRelationship
+	zipEntries   map[string]*zip.File
+	extractDir   string // 空なら画像スキップ
+}
+
+func newDrawingParser(cfg drawingParserConfig) *drawingParser {
 	return &drawingParser{
-		theme:        theme,
-		includeStyle: includeStyle,
+		theme:        cfg.theme,
+		includeStyle: cfg.includeStyle,
 		excelIDMap:   make(map[int]int),
 		nextID:       1,
-		drawingPath:  drawingPath,
-		drawingRels:  drawingRels,
-		zipEntries:   zipEntries,
-		extractDir:   extractDir,
+		drawingPath:  cfg.drawingPath,
+		drawingRels:  cfg.drawingRels,
+		zipEntries:   cfg.zipEntries,
+		extractDir:   cfg.extractDir,
 	}
 }
 
-func parseDrawingXML(entry *zip.File, theme *themeColors, includeStyle bool, drawingPath string, drawingRels map[string]xmlRelationship, zipEntries map[string]*zip.File, extractDir string) (*DrawingResult, error) {
+func parseDrawingXML(entry *zip.File, cfg drawingParserConfig) (*DrawingResult, error) {
 	rc, err := entry.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
 
-	p := newDrawingParser(theme, includeStyle, drawingPath, drawingRels, zipEntries, extractDir)
+	p := newDrawingParser(cfg)
 
 	if err := p.parse(rc); err != nil {
 		return nil, err

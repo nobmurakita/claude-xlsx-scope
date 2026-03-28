@@ -69,14 +69,22 @@ func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
 	return parseSheetMetaFull(entry)
 }
 
+// sheetMetaSection は parseSheetMetaFull のセクション状態（相互排他）
+type sheetMetaSection int
+
+const (
+	sectionNone       sheetMetaSection = iota
+	sectionSheetPr    // <sheetPr>
+	sectionCols       // <cols>
+	sectionSheetData  // <sheetData>
+	sectionMergeCells // <mergeCells>
+	sectionHyperlinks // <hyperlinks>
+)
+
 // sheetMetaFullState は parseSheetMetaFull の SAX パーサー状態
 type sheetMetaFullState struct {
-	inSheetData  bool
-	inMergeCells bool
-	inHyperlinks bool
-	inCols       bool
-	inSheetPr    bool
-	skipDepth    int // sheetData 内のネスト深さ（スキップ用）
+	section   sheetMetaSection
+	skipDepth int // sheetData 内のネスト深さ（スキップ用）
 }
 
 func newSheetMeta() *SheetMeta {
@@ -102,7 +110,7 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 
 			switch t := tok.(type) {
 			case xml.StartElement:
-				if st.inSheetData {
+				if st.section == sectionSheetData {
 					st.skipDepth++
 					// sheetData 内では行の属性だけ取得する
 					if t.Name.Local == "row" {
@@ -116,10 +124,10 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					parseMetaDimension(t, meta)
 
 				case "sheetPr":
-					st.inSheetPr = true
+					st.section = sectionSheetPr
 
 				case "tabColor":
-					if st.inSheetPr {
+					if st.section == sectionSheetPr {
 						parseTabColor(t, meta)
 					}
 
@@ -127,22 +135,22 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					parseMetaFormatPr(t, meta)
 
 				case "cols":
-					st.inCols = true
+					st.section = sectionCols
 
 				case "col":
-					if st.inCols {
+					if st.section == sectionCols {
 						parseColInfo(t, meta)
 					}
 
 				case "sheetData":
-					st.inSheetData = true
+					st.section = sectionSheetData
 					st.skipDepth = 0
 
 				case "mergeCells":
-					st.inMergeCells = true
+					st.section = sectionMergeCells
 
 				case "mergeCell":
-					if st.inMergeCells {
+					if st.section == sectionMergeCells {
 						for _, attr := range t.Attr {
 							if attr.Name.Local == "ref" {
 								meta.MergeCells = append(meta.MergeCells, MergeCellRange{Ref: attr.Value})
@@ -151,18 +159,18 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					}
 
 				case "hyperlinks":
-					st.inHyperlinks = true
+					st.section = sectionHyperlinks
 
 				case "hyperlink":
-					if st.inHyperlinks {
+					if st.section == sectionHyperlinks {
 						parseHyperlink(t, meta)
 					}
 				}
 
 			case xml.EndElement:
-				if st.inSheetData {
+				if st.section == sectionSheetData {
 					if t.Name.Local == "sheetData" {
-						st.inSheetData = false
+						st.section = sectionNone
 					} else {
 						st.skipDepth--
 					}
@@ -170,14 +178,8 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 				}
 
 				switch t.Name.Local {
-				case "sheetPr":
-					st.inSheetPr = false
-				case "cols":
-					st.inCols = false
-				case "mergeCells":
-					st.inMergeCells = false
-				case "hyperlinks":
-					st.inHyperlinks = false
+				case "sheetPr", "cols", "mergeCells", "hyperlinks":
+					st.section = sectionNone
 				}
 			}
 		}
@@ -340,8 +342,8 @@ func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
 // BuildMergeInfo は SheetMeta のマージセル情報から MergeInfo を構築する
 func (sm *SheetMeta) BuildMergeInfo() *MergeInfo {
 	mi := &MergeInfo{
-		topLeft: make(map[[2]int]string, len(sm.MergeCells)),
-		merged:  make(map[[2]int]bool),
+		topLeft: make(map[cellCoord]string, len(sm.MergeCells)),
+		merged:  make(map[cellCoord]bool),
 	}
 	for _, mc := range sm.MergeCells {
 		parts := strings.SplitN(mc.Ref, ":", 2)
@@ -354,13 +356,13 @@ func (sm *SheetMeta) BuildMergeInfo() *MergeInfo {
 			continue
 		}
 
-		mi.topLeft[[2]int{sCol, sRow}] = mc.Ref
+		mi.topLeft[cellCoord{sCol, sRow}] = mc.Ref
 		for r := sRow; r <= eRow; r++ {
 			for c := sCol; c <= eCol; c++ {
 				if r == sRow && c == sCol {
 					continue
 				}
-				mi.merged[[2]int{c, r}] = true
+				mi.merged[cellCoord{c, r}] = true
 			}
 		}
 	}

@@ -256,6 +256,7 @@ func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
 			break
 		}
 		if err != nil {
+			log.Printf("[WARN] parseThreadedCommentsSAX: XMLトークン読み取りに失敗: %v", err)
 			return items
 		}
 

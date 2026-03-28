@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/nobmurakita/exceldump/internal/excel"
@@ -106,7 +107,10 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return emitTruncated(enc, result.TruncatedNext)
+	if err := emitTruncated(enc, result.TruncatedNext); err != nil {
+		return fmt.Errorf("JSON出力エラー: %w", err)
+	}
+	return nil
 }
 
 // emitMeta は _meta 行を出力する

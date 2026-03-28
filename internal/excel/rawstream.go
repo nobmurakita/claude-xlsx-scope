@@ -172,28 +172,7 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 				st.inCell = false
 
-				// 値の解決
-				if cell.ValueType == vtInlineStr {
-					cell.Value = inlineBuf.String()
-				} else if cell.ValueType == vtSharedString {
-					// 共有文字列のインデックスを解決
-					if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
-						cell.Value = ss.Get(idx)
-						cell.SharedStrIdx = idx
-					}
-				} else {
-					cell.Value = valueBuf.String()
-				}
-
-				// 数式
-				if needFormula || cell.ValueType == vtFormulaStr {
-					cell.Formula = formulaBuf.String()
-				} else {
-					// 数式は不要だが、値が数式の結果かどうかの判定用にフラグを保持
-					if formulaBuf.Len() > 0 {
-						cell.Formula = formulaBuf.String()
-					}
-				}
+				resolveCell(&cell, ss, &valueBuf, &formulaBuf, &inlineBuf, needFormula)
 
 				// 空セルはスキップ
 				if cell.Value == "" && cell.Formula == "" {
@@ -229,6 +208,30 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 	}
 
 	return nil
+}
+
+// resolveCell はセルの値と数式を各バッファから解決する
+func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineBuf *strings.Builder, needFormula bool) {
+	// 値の解決
+	if cell.ValueType == vtInlineStr {
+		cell.Value = inlineBuf.String()
+	} else if cell.ValueType == vtSharedString {
+		// 共有文字列のインデックスを解決
+		if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
+			cell.Value = ss.Get(idx)
+			cell.SharedStrIdx = idx
+		}
+	} else {
+		cell.Value = valueBuf.String()
+	}
+
+	// 数式
+	if needFormula || cell.ValueType == vtFormulaStr {
+		cell.Formula = formulaBuf.String()
+	} else if formulaBuf.Len() > 0 {
+		// 数式は不要だが、値が数式の結果かどうかの判定用にフラグを保持
+		cell.Formula = formulaBuf.String()
+	}
 }
 
 // parseCellRef はセル参照（例: "AB123"）を列番号と行番号に分解する

@@ -19,8 +19,6 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 	shape := p.newShapeInfo(ShapeTypeConnector, z, cell, groupStack)
 
 	var cr connRef
-	cr.shapeIndex = len(p.shapes)
-
 	depth := 1
 	var st connectorParseState
 	sh := drawingStyleHandler{p: p}

@@ -117,7 +117,14 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
 	}
 
-	return parseDrawingXML(entry, f.getTheme(), opts.IncludeStyle, drawingPath, drawingRels, zipEntries, opts.ExtractDir)
+	return parseDrawingXML(entry, drawingParserConfig{
+		theme:        f.getTheme(),
+		includeStyle: opts.IncludeStyle,
+		drawingPath:  drawingPath,
+		drawingRels:  drawingRels,
+		zipEntries:   zipEntries,
+		extractDir:   opts.ExtractDir,
+	})
 }
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
