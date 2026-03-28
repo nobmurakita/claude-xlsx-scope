@@ -45,13 +45,17 @@ exceldump info 基本設計書.xlsx
 {"file":"基本設計書.xlsx","defined_names":[],"sheets":[{"index":0,"name":"表紙","type":"worksheet"},{"index":1,"name":"機能一覧","type":"worksheet"}]}
 ```
 
-### scan — シートの構造を分析
+### scan — シートの使用範囲を取得
 
 ```bash
 exceldump scan --sheet 0 基本設計書.xlsx
 ```
 
-シートのメタ情報（デフォルトフォント、列幅等）を返す。dimension がある場合は使用範囲やデータ領域の分布も返す。
+```json
+{"sheet":"表紙","used_range":"A1:CD55"}
+```
+
+dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。
 
 ### dump — セルデータをダンプ
 
@@ -60,13 +64,15 @@ exceldump dump --sheet 0 --limit 5 見積計算.xlsx
 ```
 
 ```jsonl
-{"cell":"G2","value":"（人"}
-{"cell":"I2","value":"（ヶ月"}
-{"cell":"J2","value":"（人月"}
-{"cell":"K2","value":"（千円"}
-{"_row":3,"height":22.5}
-{"cell":"B3","value":"工程"}
+{"_meta":true,"default_width":8.43,"default_height":15,"col_widths":{"B":24.5,"H":30}}
+{"cell":"A1","value":"項目名"}
+{"cell":"B1","value":"数量"}
+{"cell":"C1","value":"単価"}
+{"_row":2,"height":22.5}
+{"cell":"A2","value":"商品A","merge":"A2:A3"}
 ```
+
+最初の行に `_meta`（レイアウト情報）を出力し、その後にセルデータが続く。
 
 書式付き:
 
@@ -75,6 +81,7 @@ exceldump dump --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 ```
 
 ```jsonl
+{"_meta":true,"default_width":8.43,"default_height":15,"col_widths":{"B":24.5}}
 {"_row":3,"height":22.5}
 {"cell":"B3","value":"工程","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
 {"cell":"C3","value":"作業内容","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
@@ -96,7 +103,7 @@ exceldump dump --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 ### search — セル値を検索
 
 ```bash
-exceldump search --query "マスタ" --no-style 運用シナリオ.xlsx
+exceldump search --query "マスタ" 運用シナリオ.xlsx
 ```
 
 ```jsonl
@@ -105,7 +112,7 @@ exceldump search --query "マスタ" --no-style 運用シナリオ.xlsx
 ```
 
 ```bash
-exceldump search --numeric ">100" --no-style 見積計算.xlsx
+exceldump search --numeric ">100" 見積計算.xlsx
 ```
 
 ```jsonl
