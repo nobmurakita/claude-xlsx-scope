@@ -362,8 +362,7 @@ func (ss *styleSheet) GetFont(styleID int) *parsedFont {
 	if xf.FontID < 0 || xf.FontID >= len(ss.fonts) {
 		return nil
 	}
-	f := ss.fonts[xf.FontID]
-	return &f
+	return &ss.fonts[xf.FontID]
 }
 
 // GetFill は styleID から塗りつぶし情報を返す
@@ -378,8 +377,7 @@ func (ss *styleSheet) GetFill(styleID int) *parsedFill {
 	if xf.FillID < 0 || xf.FillID >= len(ss.fills) {
 		return nil
 	}
-	f := ss.fills[xf.FillID]
-	return &f
+	return &ss.fills[xf.FillID]
 }
 
 // GetBorder は styleID から罫線情報を返す
@@ -406,8 +404,7 @@ func (ss *styleSheet) GetAlignment(styleID int) *parsedAlignment {
 	if !xf.ApplyAlign && !xf.HasAlignment {
 		return nil
 	}
-	a := xf.Alignment
-	return &a
+	return &ss.cellXfs[styleID].Alignment
 }
 
 // DefaultFontName はブックのデフォルトフォント名を返す

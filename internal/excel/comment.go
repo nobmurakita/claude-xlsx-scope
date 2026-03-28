@@ -31,13 +31,8 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	if !ok {
 		return nil
 	}
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return nil
-	}
-	defer zr.Close()
 
-	rels := loadSheetRelsAll(zr, xmlPath)
+	rels := loadSheetRelsAll(f.zr, xmlPath)
 	if len(rels) == 0 {
 		return nil
 	}
@@ -47,7 +42,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	for _, rel := range rels {
 		if strings.Contains(rel.Type, "/comments") {
 			commentsPath := resolveRelTarget(xmlPath, rel.Target)
-			parseComments(zr, commentsPath, comments)
+			parseComments(f.zr, commentsPath, comments)
 		}
 	}
 
@@ -55,7 +50,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	for _, rel := range rels {
 		if strings.Contains(rel.Type, "threadedcomments") || strings.Contains(rel.Type, "threadedComments") {
 			threadPath := resolveRelTarget(xmlPath, rel.Target)
-			parseThreadedComments(zr, threadPath, comments)
+			parseThreadedComments(f.zr, threadPath, comments)
 		}
 	}
 

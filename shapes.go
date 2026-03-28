@@ -34,6 +34,7 @@ func runShapes(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {

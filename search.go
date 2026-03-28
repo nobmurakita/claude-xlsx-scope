@@ -56,13 +56,20 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		filter.Numeric = expr
 	}
 	if typeFlag != "" {
-		filter.Type = excel.CellType(typeFlag)
+		switch excel.CellType(typeFlag) {
+		case excel.CellTypeString, excel.CellTypeNumber, excel.CellTypeBool,
+			excel.CellTypeDate, excel.CellTypeFormula, excel.CellTypeError:
+			filter.Type = excel.CellType(typeFlag)
+		default:
+			return fmt.Errorf("不明なセル型です: %q（指定可能: string, number, date, bool, formula, error）", typeFlag)
+		}
 	}
 
 	f, err := excel.OpenFile(args[0])
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {
@@ -98,26 +105,17 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	outputCount := 0
 	var truncatedNext string
+	var encErr error
 
 	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
-		if scanRange != nil {
-			if row < scanRange.StartRow || col < scanRange.StartCol {
-				return true
-			}
-			if row > scanRange.EndRow {
-				return false
-			}
-			if col > scanRange.EndCol {
-				return true
-			}
+		if skip, stop := filterByRange(col, row, scanRange); skip || stop {
+			return !stop
 		}
 
-		if startCol > 0 {
-			if row < startRow || (row == startRow && col < startCol) {
-				return true
-			}
+		if filterByStart(col, row, startCol, startRow) {
+			return true
 		}
 
 		if dc.mergeInfo.IsMergedNonTopLeft(col, row) {
@@ -139,16 +137,24 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 
 		out := dc.buildCellOutput(col, row, data, raw)
-		enc.Encode(out)
+		if encErr = enc.Encode(out); encErr != nil {
+			return false
+		}
 		outputCount++
 		return true
 	})
+
+	if encErr != nil {
+		return encErr
+	}
 	if err != nil {
 		return err
 	}
 
 	if truncatedNext != "" {
-		enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext})
+		if err := enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext}); err != nil {
+			return err
+		}
 	}
 
 	return nil

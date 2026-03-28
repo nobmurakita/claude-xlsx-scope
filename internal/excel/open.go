@@ -19,6 +19,7 @@ type FontInfo struct {
 type File struct {
 	Name string
 	path string
+	zr   *zip.ReadCloser // ZIP リーダー（Close() で解放）
 
 	// 自前パースデータ
 	sharedStrings *sharedStrings
@@ -39,32 +40,36 @@ func OpenFile(path string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer zr.Close()
 
 	f := &File{
 		Name: filepath.Base(path),
 		path: path,
+		zr:   zr,
 	}
 
 	// 共有文字列テーブル
 	f.sharedStrings, err = parseSharedStringsFromZip(zr)
 	if err != nil {
+		zr.Close()
 		return nil, err
 	}
 
 	// シートパスマップ
 	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zr)
 	if err != nil {
+		zr.Close()
 		return nil, err
 	}
 
 	// styles.xml
 	stylesData, err := readZipFileFromReader(zr, "xl/styles.xml")
 	if err != nil {
+		zr.Close()
 		return nil, fmt.Errorf("styles.xml の読み込みに失敗: %w", err)
 	}
 	f.styles, err = parseStyleSheet(stylesData)
 	if err != nil {
+		zr.Close()
 		return nil, fmt.Errorf("styles.xml のパースに失敗: %w", err)
 	}
 
@@ -77,18 +82,21 @@ func OpenFile(path string) (*File, error) {
 	return f, nil
 }
 
+// Close は File が保持する ZIP リーダーを閉じる
+func (f *File) Close() error {
+	if f.zr != nil {
+		return f.zr.Close()
+	}
+	return nil
+}
+
 // LoadSheetMeta はワークシートXMLからメタデータを直接パースする
 func (f *File) LoadSheetMeta(sheet string) (*SheetMeta, error) {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
 	}
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return nil, err
-	}
-	defer zr.Close()
-	return LoadSheetMeta(zr, xmlPath)
+	return LoadSheetMeta(f.zr, xmlPath)
 }
 
 // LoadSheetRels はシートのリレーションを読む
@@ -97,12 +105,7 @@ func (f *File) LoadSheetRels(sheet string) map[string]string {
 	if !ok {
 		return nil
 	}
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return nil
-	}
-	defer zr.Close()
-	return LoadSheetRelsFromZip(zr, xmlPath)
+	return LoadSheetRelsFromZip(f.zr, xmlPath)
 }
 
 // LoadDimension はシートの dimension を高速取得する（XML先頭のみ読む）
@@ -111,12 +114,7 @@ func (f *File) LoadDimension(sheet string) string {
 	if !ok {
 		return ""
 	}
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return ""
-	}
-	defer zr.Close()
-	return LoadDimensionOnly(zr, xmlPath)
+	return LoadDimensionOnly(f.zr, xmlPath)
 }
 
 // DetectDefaultFont は styles.xml からデフォルトフォントを返す

@@ -142,13 +142,13 @@ func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
 	return result
 }
 
-func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) {
+func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) error {
 	if dc.sheetMeta == nil {
-		return
+		return nil
 	}
 	info, ok := dc.sheetMeta.Rows[row]
 	if !ok {
-		return
+		return nil
 	}
 	ri := rowOutput{Row: row}
 	if info.Height != dc.defaultHeight {
@@ -156,9 +156,35 @@ func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) {
 	}
 	ri.Hidden = info.Hidden
 	if ri.Height == 0 && !ri.Hidden {
-		return
+		return nil
 	}
-	enc.Encode(ri)
+	return enc.Encode(ri)
+}
+
+// filterByRange はセルが走査範囲内かを判定する。
+// skip=true: このセルをスキップ、stop=true: 走査終了
+func filterByRange(col, row int, scanRange *excel.CellRange) (skip, stop bool) {
+	if scanRange == nil {
+		return false, false
+	}
+	if row < scanRange.StartRow || col < scanRange.StartCol {
+		return true, false
+	}
+	if row > scanRange.EndRow {
+		return false, true
+	}
+	if col > scanRange.EndCol {
+		return true, false
+	}
+	return false, false
+}
+
+// filterByStart はセルが開始位置より前かを判定する（true=スキップ）
+func filterByStart(col, row, startCol, startRow int) bool {
+	if startCol > 0 {
+		return row < startRow || (row == startRow && col < startCol)
+	}
+	return false
 }
 
 func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
@@ -237,6 +263,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	sheet, err := f.ResolveSheet(sheetFlag)
 	if err != nil {
@@ -276,34 +303,25 @@ func runDump(cmd *cobra.Command, args []string) error {
 			DefaultHeight: dc.sheetMeta.DefaultHeight,
 			ColWidths:     colWidthsFromMeta(dc.sheetMeta),
 		}
-		enc.Encode(meta)
+		if err := enc.Encode(meta); err != nil {
+			return err
+		}
 	}
 
 	outputCount := 0
 	lastRow := -1
 	var truncatedNext string
+	var encErr error
 
 	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
-		// --range フィルタ
-		if scanRange != nil {
-			if row < scanRange.StartRow || col < scanRange.StartCol {
-				return true
-			}
-			if row > scanRange.EndRow {
-				return false
-			}
-			if col > scanRange.EndCol {
-				return true
-			}
+		if skip, stop := filterByRange(col, row, scanRange); skip || stop {
+			return !stop
 		}
 
-		// --start フィルタ
-		if startCol > 0 {
-			if row < startRow || (row == startRow && col < startCol) {
-				return true
-			}
+		if filterByStart(col, row, startCol, startRow) {
+			return true
 		}
 
 		if dc.mergeInfo.IsMergedNonTopLeft(col, row) {
@@ -325,21 +343,34 @@ func runDump(cmd *cobra.Command, args []string) error {
 
 		// 行が変わったら行情報を出力
 		if row != lastRow {
-			dc.emitRowInfo(enc, row)
+			if encErr = dc.emitRowInfo(enc, row); encErr != nil {
+				return false
+			}
 			lastRow = row
 		}
 
 		out := dc.buildCellOutput(col, row, data, raw)
-		enc.Encode(out)
+		if encErr = enc.Encode(out); encErr != nil {
+			return false
+		}
 		outputCount++
 		return true
 	})
 
-	if truncatedNext != "" {
-		enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext})
+	if encErr != nil {
+		return encErr
+	}
+	if err != nil {
+		return err
 	}
 
-	return err
+	if truncatedNext != "" {
+		if err := enc.Encode(truncatedOutput{Truncated: true, NextCell: truncatedNext}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {

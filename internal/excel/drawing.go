@@ -72,12 +72,7 @@ func (f *File) HasDrawings(sheet string) bool {
 	if !ok {
 		return false
 	}
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return false
-	}
-	defer zr.Close()
-	return findDrawingTarget(zr, xmlPath) != ""
+	return findDrawingTarget(f.zr, xmlPath) != ""
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
@@ -88,12 +83,7 @@ func (f *File) LoadDrawing(sheet string, includeStyle bool, extractDir string) (
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
 	}
 
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return nil, err
-	}
-	defer zr.Close()
-
+	zr := f.zr
 	target := findDrawingTarget(zr, xmlPath)
 	if target == "" {
 		// 図形なし

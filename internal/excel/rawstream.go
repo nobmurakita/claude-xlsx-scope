@@ -35,13 +35,7 @@ func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *R
 		return fmt.Errorf("シート %q の XML パスが見つかりません", sheet)
 	}
 
-	zr, err := zip.OpenReader(f.path)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-
-	for _, entry := range zr.File {
+	for _, entry := range f.zr.File {
 		if entry.Name == xmlPath {
 			return streamWorksheetXML(entry, f.sharedStrings, needFormula, callback)
 		}
@@ -95,14 +89,18 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 					continue
 				}
 				inRow = true
-				currentRow++
+				hasR := false
 				for _, attr := range t.Attr {
 					if attr.Name.Local == "r" {
 						if r, err := strconv.Atoi(attr.Value); err == nil {
 							currentRow = r
+							hasR = true
 						}
 						break
 					}
+				}
+				if !hasR {
+					currentRow++
 				}
 
 			case "c":
