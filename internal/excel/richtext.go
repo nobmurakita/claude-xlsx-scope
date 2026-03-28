@@ -23,7 +23,7 @@ func (f *File) GetRichText(sharedStrIdx int, cellFont *FontObj, defaultFont Font
 	for _, run := range rawRuns {
 		r := RichTextRun{Text: run.Text}
 		if run.Font != nil {
-			r.Font = buildFontObjFromParsed(run.Font, baseFontInfo, f.theme)
+			r.Font = buildFontObjFromParsed(run.Font, baseFontInfo, f.getTheme())
 		}
 		result = append(result, r)
 	}

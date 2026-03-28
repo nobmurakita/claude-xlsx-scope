@@ -4,9 +4,15 @@ import (
 	"github.com/nobmurakita/exceldump/internal/excel"
 )
 
+// cellStyler はセルのスタイル・リッチテキスト取得機能を抽象化する
+type cellStyler interface {
+	StyleByID(styleID int, defaultFont excel.FontInfo) (*excel.FontObj, *excel.FillObj, *excel.BorderObj, *excel.AlignmentObj)
+	GetRichText(sharedStrIdx int, cellFont *excel.FontObj, defaultFont excel.FontInfo) []excel.RichTextRun
+}
+
 // dumpContext は dump/search の走査で共有するコンテキスト
 type dumpContext struct {
-	f             *excel.File
+	styler        cellStyler
 	sheet         string
 	defaultFont   excel.FontInfo
 	defaultHeight float64
@@ -34,7 +40,7 @@ func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*
 	}
 
 	dc := &dumpContext{
-		f:              f,
+		styler:         f,
 		sheet:          sheet,
 		sheetMeta:      meta,
 		defaultHeight:  meta.DefaultHeight,
@@ -78,7 +84,7 @@ func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
 	if cached, ok := dc.styleCache[styleID]; ok {
 		return cached
 	}
-	font, fill, border, alignment := dc.f.StyleByID(styleID, dc.defaultFont)
+	font, fill, border, alignment := dc.styler.StyleByID(styleID, dc.defaultFont)
 	result := &styleResult{font: font, fill: fill, border: border, alignment: alignment}
 	dc.styleCache[styleID] = result
 	return result
@@ -153,7 +159,7 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *
 			out.Alignment = sr.alignment
 		}
 		if raw != nil {
-			out.RichText = dc.f.GetRichText(raw.SharedStrIdx, out.Font, dc.defaultFont)
+			out.RichText = dc.styler.GetRichText(raw.SharedStrIdx, out.Font, dc.defaultFont)
 		}
 	}
 

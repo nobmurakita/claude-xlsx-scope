@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // FontInfo はフォントの基本情報
@@ -22,12 +23,15 @@ type File struct {
 	path string
 	zr   *zip.ReadCloser
 
-	// ZIP 内 XML から自前でパー��したデータ
+	// ZIP 内 XML から自前でパースしたデータ
 	sharedStrings *sharedStrings
 	sheetPaths    map[string]string // シート名 → ZIP内のXMLパス
 	sheetNames    []string          // シート名（workbook.xml の順序）
 	styles        *styleSheet
-	theme         *themeColors
+
+	// 遅延ロード対象
+	theme     *themeColors
+	themeOnce sync.Once
 }
 
 // OpenFile はExcelファイルを開き、メタデータをZIPから直接パースする。
@@ -75,12 +79,6 @@ func OpenFile(path string) (result *File, retErr error) {
 		return nil, fmt.Errorf("styles.xml のパースに失敗: %w", err)
 	}
 
-	// theme1.xml（存在しなくてもエラーにしない）
-	themeData, err := readZipFile(zr, "xl/theme/theme1.xml")
-	if err == nil {
-		f.theme = parseThemeColors(themeData)
-	}
-
 	return f, nil
 }
 
@@ -90,6 +88,17 @@ func (f *File) Close() error {
 		return f.zr.Close()
 	}
 	return nil
+}
+
+// getTheme は theme をオンデマンドでロードする
+func (f *File) getTheme() *themeColors {
+	f.themeOnce.Do(func() {
+		data, err := readZipFile(f.zr, "xl/theme/theme1.xml")
+		if err == nil {
+			f.theme = parseThemeColors(data)
+		}
+	})
+	return f.theme
 }
 
 // LoadSheetMeta はワークシートXMLからメタデータを直接パースする
@@ -142,7 +151,7 @@ func (f *File) ResolveTabColor(meta *SheetMeta) string {
 		return normalizeHexColor(meta.TabColorRGB)
 	}
 	if meta.TabColorTheme != nil {
-		return resolveColorLite("", meta.TabColorTheme, meta.TabColorTint, f.theme)
+		return resolveColorLite("", meta.TabColorTheme, meta.TabColorTint, f.getTheme())
 	}
 	return ""
 }
@@ -174,8 +183,8 @@ func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj,
 	if f.styles == nil {
 		return nil, nil, nil, nil
 	}
-	font := buildFontObjFromParsed(f.styles.GetFont(styleID), defaultFont, f.theme)
-	fill := buildFillObjFromParsed(f.styles.GetFill(styleID), f.theme)
+	font := buildFontObjFromParsed(f.styles.GetFont(styleID), defaultFont, f.getTheme())
+	fill := buildFillObjFromParsed(f.styles.GetFill(styleID), f.getTheme())
 	border := buildBorderObjFromParsed(f.styles.GetBorder(styleID))
 	alignment := buildAlignmentObjFromParsed(f.styles.GetAlignment(styleID))
 	return font, fill, border, alignment

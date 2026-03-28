@@ -90,55 +90,23 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	outputCount := 0
-	lastRow := -1
-	var truncatedNext string
-	var encErr error
-
-	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
-		col, row := raw.Col, raw.Row
-
-		if skip, stop := shouldSkipCell(col, row, scanRange, startCol, startRow, dc.mergeInfo); skip {
-			return !stop
-		}
-
-		data := f.RawCellToCellData(raw)
-
-		if !data.HasValue && data.Type == excel.CellTypeEmpty {
-			if !includeEmpty {
-				return true
-			}
-		}
-
-		if limit > 0 && outputCount >= limit {
-			truncatedNext = excel.CellRef(col, row)
-			return false
-		}
-
-		// 行が変わったら行情報を出力
-		if row != lastRow {
-			if encErr = dc.emitRowInfo(enc, row); encErr != nil {
-				return false
-			}
-			lastRow = row
-		}
-
-		out := dc.buildCellOutput(col, row, data, raw)
-		if encErr = enc.Encode(out); encErr != nil {
-			return false
-		}
-		outputCount++
-		return true
+	result, err := runStream(&streamConfig{
+		f:            f,
+		dc:           dc,
+		enc:          enc,
+		scanRange:    scanRange,
+		startCol:     startCol,
+		startRow:     startRow,
+		limit:        limit,
+		showFormula:  showFormula,
+		includeEmpty: includeEmpty,
+		emitRowInfo:  true,
 	})
-
-	if encErr != nil {
-		return encErr
-	}
 	if err != nil {
 		return err
 	}
 
-	return emitTruncated(enc, truncatedNext)
+	return emitTruncated(enc, result.TruncatedNext)
 }
 
 // emitMeta は _meta 行を出力する

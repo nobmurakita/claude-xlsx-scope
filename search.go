@@ -66,47 +66,22 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	enc := newJSONLWriter(os.Stdout)
 
-	outputCount := 0
-	var truncatedNext string
-	var encErr error
-
-	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
-		col, row := raw.Col, raw.Row
-
-		if skip, stop := shouldSkipCell(col, row, scanRange, startCol, startRow, dc.mergeInfo); skip {
-			return !stop
-		}
-
-		data := f.RawCellToCellData(raw)
-		if !data.HasValue && data.Type == excel.CellTypeEmpty {
-			return true
-		}
-
-		if !filter.MatchCell(data) {
-			return true
-		}
-
-		if limit > 0 && outputCount >= limit {
-			truncatedNext = excel.CellRef(col, row)
-			return false
-		}
-
-		out := dc.buildCellOutput(col, row, data, raw)
-		if encErr = enc.Encode(out); encErr != nil {
-			return false
-		}
-		outputCount++
-		return true
+	result, err := runStream(&streamConfig{
+		f:           f,
+		dc:          dc,
+		enc:         enc,
+		scanRange:   scanRange,
+		startCol:    startCol,
+		startRow:    startRow,
+		limit:       limit,
+		showFormula: showFormula,
+		filter:      filter,
 	})
-
-	if encErr != nil {
-		return encErr
-	}
 	if err != nil {
 		return err
 	}
 
-	return emitTruncated(enc, truncatedNext)
+	return emitTruncated(enc, result.TruncatedNext)
 }
 
 // buildFilter はフラグからフィルタを構築する
