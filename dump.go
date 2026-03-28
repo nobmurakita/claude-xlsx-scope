@@ -243,7 +243,9 @@ func runDump(cmd *cobra.Command, args []string) error {
 	outputCount := 0
 	lastRow := -1
 
-	err = f.StreamRows(sheet, func(col, row int, value string) bool {
+	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
+		col, row := raw.Col, raw.Row
+
 		// --range フィルタ
 		if scanRange != nil {
 			if row < scanRange.StartRow || col < scanRange.StartCol {
@@ -268,14 +270,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 			return true
 		}
 
-		data, err := f.ReadCell(sheet, col, row, excel.ReadCellOpts{
-			Value:       value,
-			HasValue:    true,
-			NeedFormula: showFormula,
-		})
-		if err != nil {
-			return true
-		}
+		data := f.RawCellToCellData(raw)
 
 		if !data.HasValue && data.Type == excel.CellTypeEmpty {
 			if !includeEmpty {

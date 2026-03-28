@@ -120,8 +120,9 @@ type xmlRelationships struct {
 }
 
 type xmlRelationship struct {
-	ID   string `xml:"Id,attr"`
-	Type string `xml:"Type,attr"`
+	ID     string `xml:"Id,attr"`
+	Type   string `xml:"Type,attr"`
+	Target string `xml:"Target,attr"`
 }
 
 func readZipFile(r *zip.ReadCloser, name string) ([]byte, error) {

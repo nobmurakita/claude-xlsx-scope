@@ -100,7 +100,9 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	outputCount := 0
 
-	err = f.StreamRows(sheet, func(col, row int, value string) bool {
+	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
+		col, row := raw.Col, raw.Row
+
 		if scanRange != nil {
 			if row < scanRange.StartRow || col < scanRange.StartCol {
 				return true
@@ -123,12 +125,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return true
 		}
 
-		data, err := f.ReadCell(sheet, col, row, excel.ReadCellOpts{
-			Value:       value,
-			HasValue:    true,
-			NeedFormula: showFormula,
-		})
-		if err != nil || (!data.HasValue && data.Type == excel.CellTypeEmpty) {
+		data := f.RawCellToCellData(raw)
+		if !data.HasValue && data.Type == excel.CellTypeEmpty {
 			return true
 		}
 

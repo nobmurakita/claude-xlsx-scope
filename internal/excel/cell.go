@@ -367,3 +367,129 @@ func parseHyperlinkTarget(target string) *HyperlinkData {
 	}
 	return link
 }
+
+// RawCellToCellData は RawCell（SAXストリーミングで取得）を CellData に変換する。
+// excelize への API コールを行わず、getNumFormat（キャッシュ済み）のみ使用。
+func (f *File) RawCellToCellData(raw *RawCell) *CellData {
+	numFmtID, numFmtStr := f.getNumFormat(raw.StyleID)
+
+	data := &CellData{
+		NumFmtID:  numFmtID,
+		NumFmtStr: numFmtStr,
+		StyleID:   raw.StyleID,
+	}
+
+	// 数式セル
+	if raw.Formula != "" {
+		data.Formula = raw.Formula
+		data.Type = CellTypeFormula
+		data.HasValue = true
+		data.Value = parseCachedValueRaw(raw.Value, numFmtID, numFmtStr)
+		// Display はキャッシュ値から設定（シリアル値ではなく変換後の値を使う）
+		if s, ok := data.Value.(string); ok {
+			data.Display = s
+		} else {
+			data.Display = raw.Value
+		}
+		adjustDisplay(data)
+		return data
+	}
+
+	switch raw.XMLType {
+	case "s", "str", "inlineStr":
+		data.Type = CellTypeString
+		data.Value = raw.Value
+		data.HasValue = raw.Value != ""
+		data.Display = raw.Value
+
+	case "b":
+		data.Type = CellTypeBool
+		data.HasValue = true
+		data.Value = raw.Value == "1" || strings.EqualFold(raw.Value, "true")
+		if data.Value.(bool) {
+			data.Display = "TRUE"
+		} else {
+			data.Display = "FALSE"
+		}
+
+	case "e":
+		data.Type = CellTypeError
+		data.HasValue = true
+		data.Value = raw.Value
+		data.Display = raw.Value
+
+	case "n", "":
+		// 数値型（デフォルト）
+		data.HasValue = true
+		if isDateFormat(numFmtID, numFmtStr) {
+			data.Type = CellTypeDate
+			data.Value = parseDate(raw.Value)
+			if s, ok := data.Value.(string); ok {
+				data.Display = s
+			}
+		} else {
+			data.Type = CellTypeNumber
+			data.Value = parseNumber(raw.Value)
+			data.Display = raw.Value
+		}
+
+	default:
+		if raw.Value == "" {
+			data.Type = CellTypeEmpty
+			data.HasValue = false
+			return data
+		}
+		// 未知の型: 数値+日付フォーマット判定
+		if _, err := strconv.ParseFloat(raw.Value, 64); err == nil {
+			if isDateFormat(numFmtID, numFmtStr) {
+				data.Type = CellTypeDate
+				data.HasValue = true
+				data.Value = parseDate(raw.Value)
+				if s, ok := data.Value.(string); ok {
+					data.Display = s
+				}
+			} else {
+				data.Type = CellTypeNumber
+				data.HasValue = true
+				data.Value = parseNumber(raw.Value)
+				data.Display = raw.Value
+			}
+		} else {
+			data.Type = CellTypeString
+			data.Value = raw.Value
+			data.HasValue = true
+			data.Display = raw.Value
+		}
+	}
+
+	// エラー値の判定
+	if data.Type == CellTypeString && isErrorValue(raw.Value) {
+		data.Type = CellTypeError
+	}
+
+	adjustDisplay(data)
+	return data
+}
+
+// parseCachedValueRaw は RawCell 用のキャッシュ値パーサー
+func parseCachedValueRaw(rawValue string, numFmtID int, numFmtStr string) any {
+	if rawValue == "" {
+		return nil
+	}
+	if isErrorValue(rawValue) {
+		return rawValue
+	}
+	if _, err := strconv.ParseFloat(rawValue, 64); err == nil {
+		if isDateFormat(numFmtID, numFmtStr) {
+			return parseDate(rawValue)
+		}
+		return parseNumber(rawValue)
+	}
+	if rawValue == "TRUE" || rawValue == "true" {
+		return true
+	}
+	if rawValue == "FALSE" || rawValue == "false" {
+		return false
+	}
+	return rawValue
+}
