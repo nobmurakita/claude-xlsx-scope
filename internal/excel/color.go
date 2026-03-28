@@ -9,11 +9,6 @@ import (
 
 // ---------- 色変換ユーティリティ ----------
 
-// NormalizeColor はカラー文字列を #RRGGBB 形式に正規化する
-func NormalizeColor(c string) string {
-	return normalizeHexColor(c)
-}
-
 func normalizeHexColor(c string) string {
 	c = strings.TrimPrefix(c, "#")
 	if c == "" {

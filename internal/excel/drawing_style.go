@@ -222,33 +222,6 @@ func parseCNvPr(t xml.StartElement) (name string, excelID int) {
 	return
 }
 
-// attrVal は StartElement から指定属性の値を返す
-func attrVal(t xml.StartElement, name string) string {
-	for _, attr := range t.Attr {
-		if attr.Name.Local == name {
-			return attr.Value
-		}
-	}
-	return ""
-}
-
-// skipElement は現在の要素を末尾まで読み飛ばす
-func skipElement(decoder *xml.Decoder) {
-	depth := 1
-	for depth > 0 {
-		tok, err := decoder.Token()
-		if err != nil {
-			// XMLトークン読み取り失敗: スキップ中断
-			return
-		}
-		switch tok.(type) {
-		case xml.StartElement:
-			depth++
-		case xml.EndElement:
-			depth--
-		}
-	}
-}
 
 // parseDrawingFontAttrs は DrawingML の rPr/defRPr 属性からフォント情報を取得する
 func parseDrawingFontAttrs(t xml.StartElement, font *parsedFont) {

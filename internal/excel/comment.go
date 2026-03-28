@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"io"
 	"log"
-	"strconv"
 	"strings"
 )
 
@@ -350,8 +349,3 @@ func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
 	}
 }
 
-// safeAtoi は文字列を int に変換する（エラー時は 0）
-func safeAtoi(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
-}

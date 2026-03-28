@@ -181,12 +181,6 @@ func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj,
 	return font, fill, border, alignment
 }
 
-// initStreamData は StreamSheet に必要なデータの遅延初期化（OpenFile で初期化済みなら何もしない）
-func (f *File) initStreamData() error {
-	// OpenFile で初期化済み
-	return nil
-}
-
 // buildSheetPaths は workbook.xml と workbook.xml.rels からシート名→XMLパスのマップとシート名リストを構築する
 func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, []string, error) {
 	wb, err := readWorkbook(zr, "xl/workbook.xml")

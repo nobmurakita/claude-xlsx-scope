@@ -36,10 +36,6 @@ type RawCell struct {
 // needFormula が false の場合でも、XMLの型属性が formula の場合は数式を取得する。
 // callback が false を返すと走査を中断する。
 func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *RawCell) bool) error {
-	if err := f.initStreamData(); err != nil {
-		return err
-	}
-
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return fmt.Errorf("シート %q の XML パスが見つかりません", sheet)

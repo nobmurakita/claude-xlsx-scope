@@ -138,7 +138,3 @@ func CellRef(col, row int) string {
 	return fmt.Sprintf("%s%d", colName(col), row)
 }
 
-// NextRangeFrom は切り捨て通知用の next_range を計算する
-func NextRangeFrom(nextCol, nextRow int, original CellRange) string {
-	return fmt.Sprintf("%s:%s%d", CellRef(nextCol, nextRow), colName(original.EndCol), original.EndRow)
-}

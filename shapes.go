@@ -29,16 +29,11 @@ func runShapes(cmd *cobra.Command, args []string) error {
 	showStyle, _ := cmd.Flags().GetBool("style")
 	extractDir, _ := cmd.Flags().GetString("extract-images")
 
-	f, err := excel.OpenFile(args[0])
+	f, sheet, err := openAndResolveSheet(args[0], sheetFlag)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	sheet, err := f.ResolveSheet(sheetFlag)
-	if err != nil {
-		return err
-	}
 
 	// 画像抽出ディレクトリの作成
 	if extractDir != "" {

@@ -15,7 +15,7 @@ import (
 const DefaultColWidth = 9.140625
 
 // SheetMeta はワークシートXMLから直接パースしたシートメタデータ。
-// LoadSheetMeta / LoadSheetMetaQuick で取得する。
+// LoadSheetMeta で取得する。
 type SheetMeta struct {
 	Dimension     string  // dimension 属性（例: "A1:N27653"）
 	DefaultWidth  float64 // デフォルト列幅（XML未指定時は 0、EffectiveDefaultWidth で標準値を取得）
@@ -67,81 +67,6 @@ func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
 	return parseSheetMetaFull(entry)
-}
-
-// LoadSheetMetaQuick はワークシートXMLの先頭部分（sheetData の前）のみを読む軽量版。
-// dimension, sheetFormatPr, cols, sheetPr を取得し、行属性・マージ・ハイパーリンクは取得しない。
-func LoadSheetMetaQuick(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
-	entry := findZipEntry(zr, xmlPath)
-	if entry == nil {
-		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
-	}
-	return parseSheetMetaQuick(entry)
-}
-
-// parseSheetMetaQuick は sheetData の前の要素のみを読む軽量パーサー。
-// sheetData に到達した時点で即座に返す。
-func parseSheetMetaQuick(entry *zip.File) (*SheetMeta, error) {
-	meta := &SheetMeta{
-		Rows: make(map[int]RowInfo),
-	}
-	err := withZipXML(entry, func(decoder *xml.Decoder) error {
-		var (
-			inCols    bool
-			inSheetPr bool
-		)
-
-		for {
-			tok, err := decoder.Token()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-
-			se, ok := tok.(xml.StartElement)
-			if !ok {
-				if ee, ok := tok.(xml.EndElement); ok {
-					switch ee.Name.Local {
-					case "sheetPr":
-						inSheetPr = false
-					case "cols":
-						inCols = false
-					}
-				}
-				continue
-			}
-
-			switch se.Name.Local {
-			case "sheetData":
-				// sheetData に到達したら終了
-				return nil
-			case "dimension":
-				parseMetaDimension(se, meta)
-			case "sheetPr":
-				inSheetPr = true
-			case "tabColor":
-				if inSheetPr {
-					parseTabColor(se, meta)
-				}
-			case "sheetFormatPr":
-				parseMetaFormatPr(se, meta)
-			case "cols":
-				inCols = true
-			case "col":
-				if inCols {
-					parseColInfo(se, meta)
-				}
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return meta, nil
 }
 
 // sheetMetaFullState は parseSheetMetaFull の SAX パーサー状態

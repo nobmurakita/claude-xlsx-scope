@@ -23,7 +23,7 @@ func (f *File) GetRichText(sharedStrIdx int, cellFont *FontObj, defaultFont Font
 	for _, run := range rawRuns {
 		r := RichTextRun{Text: run.Text}
 		if run.Font != nil {
-			r.Font = richTextFontDiffFromParsed(run.Font, baseFontInfo, f.theme)
+			r.Font = buildFontObjFromParsed(run.Font, baseFontInfo, f.theme)
 		}
 		result = append(result, r)
 	}
@@ -43,25 +43,3 @@ func richTextBaseFont(cellFont *FontObj, defaultFont FontInfo) FontInfo {
 	return base
 }
 
-func richTextFontDiffFromParsed(font *parsedFont, base FontInfo, tc *themeColors) *FontObj {
-	obj := &FontObj{}
-	if font.Name != "" && font.Name != base.Name {
-		obj.Name = font.Name
-	}
-	if font.Size != 0 && font.Size != base.Size {
-		obj.Size = font.Size
-	}
-	obj.Bold = font.Bold
-	obj.Italic = font.Italic
-	obj.Strikethrough = font.Strike
-	obj.Underline = font.Underline
-
-	color := resolveColorLite(font.Color, font.ColorTheme, font.ColorTint, tc)
-	if color != "" && color != "#000000" {
-		obj.Color = color
-	}
-	if obj.IsEmpty() {
-		return nil
-	}
-	return obj
-}

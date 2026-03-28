@@ -29,16 +29,11 @@ type scanOutput struct {
 func runScan(cmd *cobra.Command, args []string) error {
 	sheetFlag, _ := cmd.Flags().GetString("sheet")
 
-	f, err := excel.OpenFile(args[0])
+	f, sheet, err := openAndResolveSheet(args[0], sheetFlag)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	sheet, err := f.ResolveSheet(sheetFlag)
-	if err != nil {
-		return err
-	}
 
 	out := scanOutput{Sheet: sheet}
 	out.HasDrawings = f.HasDrawings(sheet)
@@ -48,7 +43,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if dim != "" && dim != "A1:A1" {
 		out.UsedRange = dim
 	} else {
-		rc := excel.NewRowCache(true)
+		rc := excel.NewRowCache()
 		f.StreamSheet(sheet, false, func(raw *excel.RawCell) bool {
 			rc.Add(raw.Col, raw.Row)
 			return true

@@ -53,16 +53,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	f, err := excel.OpenFile(args[0])
+	f, sheet, err := openAndResolveSheet(args[0], sheetFlag)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	sheet, err := f.ResolveSheet(sheetFlag)
-	if err != nil {
-		return err
-	}
 
 	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
 	if err != nil {
@@ -78,16 +73,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	err = f.StreamSheet(sheet, showFormula, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
-		if skip, stop := filterByRange(col, row, scanRange); skip || stop {
+		if skip, stop := shouldSkipCell(col, row, scanRange, startCol, startRow, dc.mergeInfo); skip {
 			return !stop
-		}
-
-		if filterByStart(col, row, startCol, startRow) {
-			return true
-		}
-
-		if dc.mergeInfo.IsMergedNonTopLeft(col, row) {
-			return true
 		}
 
 		data := f.RawCellToCellData(raw)
