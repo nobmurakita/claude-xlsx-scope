@@ -160,7 +160,7 @@ cc-read-excel search --numeric ">100" 見積計算.xlsx
 |-----------|------|-----------|
 | `--query` | 検索文字列（部分一致、大文字小文字無視） | — |
 | `--numeric` | 数値比較（`">100"`, `"100:200"`, `"=42"`） | — |
-| `--type` | 型フィルタ（`string`, `number`, `date`, `bool`, `formula`） | — |
+| `--type` | 型フィルタ（`string`, `number`, `bool`, `formula`） | — |
 | `--sheet` | 対象シート | 最初のシート |
 | `--range` | セル範囲 | 全体 |
 | `--start` | 開始セル位置。`--range` と排他 | 先頭 |

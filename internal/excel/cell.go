@@ -44,8 +44,7 @@ type CellData struct {
 	Formula   string   // 数式文字列（数式セルの場合のみ）
 	Error     bool     // true: 値がExcelエラー（#N/A, #REF! 等）
 	HasValue  bool     // true: セルに値がある
-	NumFmtID  int      // 数値フォーマットID
-	NumFmtStr string   // カスタム数値フォーマット文字列
+	NumFmtStr string   // 数値フォーマット文字列
 	StyleID   int      // スタイルID
 }
 
@@ -90,31 +89,6 @@ func parseNumber(s string) any {
 	return s
 }
 
-func parseDate(rawValue string) any {
-	f, err := strconv.ParseFloat(rawValue, 64)
-	if err != nil {
-		return rawValue
-	}
-	t, err := excelDateToTime(f)
-	if err != nil {
-		return rawValue
-	}
-	return formatDateTime(t, f)
-}
-
-func formatDateTime(t time.Time, serial float64) string {
-	// 時刻のみ（シリアル値が1未満）
-	if serial > 0 && serial < 1 {
-		return t.Format("15:04:05")
-	}
-	// 日付のみ（時分秒が0）
-	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
-		return t.Format("2006-01-02")
-	}
-	// 日時
-	return t.Format("2006-01-02T15:04:05")
-}
-
 // excelDateToTime はExcelのシリアル値を time.Time に変換する（1900年基準）
 func excelDateToTime(serial float64) (time.Time, error) {
 	if serial < 0 {
@@ -139,8 +113,8 @@ func excelDateToTime(serial float64) (time.Time, error) {
 }
 
 // parseCachedValue は数式セルのキャッシュ値をパースする。
-// エラー値・数値（日付判定含む）・ブール・文字列の順で判定する。
-func parseCachedValue(rawValue string, numFmtID int, numFmtStr string) any {
+// エラー値・数値・ブール・文字列の順で判定する。
+func parseCachedValue(rawValue string) any {
 	if rawValue == "" {
 		return nil
 	}
@@ -167,42 +141,11 @@ func isErrorValue(s string) bool {
 	return false
 }
 
-// builtinDateFormatIDs は ECMA-376 で定義された組み込み日付フォーマットIDの集合。
-// numFmtId がこの集合に含まれる場合、そのセルは日付型として扱う。
-var builtinDateFormatIDs = map[int]bool{
-	14: true, 15: true, 16: true, 17: true, 18: true, 19: true, 20: true, 21: true, 22: true,
-	27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 34: true, 35: true, 36: true,
-	45: true, 46: true, 47: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true,
-}
-
-// dateFormatTokens はカスタム数値フォーマットが日付系かを判定するためのキーワード
-var dateFormatTokens = []string{"yy", "mm", "dd", "d", "h", "ss", "am/pm", "yyyy", "gg"}
-
-// isDateFormat は数値フォーマットが日付系かどうかを判定する
-func isDateFormat(numFmtID int, numFmtStr string) bool {
-	if builtinDateFormatIDs[numFmtID] {
-		return true
-	}
-	if numFmtStr == "" {
-		return false
-	}
-	// カスタムフォーマットの簡易判定
-	lower := strings.ToLower(numFmtStr)
-	// 日付系キーワードの存在をチェック（"0.00" のような数値フォーマットを除外）
-	for _, tok := range dateFormatTokens {
-		if strings.Contains(lower, tok) {
-			// "mm" は分にも使われるので、"h" や "s" と共に使われる場合は時刻と判断
-			return true
-		}
-	}
-	return false
-}
-
-func (f *File) getNumFormat(styleID int) (int, string) {
+func (f *File) getNumFormat(styleID int) string {
 	if f.styles != nil {
 		return f.styles.GetNumFmt(styleID)
 	}
-	return 0, ""
+	return ""
 }
 
 // HyperlinkData はハイパーリンク情報
@@ -225,12 +168,10 @@ func parseHyperlinkTarget(target string) *HyperlinkData {
 }
 
 // RawCellToCellData は RawCell（SAXストリーミングで取得）を CellData に変換する。
-// excelize への API コールを行わず、getNumFormat（キャッシュ済み）のみ使用。
 func (f *File) RawCellToCellData(raw *RawCell) *CellData {
-	numFmtID, numFmtStr := f.getNumFormat(raw.StyleID)
+	numFmtStr := f.getNumFormat(raw.StyleID)
 
 	data := &CellData{
-		NumFmtID:  numFmtID,
 		NumFmtStr: numFmtStr,
 		StyleID:   raw.StyleID,
 	}
@@ -241,7 +182,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		data.Type = CellTypeFormula
 		data.HasValue = true
 		data.Error = raw.ValueType == vtError || isErrorValue(raw.Value)
-		data.Value = parseCachedValue(raw.Value, numFmtID, numFmtStr)
+		data.Value = parseCachedValue(raw.Value)
 		data.Display = displayFromCachedValue(data.Value, raw.Value)
 		adjustDisplay(data)
 		return data
@@ -273,7 +214,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 
 	case vtNumber, "":
 		data.HasValue = true
-		fillNumeric(data, raw.Value, numFmtID, numFmtStr)
+		fillNumeric(data, raw.Value, numFmtStr)
 
 	default:
 		if raw.Value == "" {
@@ -284,7 +225,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		// 未知の型: 数値ならフォーマット判定、それ以外は文字列
 		if _, err := strconv.ParseFloat(raw.Value, 64); err == nil {
 			data.HasValue = true
-			fillNumeric(data, raw.Value, numFmtID, numFmtStr)
+			fillNumeric(data, raw.Value, numFmtStr)
 		} else {
 			data.Type = CellTypeString
 			data.Value = raw.Value
@@ -298,20 +239,19 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 }
 
 // fillNumeric は数値セルの型・値・Displayを設定する。
-// 日付フォーマットの場合は Display に ISO 8601 変換後の文字列を設定する（ヒント用）。
-func fillNumeric(data *CellData, rawValue string, numFmtID int, numFmtStr string) {
+// フォーマットエンジンでフォーマット文字列に沿った表示文字列を生成する。
+func fillNumeric(data *CellData, rawValue string, numFmtStr string) {
 	data.Type = CellTypeNumber
 	data.Value = parseNumber(rawValue)
-	if isDateFormat(numFmtID, numFmtStr) {
-		// 日付らしいフォーマットの場合、displayにISO 8601変換を入れてヒントにする
-		if dateStr, ok := parseDate(rawValue).(string); ok {
-			data.Display = dateStr
-		} else {
-			data.Display = rawValue
+	if numFmtStr != "" {
+		if f, ok := data.Value.(float64); ok {
+			if display := FormatNumericValue(numFmtStr, f); display != "" {
+				data.Display = display
+				return
+			}
 		}
-	} else {
-		data.Display = rawValue
 	}
+	data.Display = rawValue
 }
 
 // displayFromCachedValue はキャッシュ値から Display 文字列を決定する

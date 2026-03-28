@@ -128,7 +128,6 @@ func hueToRGB(p, q, t float64) float64 {
 // ---------- 色調整関数 ----------
 
 // applyTint はHEXカラー文字列にtint値（明度調整）を適用する。
-// excelize.ThemeColor と同等の処理を行う。
 func applyTint(hexColor string, tint float64) string {
 	if tint == 0 {
 		return hexColor

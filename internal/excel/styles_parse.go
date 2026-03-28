@@ -335,21 +335,20 @@ func resolveXMLColor(c *xmlColor) string {
 	return ""
 }
 
-// GetNumFmt は styleID から numFmtId と formatCode を返す。
+// GetNumFmt は styleID からフォーマット文字列を返す。
 // カスタムフォーマットがない場合は組み込みフォーマットの文字列を返す。
-func (ss *styleSheet) GetNumFmt(styleID int) (int, string) {
+func (ss *styleSheet) GetNumFmt(styleID int) string {
 	if styleID < 0 || styleID >= len(ss.cellXfs) {
-		return 0, ""
+		return ""
 	}
 	xf := ss.cellXfs[styleID]
-	code, ok := ss.numFmts[xf.NumFmtID]
-	if ok {
-		return xf.NumFmtID, code
+	if code, ok := ss.numFmts[xf.NumFmtID]; ok {
+		return code
 	}
 	if builtin, ok := builtinNumFmts[xf.NumFmtID]; ok {
-		return xf.NumFmtID, builtin
+		return builtin
 	}
-	return xf.NumFmtID, ""
+	return ""
 }
 
 // builtinNumFmts は ECMA-376 で定義された組み込み数値フォーマットの文字列表現。

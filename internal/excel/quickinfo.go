@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// QuickInfo は excelize を使わず ZIP から直接メタデータを取得する。
+// QuickInfo は ZIP から直接メタデータを取得する。
 // info コマンド用の軽量パス。
 
 // SheetInfo はシートの基本情報

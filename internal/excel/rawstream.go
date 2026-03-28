@@ -20,7 +20,7 @@ const (
 )
 
 // RawCell はワークシートXMLから直接パースしたセルデータ。
-// 1回のSAX走査で全属性を取得するため、excelize へのAPIコールが不要。
+// 1回のSAX走査で全属性を取得する。
 type RawCell struct {
 	Col          int
 	Row          int
@@ -32,7 +32,7 @@ type RawCell struct {
 }
 
 // StreamSheet はワークシートXMLを自前でSAXパースし、全セル属性を1パスで取得する。
-// excelize の Rows()/GetCellType/GetCellValue/GetCellStyle/GetCellFormula を完全に置き換える。
+// ワークシートの全セルデータを1パスで取得する。
 // needFormula が false の場合でも、XMLの型属性が formula の場合は数式を取得する。
 // callback が false を返すと走査を中断する。
 func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *RawCell) bool) error {
