@@ -9,7 +9,7 @@ import (
 // streamConfig はストリーミング走査の設定
 type streamConfig struct {
 	f           *excel.File
-	dc          *dumpContext
+	dc          *cellsContext
 	enc         *json.Encoder
 	scanRange   *excel.CellRange
 	startCol    int
@@ -17,7 +17,7 @@ type streamConfig struct {
 	limit       int
 	showFormula bool
 
-	// dump 固有: 空セル出力・行情報出力
+	// cells 固有: 空セル出力・行情報出力
 	includeEmpty bool
 	emitRowInfo  bool
 
@@ -31,7 +31,7 @@ type streamResult struct {
 	TruncatedNext string
 }
 
-// runStream は dump/search 共通のストリーミング走査を実行する
+// runStream は cells/search 共通のストリーミング走査を実行する
 func runStream(cfg *streamConfig) (*streamResult, error) {
 	result := &streamResult{}
 	lastRow := -1
@@ -69,7 +69,7 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 			return false
 		}
 
-		// 行情報出力（dump 用）
+		// 行情報出力（cells 用）
 		if cfg.emitRowInfo && row != lastRow {
 			if encErr = cfg.dc.emitRowInfo(cfg.enc, row); encErr != nil {
 				return false

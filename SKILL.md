@@ -7,19 +7,19 @@ allowed-tools: Bash(cc-read-excel *)
 
 # cc-read-excel
 
-Excelファイル（.xlsx/.xlsm）の内容をCLIからダンプするツール。
+Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 
 ## 利用フロー
 
 ```
 1. info   → シート一覧を確認し対象シートを特定
 2. scan   → used_range と has_drawings を取得（任意）
-3. dump   → セルデータを取得（先頭に _meta でレイアウト情報を出力）
+3. cells  → セルデータを取得（先頭に _meta でレイアウト情報を出力）
 4. shapes → 図形・フローチャート・画像を取得（has_drawings: true のシートに対して）
-5. search → 特定値の検索（dump より効率的）
+5. search → 特定値の検索（cells より効率的）
 ```
 
-scan は used_range の取得に特化。dump の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → dump で直接データ取得も可能。
+scan は used_range の取得に特化。cells の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → cells で直接データ取得も可能。
 図形がある場合は shapes で構造を把握する。画像を確認するには `--extract-images <dir>` で抽出し、出力の `image.path` を Read ツールで読む。
 
 ## コマンドリファレンス
@@ -35,7 +35,7 @@ cc-read-excel info <file>
 {"file":"example.xlsx","defined_names":[],"sheets":[{"index":0,"name":"データ一覧","type":"worksheet"},{"index":1,"name":"設定","type":"worksheet","hidden":true}]}
 ```
 
-- `sheets[].type`: `worksheet` / `chartsheet`。dump/search は worksheet のみ対応
+- `sheets[].type`: `worksheet` / `chartsheet`。cells/search は worksheet のみ対応
 - `sheets[].hidden`: 非表示シートの場合のみ出力
 - `defined_names`: 名前付き範囲の一覧（`name`, `scope`, `refer`）
 
@@ -55,10 +55,10 @@ cc-read-excel scan --sheet <name|index> <file>
 - dimension（XML属性）があれば即座に返す（数十ms）。なければ全セル走査で算出
 - dimension なし（Google Sheets 由来等）で空シートの場合は `used_range` を省略
 
-### dump
+### cells
 
 ```bash
-cc-read-excel dump [options] <file>
+cc-read-excel cells [options] <file>
 ```
 
 | オプション | 説明 | デフォルト |
@@ -107,10 +107,10 @@ cc-read-excel dump [options] <file>
 
 ```bash
 # 最初の1000セル
-cc-read-excel dump --sheet 0 example.xlsx
+cc-read-excel cells --sheet 0 example.xlsx
 # 最終行: {"_truncated":true,"next_cell":"B501"}
 # 続きを取得
-cc-read-excel dump --sheet 0 --start B501 example.xlsx
+cc-read-excel cells --sheet 0 --start B501 example.xlsx
 ```
 
 `_truncated` 行が出力されなければ、残りのデータはない。
@@ -189,7 +189,7 @@ cc-read-excel search --query "合計" --sheet 0 example.xlsx
 
 ### メタ情報（`_meta`）
 
-dump の最初の行に出力。シートのレイアウト基準値を含む。
+cells の最初の行に出力。シートのレイアウト基準値を含む。
 
 ### 行情報（`_row`）
 

@@ -57,10 +57,10 @@ cc-read-excel scan --sheet 0 基本設計書.xlsx
 
 dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。`has_drawings` は図形が存在するシートでのみ `true` を出力する。
 
-### dump — セルデータをダンプ
+### cells — セルデータを出力
 
 ```bash
-cc-read-excel dump --sheet 0 --limit 5 見積計算.xlsx
+cc-read-excel cells --sheet 0 --limit 5 見積計算.xlsx
 ```
 
 ```jsonl
@@ -78,7 +78,7 @@ cc-read-excel dump --sheet 0 --limit 5 見積計算.xlsx
 書式付き:
 
 ```bash
-cc-read-excel dump --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
+cc-read-excel cells --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 ```
 
 ```jsonl

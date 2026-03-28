@@ -55,7 +55,7 @@ func filterByStart(col, row, startCol, startRow int) bool {
 }
 
 // shouldSkipCell は走査フィルタ・マージ結合のスキップ判定を行う。
-// dump / search の StreamSheet コールバックで共通利用する。
+// cells / search の StreamSheet コールバックで共通利用する。
 func shouldSkipCell(col, row int, scanRange *excel.CellRange, startCol, startRow int, mergeInfo *excel.MergeInfo) (skip, stop bool) {
 	if s, st := filterByRange(col, row, scanRange); s || st {
 		return true, st

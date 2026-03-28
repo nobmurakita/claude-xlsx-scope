@@ -10,8 +10,8 @@ type cellStyler interface {
 	GetRichText(sharedStrIdx int, cellFont *excel.FontObj, defaultFont excel.FontInfo) []excel.RichTextRun
 }
 
-// dumpContext は dump/search の走査で共有するコンテキスト
-type dumpContext struct {
+// cellsContext は cells/search の走査で共有するコンテキスト
+type cellsContext struct {
 	styler        cellStyler
 	sheet         string
 	defaultFont   excel.FontInfo
@@ -33,13 +33,13 @@ type styleResult struct {
 	alignment *excel.AlignmentObj
 }
 
-func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*dumpContext, error) {
+func newCellsContext(f *excel.File, sheet string, showStyle, showFormula bool) (*cellsContext, error) {
 	meta, err := f.LoadSheetMeta(sheet)
 	if err != nil {
 		return nil, err
 	}
 
-	dc := &dumpContext{
+	dc := &cellsContext{
 		styler:         f,
 		sheet:          sheet,
 		sheetMeta:      meta,
@@ -60,7 +60,7 @@ func newDumpContext(f *excel.File, sheet string, showStyle, showFormula bool) (*
 	return dc, nil
 }
 
-func (dc *dumpContext) isHiddenCol(col int) bool {
+func (dc *cellsContext) isHiddenCol(col int) bool {
 	if v, ok := dc.hiddenColCache[col]; ok {
 		return v
 	}
@@ -77,7 +77,7 @@ func (dc *dumpContext) isHiddenCol(col int) bool {
 	return hidden
 }
 
-func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
+func (dc *cellsContext) getCellStyleByID(styleID int) *styleResult {
 	if styleID == 0 {
 		return nil
 	}
@@ -108,7 +108,7 @@ type cellOutput struct {
 	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
 }
 
-func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
+func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
 	out := cellOutput{
 		Cell: excel.CellRef(col, row),
 	}

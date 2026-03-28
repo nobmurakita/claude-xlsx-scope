@@ -10,21 +10,21 @@ import (
 )
 
 func init() {
-	dumpCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	dumpCmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
-	dumpCmd.Flags().String("start", "", "開始セル位置（例: A51）")
-	dumpCmd.Flags().Bool("include-empty", false, "空セルも出力する")
-	dumpCmd.Flags().Bool("style", false, "書式情報を出力する")
-	dumpCmd.Flags().Bool("formula", false, "数式文字列を出力する")
-	dumpCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
-	rootCmd.AddCommand(dumpCmd)
+	cellsCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
+	cellsCmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
+	cellsCmd.Flags().String("start", "", "開始セル位置（例: A51）")
+	cellsCmd.Flags().Bool("include-empty", false, "空セルも出力する")
+	cellsCmd.Flags().Bool("style", false, "書式情報を出力する")
+	cellsCmd.Flags().Bool("formula", false, "数式文字列を出力する")
+	cellsCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
+	rootCmd.AddCommand(cellsCmd)
 }
 
-var dumpCmd = &cobra.Command{
-	Use:   "dump <file>",
-	Short: "セルの値と書式をJSONL形式でダンプする",
+var cellsCmd = &cobra.Command{
+	Use:   "cells <file>",
+	Short: "セルの値と書式をJSONL形式で出力する",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runDump,
+	RunE:  runCells,
 }
 
 type metaOutput struct {
@@ -40,7 +40,7 @@ type rowOutput struct {
 	Hidden bool    `json:"hidden,omitempty"`
 }
 
-func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) error {
+func (dc *cellsContext) emitRowInfo(enc *json.Encoder, row int) error {
 	if dc.sheetMeta == nil {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (dc *dumpContext) emitRowInfo(enc *json.Encoder, row int) error {
 	return enc.Encode(ri)
 }
 
-func runDump(cmd *cobra.Command, args []string) error {
+func runCells(cmd *cobra.Command, args []string) error {
 	sheetFlag, _ := cmd.Flags().GetString("sheet")
 	rangeFlag, _ := cmd.Flags().GetString("range")
 	startFlag, _ := cmd.Flags().GetString("start")
@@ -79,7 +79,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
+	dc, err := newCellsContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}

@@ -59,7 +59,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	dc, err := newDumpContext(f, sheet, showStyle, showFormula)
+	dc, err := newCellsContext(f, sheet, showStyle, showFormula)
 	if err != nil {
 		return err
 	}

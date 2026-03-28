@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// defaultOutputLimit は dump/search/shapes のデフォルト出力上限
+// defaultOutputLimit は cells/search/shapes のデフォルト出力上限
 const defaultOutputLimit = 1000
 
 type truncatedOutput struct {
