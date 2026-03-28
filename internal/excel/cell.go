@@ -15,7 +15,6 @@ const (
 	CellTypeString  CellType = "string"
 	CellTypeNumber  CellType = "number"
 	CellTypeBool    CellType = "bool"
-	CellTypeDate    CellType = "date"
 	CellTypeFormula CellType = "formula"
 	CellTypeEmpty   CellType = "empty"
 )
@@ -149,9 +148,6 @@ func parseCachedValue(rawValue string, numFmtID int, numFmtStr string) any {
 		return rawValue
 	}
 	if _, err := strconv.ParseFloat(rawValue, 64); err == nil {
-		if isDateFormat(numFmtID, numFmtStr) {
-			return parseDate(rawValue)
-		}
 		return parseNumber(rawValue)
 	}
 	if rawValue == "TRUE" || rawValue == "true" {
@@ -277,7 +273,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 
 	case vtNumber, "":
 		data.HasValue = true
-		fillNumericOrDate(data, raw.Value, numFmtID, numFmtStr)
+		fillNumeric(data, raw.Value, numFmtID, numFmtStr)
 
 	default:
 		if raw.Value == "" {
@@ -288,7 +284,7 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 		// 未知の型: 数値ならフォーマット判定、それ以外は文字列
 		if _, err := strconv.ParseFloat(raw.Value, 64); err == nil {
 			data.HasValue = true
-			fillNumericOrDate(data, raw.Value, numFmtID, numFmtStr)
+			fillNumeric(data, raw.Value, numFmtID, numFmtStr)
 		} else {
 			data.Type = CellTypeString
 			data.Value = raw.Value
@@ -301,17 +297,19 @@ func (f *File) RawCellToCellData(raw *RawCell) *CellData {
 	return data
 }
 
-// fillNumericOrDate は数値セルの型・値・Displayを設定する（日付フォーマットなら日付、それ以外は数値）
-func fillNumericOrDate(data *CellData, rawValue string, numFmtID int, numFmtStr string) {
+// fillNumeric は数値セルの型・値・Displayを設定する。
+// 日付フォーマットの場合は Display に ISO 8601 変換後の文字列を設定する（ヒント用）。
+func fillNumeric(data *CellData, rawValue string, numFmtID int, numFmtStr string) {
+	data.Type = CellTypeNumber
+	data.Value = parseNumber(rawValue)
 	if isDateFormat(numFmtID, numFmtStr) {
-		data.Type = CellTypeDate
-		data.Value = parseDate(rawValue)
-		if s, ok := data.Value.(string); ok {
-			data.Display = s
+		// 日付らしいフォーマットの場合、displayにISO 8601変換を入れてヒントにする
+		if dateStr, ok := parseDate(rawValue).(string); ok {
+			data.Display = dateStr
+		} else {
+			data.Display = rawValue
 		}
 	} else {
-		data.Type = CellTypeNumber
-		data.Value = parseNumber(rawValue)
 		data.Display = rawValue
 	}
 }

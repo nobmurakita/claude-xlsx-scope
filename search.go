@@ -100,10 +100,10 @@ func buildFilter(query, numeric, typeStr string) (*excel.Filter, error) {
 	if typeStr != "" {
 		switch excel.CellType(typeStr) {
 		case excel.CellTypeString, excel.CellTypeNumber, excel.CellTypeBool,
-			excel.CellTypeDate, excel.CellTypeFormula:
+			excel.CellTypeFormula:
 			filter.Type = excel.CellType(typeStr)
 		default:
-			return nil, fmt.Errorf("不明なセル型です: %q（指定可能: string, number, date, bool, formula）", typeStr)
+			return nil, fmt.Errorf("不明なセル型です: %q（指定可能: string, number, bool, formula）", typeStr)
 		}
 	}
 	return filter, nil

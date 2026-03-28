@@ -335,17 +335,53 @@ func resolveXMLColor(c *xmlColor) string {
 	return ""
 }
 
-// GetNumFmt は styleID から numFmtId と formatCode を返す
+// GetNumFmt は styleID から numFmtId と formatCode を返す。
+// カスタムフォーマットがない場合は組み込みフォーマットの文字列を返す。
 func (ss *styleSheet) GetNumFmt(styleID int) (int, string) {
 	if styleID < 0 || styleID >= len(ss.cellXfs) {
 		return 0, ""
 	}
 	xf := ss.cellXfs[styleID]
 	code, ok := ss.numFmts[xf.NumFmtID]
-	if !ok {
-		return xf.NumFmtID, ""
+	if ok {
+		return xf.NumFmtID, code
 	}
-	return xf.NumFmtID, code
+	if builtin, ok := builtinNumFmts[xf.NumFmtID]; ok {
+		return xf.NumFmtID, builtin
+	}
+	return xf.NumFmtID, ""
+}
+
+// builtinNumFmts は ECMA-376 で定義された組み込み数値フォーマットの文字列表現。
+// セルの fmt フィールドとして出力するために使用する。
+var builtinNumFmts = map[int]string{
+	1:  "0",
+	2:  "0.00",
+	3:  "#,##0",
+	4:  "#,##0.00",
+	9:  "0%",
+	10: "0.00%",
+	11: "0.00E+00",
+	12: "# ?/?",
+	13: "# ??/??",
+	14: "m/d/yyyy",
+	15: "d-mmm-yy",
+	16: "d-mmm",
+	17: "mmm-yy",
+	18: "h:mm AM/PM",
+	19: "h:mm:ss AM/PM",
+	20: "h:mm",
+	21: "h:mm:ss",
+	22: "m/d/yyyy h:mm",
+	37: "#,##0;(#,##0)",
+	38: "#,##0;[Red](#,##0)",
+	39: "#,##0.00;(#,##0.00)",
+	40: "#,##0.00;[Red](#,##0.00)",
+	45: "mm:ss",
+	46: "[h]:mm:ss",
+	47: "mm:ss.0",
+	48: "##0.0E+0",
+	49: "@",
 }
 
 // GetFont は styleID からフォント情報を返す

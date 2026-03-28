@@ -95,6 +95,7 @@ type cellOutput struct {
 	Value     any                  `json:"value,omitempty"`
 	Display   string               `json:"display,omitempty"`
 	Type      excel.CellType       `json:"type,omitempty"`
+	Fmt       string               `json:"fmt,omitempty"`
 	Error     bool                 `json:"error,omitempty"`
 	Merge     string               `json:"merge,omitempty"`
 	Formula   string               `json:"formula,omitempty"`
@@ -118,10 +119,6 @@ func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw 
 	switch data.Type {
 	case excel.CellTypeEmpty:
 		// value, type ともに省略
-	case excel.CellTypeDate:
-		out.Type = excel.CellTypeDate
-		out.Value = data.Value
-		out.Display = data.Display
 	case excel.CellTypeFormula:
 		out.Value = data.Value
 		if dc.showFormula {
@@ -131,6 +128,11 @@ func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw 
 	default:
 		out.Value = data.Value
 		out.Display = data.Display
+	}
+
+	// 数値セルにフォーマット文字列があれば付与
+	if data.Type == excel.CellTypeNumber && data.NumFmtStr != "" {
+		out.Fmt = data.NumFmtStr
 	}
 
 	if merge, ok := dc.mergeInfo.IsTopLeft(col, row); ok {

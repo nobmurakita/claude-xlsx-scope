@@ -106,7 +106,7 @@ func (f *Filter) MatchCell(data *CellData) bool {
 		}
 	}
 
-	// --numeric フィルタ（number 型 + 数式セルの数値キャッシュも対象、date は対象外）
+	// --numeric フィルタ（number 型 + 数式セルの数値キャッシュも対象）
 	if f.Numeric != nil {
 		num, ok := extractNumericValue(data)
 		if !ok {
