@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -144,20 +143,23 @@ func parseSheetMetaQuick(entry *zip.File) (*SheetMeta, error) {
 	return meta, nil
 }
 
+// sheetMetaFullState は parseSheetMetaFull の SAX パーサー状態
+type sheetMetaFullState struct {
+	inSheetData  bool
+	inMergeCells bool
+	inHyperlinks bool
+	inCols       bool
+	inSheetPr    bool
+	skipDepth    int // sheetData 内のネスト深さ（スキップ用）
+}
+
 // parseSheetMetaFull はワークシートXML全体をパースし、全メタデータを取得する。
 func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 	meta := &SheetMeta{
 		Rows: make(map[int]RowInfo),
 	}
 	err := withZipXML(entry, func(decoder *xml.Decoder) error {
-		var (
-			inSheetData  bool
-			inMergeCells bool
-			inHyperlinks bool
-			inCols       bool
-			inSheetPr    bool
-			skipDepth    int // sheetData 内のネスト深さ（スキップ用）
-		)
+		var st sheetMetaFullState
 
 		for {
 			tok, err := decoder.Token()
@@ -170,8 +172,8 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 
 			switch t := tok.(type) {
 			case xml.StartElement:
-				if inSheetData {
-					skipDepth++
+				if st.inSheetData {
+					st.skipDepth++
 					// sheetData 内では行の属性だけ取得する
 					if t.Name.Local == "row" {
 						parseRowMeta(t, meta)
@@ -184,10 +186,10 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					parseMetaDimension(t, meta)
 
 				case "sheetPr":
-					inSheetPr = true
+					st.inSheetPr = true
 
 				case "tabColor":
-					if inSheetPr {
+					if st.inSheetPr {
 						parseTabColor(t, meta)
 					}
 
@@ -195,22 +197,22 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					parseMetaFormatPr(t, meta)
 
 				case "cols":
-					inCols = true
+					st.inCols = true
 
 				case "col":
-					if inCols {
+					if st.inCols {
 						parseColInfo(t, meta)
 					}
 
 				case "sheetData":
-					inSheetData = true
-					skipDepth = 0
+					st.inSheetData = true
+					st.skipDepth = 0
 
 				case "mergeCells":
-					inMergeCells = true
+					st.inMergeCells = true
 
 				case "mergeCell":
-					if inMergeCells {
+					if st.inMergeCells {
 						for _, attr := range t.Attr {
 							if attr.Name.Local == "ref" {
 								meta.MergeCells = append(meta.MergeCells, MergeCellRange{Ref: attr.Value})
@@ -219,33 +221,33 @@ func parseSheetMetaFull(entry *zip.File) (*SheetMeta, error) {
 					}
 
 				case "hyperlinks":
-					inHyperlinks = true
+					st.inHyperlinks = true
 
 				case "hyperlink":
-					if inHyperlinks {
+					if st.inHyperlinks {
 						parseHyperlink(t, meta)
 					}
 				}
 
 			case xml.EndElement:
-				if inSheetData {
+				if st.inSheetData {
 					if t.Name.Local == "sheetData" {
-						inSheetData = false
+						st.inSheetData = false
 					} else {
-						skipDepth--
+						st.skipDepth--
 					}
 					continue
 				}
 
 				switch t.Name.Local {
 				case "sheetPr":
-					inSheetPr = false
+					st.inSheetPr = false
 				case "cols":
-					inCols = false
+					st.inCols = false
 				case "mergeCells":
-					inMergeCells = false
+					st.inMergeCells = false
 				case "hyperlinks":
-					inHyperlinks = false
+					st.inHyperlinks = false
 				}
 			}
 		}
@@ -366,14 +368,19 @@ func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
 
 // LoadDimensionOnly はワークシートXMLから dimension 属性のみを高速に取得する。
 // XML 先頭付近の <dimension> 要素を見つけた時点で即座に返す。
+// dimension が見つからない場合やパースエラー時は空文字列を返す（警告のみ出力）。
 func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
 	entry := findZipEntry(zr, xmlPath)
 	if entry == nil {
 		return ""
 	}
+
+	warnings := &ParseWarnings{Context: xmlPath}
+	defer warnings.Flush()
+
 	rc, err := entry.Open()
 	if err != nil {
-		log.Printf("[WARN] LoadDimensionOnly: ZIPエントリ %s のオープンに失敗: %v", xmlPath, err)
+		warnings.Add("LoadDimensionOnly: ZIPエントリのオープンに失敗: %v", err)
 		return ""
 	}
 	defer rc.Close()
@@ -383,7 +390,7 @@ func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
 		tok, err := decoder.Token()
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("[WARN] LoadDimensionOnly: XMLトークン読み取りに失敗: %v", err)
+				warnings.Add("LoadDimensionOnly: XMLトークン読み取りに失敗: %v", err)
 			}
 			return ""
 		}

@@ -48,17 +48,20 @@ func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, ca
 	})
 }
 
-func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
-	// 状態管理
-	var (
-		inSheetData bool
-		inRow       bool
-		inCell      bool
-		inValue     bool
-		inFormula   bool
-		inInlineStr bool
-		inT         bool // <is> 内の <t>
+// worksheetSAXState は streamWorksheetSAX の SAX パーサー状態
+type worksheetSAXState struct {
+	inSheetData bool
+	inRow       bool
+	inCell      bool
+	inValue     bool
+	inFormula   bool
+	inInlineStr bool
+	inT         bool // <is> 内の <t>
+}
 
+func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
+	var st worksheetSAXState
+	var (
 		currentRow int
 		cell       RawCell
 		valueBuf   strings.Builder
@@ -79,13 +82,13 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 		case xml.StartElement:
 			switch t.Name.Local {
 			case "sheetData":
-				inSheetData = true
+				st.inSheetData = true
 
 			case "row":
-				if !inSheetData {
+				if !st.inSheetData {
 					continue
 				}
-				inRow = true
+				st.inRow = true
 				hasR := false
 				for _, attr := range t.Attr {
 					if attr.Name.Local == "r" {
@@ -101,10 +104,10 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 
 			case "c":
-				if !inRow {
+				if !st.inRow {
 					continue
 				}
-				inCell = true
+				st.inCell = true
 				cell = RawCell{Row: currentRow, SharedStrIdx: -1}
 				valueBuf.Reset()
 				formulaBuf.Reset()
@@ -126,26 +129,26 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 
 			case "v":
-				if inCell {
-					inValue = true
+				if st.inCell {
+					st.inValue = true
 					valueBuf.Reset()
 				}
 
 			case "f":
-				if inCell {
-					inFormula = true
+				if st.inCell {
+					st.inFormula = true
 					formulaBuf.Reset()
 				}
 
 			case "is":
-				if inCell {
-					inInlineStr = true
+				if st.inCell {
+					st.inInlineStr = true
 					inlineBuf.Reset()
 				}
 
 			case "t":
-				if inInlineStr {
-					inT = true
+				if st.inInlineStr {
+					st.inT = true
 				}
 			}
 
@@ -155,13 +158,13 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				return nil // sheetData 終了で走査完了
 
 			case "row":
-				inRow = false
+				st.inRow = false
 
 			case "c":
-				if !inCell {
+				if !st.inCell {
 					continue
 				}
-				inCell = false
+				st.inCell = false
 
 				// 値の解決
 				if cell.ValueType == "inlineStr" {
@@ -196,24 +199,24 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 
 			case "v":
-				inValue = false
+				st.inValue = false
 
 			case "f":
-				inFormula = false
+				st.inFormula = false
 
 			case "is":
-				inInlineStr = false
+				st.inInlineStr = false
 
 			case "t":
-				inT = false
+				st.inT = false
 			}
 
 		case xml.CharData:
-			if inValue {
+			if st.inValue {
 				valueBuf.Write(t)
-			} else if inFormula {
+			} else if st.inFormula {
 				formulaBuf.Write(t)
-			} else if inT && inInlineStr {
+			} else if st.inT && st.inInlineStr {
 				inlineBuf.Write(t)
 			}
 		}

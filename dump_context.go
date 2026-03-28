@@ -1,66 +1,8 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-
 	"github.com/nobmurakita/exceldump/internal/excel"
 )
-
-// defaultOutputLimit は dump/search/shapes のデフォルト出力上限
-const defaultOutputLimit = 1000
-
-type truncatedOutput struct {
-	Truncated bool   `json:"_truncated"`
-	NextCell  string `json:"next_cell"`
-}
-
-type cellOutput struct {
-	Cell      string               `json:"cell"`
-	Value     any                  `json:"value,omitempty"`
-	Display   string               `json:"display,omitempty"`
-	Type      excel.CellType       `json:"type,omitempty"`
-	Merge     string               `json:"merge,omitempty"`
-	Formula   string               `json:"formula,omitempty"`
-	Link      *excel.HyperlinkData `json:"link,omitempty"`
-	HiddenCol bool                 `json:"hidden_col,omitempty"`
-	Comment   *excel.CommentData   `json:"comment,omitempty"`
-	Font      *excel.FontObj       `json:"font,omitempty"`
-	Fill      *excel.FillObj       `json:"fill,omitempty"`
-	Border    *excel.BorderObj     `json:"border,omitempty"`
-	Alignment *excel.AlignmentObj  `json:"alignment,omitempty"`
-	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
-}
-
-// newJSONLWriter は JSONL 出力用のエンコーダを生成する
-func newJSONLWriter(w io.Writer) *json.Encoder {
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	return enc
-}
-
-// parseScanRange は --range / --start フラグを解析して走査範囲を返す
-func parseScanRange(rangeFlag, startFlag string) (scanRange *excel.CellRange, startCol, startRow int, err error) {
-	if rangeFlag != "" && startFlag != "" {
-		return nil, 0, 0, fmt.Errorf("--range と --start は同時に指定できません")
-	}
-	if rangeFlag != "" {
-		r, err := excel.ParseRange(rangeFlag, "")
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		return &r, 0, 0, nil
-	}
-	if startFlag != "" {
-		startCol, startRow, err = excel.StartPosition(startFlag)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		return nil, startCol, startRow, nil
-	}
-	return nil, 0, 0, nil
-}
 
 // dumpContext は dump/search の走査で共有するコンテキスト
 type dumpContext struct {
@@ -74,7 +16,7 @@ type dumpContext struct {
 	sheetMeta     *excel.SheetMeta // lite モード用
 	showStyle     bool
 	showFormula   bool
-	hiddenColCache map[int]bool // 列の非表示キャッシュ
+	hiddenColCache map[int]bool         // 列の非表示キャッシュ
 	styleCache     map[int]*styleResult // スタイルIDのキャッシュ
 }
 
@@ -142,6 +84,23 @@ func (dc *dumpContext) getCellStyleByID(styleID int) *styleResult {
 	return result
 }
 
+type cellOutput struct {
+	Cell      string               `json:"cell"`
+	Value     any                  `json:"value,omitempty"`
+	Display   string               `json:"display,omitempty"`
+	Type      excel.CellType       `json:"type,omitempty"`
+	Merge     string               `json:"merge,omitempty"`
+	Formula   string               `json:"formula,omitempty"`
+	Link      *excel.HyperlinkData `json:"link,omitempty"`
+	HiddenCol bool                 `json:"hidden_col,omitempty"`
+	Comment   *excel.CommentData   `json:"comment,omitempty"`
+	Font      *excel.FontObj       `json:"font,omitempty"`
+	Fill      *excel.FillObj       `json:"fill,omitempty"`
+	Border    *excel.BorderObj     `json:"border,omitempty"`
+	Alignment *excel.AlignmentObj  `json:"alignment,omitempty"`
+	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
+}
+
 func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
 	out := cellOutput{
 		Cell: excel.CellRef(col, row),
@@ -199,30 +158,4 @@ func (dc *dumpContext) buildCellOutput(col, row int, data *excel.CellData, raw *
 	}
 
 	return out
-}
-
-// filterByRange はセルが走査範囲内かを判定する。
-// skip=true: このセルをスキップ、stop=true: 走査終了
-func filterByRange(col, row int, scanRange *excel.CellRange) (skip, stop bool) {
-	if scanRange == nil {
-		return false, false
-	}
-	if row < scanRange.StartRow || col < scanRange.StartCol {
-		return true, false
-	}
-	if row > scanRange.EndRow {
-		return false, true
-	}
-	if col > scanRange.EndCol {
-		return true, false
-	}
-	return false, false
-}
-
-// filterByStart はセルが開始位置より前かを判定する（true=スキップ）
-func filterByStart(col, row, startCol, startRow int) bool {
-	if startCol > 0 {
-		return row < startRow || (row == startRow && col < startCol)
-	}
-	return false
 }

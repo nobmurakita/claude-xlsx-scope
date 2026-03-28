@@ -2,6 +2,10 @@ package excel
 
 import "sort"
 
+// defaultBandGap は領域分割時に使用するギャップ閾値。
+// この行数/列数以上の空きがあれば別領域として分割する。
+const defaultBandGap = 3
+
 // Region は非空セルが密集する矩形領域
 type Region struct {
 	Range         string `json:"range"`
@@ -33,8 +37,8 @@ func DetectRegionsFromCache(usedRange CellRange, rowCache *RowCache) ([]Region, 
 		return []Region{}, nil
 	}
 
-	rowBands := splitIntoBands(occupiedRows, usedRange.StartRow, usedRange.EndRow, 3)
-	colBands := splitIntoBands(occupiedCols, usedRange.StartCol, usedRange.EndCol, 3)
+	rowBands := splitIntoBands(occupiedRows, usedRange.StartRow, usedRange.EndRow, defaultBandGap)
+	colBands := splitIntoBands(occupiedCols, usedRange.StartCol, usedRange.EndCol, defaultBandGap)
 
 	var regions []Region
 	for _, rb := range rowBands {

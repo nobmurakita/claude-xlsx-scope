@@ -12,15 +12,20 @@ import (
 	"strings"
 )
 
+// pictureParseState は parsePicture の SAX パーサー状態
+type pictureParseState struct {
+	inNvPicPr  bool
+	inBlipFill bool
+	inSpPr     bool
+}
+
 // parsePicture は <pic> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
 	shape, _ := p.newShapeInfo("picture", z, cell, groupStack)
 
 	depth := 1
+	var st pictureParseState
 	var (
-		inNvPicPr  bool
-		inBlipFill bool
-		inSpPr     bool
 		embedRID   string
 		excelID    int
 		extCX, extCY int // EMU
@@ -37,18 +42,18 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 			depth++
 			switch t.Name.Local {
 			case "nvPicPr":
-				inNvPicPr = true
+				st.inNvPicPr = true
 			case "cNvPr":
-				if inNvPicPr {
+				if st.inNvPicPr {
 					shape.Name, excelID = parseCNvPr(t)
 					if v := attrVal(t, "descr"); v != "" {
 						shape.AltText = v
 					}
 				}
 			case "blipFill":
-				inBlipFill = true
+				st.inBlipFill = true
 			case "blip":
-				if inBlipFill {
+				if st.inBlipFill {
 					for _, attr := range t.Attr {
 						if attr.Name.Local == "embed" {
 							embedRID = attr.Value
@@ -56,13 +61,13 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 					}
 				}
 			case "spPr":
-				inSpPr = true
+				st.inSpPr = true
 			case "xfrm":
-				if inSpPr {
+				if st.inSpPr {
 					shape.Rotation, shape.Flip = parseXfrm(t)
 				}
 			case "ext":
-				if inSpPr {
+				if st.inSpPr {
 					for _, attr := range t.Attr {
 						switch attr.Name.Local {
 						case "cx":
@@ -78,11 +83,11 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, g
 			depth--
 			switch t.Name.Local {
 			case "nvPicPr":
-				inNvPicPr = false
+				st.inNvPicPr = false
 			case "blipFill":
-				inBlipFill = false
+				st.inBlipFill = false
 			case "spPr":
-				inSpPr = false
+				st.inSpPr = false
 			}
 		}
 	}

@@ -25,6 +25,18 @@ const (
 // この値を超える場合、FormatFloat の結果が不正確になりうる。
 const maxExactIntFloat = 1e15
 
+// excelLeapYearBugSerial は Excel の 1900年うるう年バグの閾値。
+// シリアル値がこの値以下の場合、基準日を 1899-12-31 にする必要がある。
+// Excel は 1900-02-29 を存在する日として扱うため（実際は存在しない）。
+const excelLeapYearBugSerial = 60
+
+// 時刻計算の定数
+const (
+	secondsPerDay    = 86400
+	secondsPerHour   = 3600
+	secondsPerMinute = 60
+)
+
 // CellData はセルから読み取った値情報。
 // RawCell を RawCellToCellData() で変換して得る。
 type CellData struct {
@@ -110,22 +122,19 @@ func excelDateToTime(serial float64) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("negative serial: %f", serial)
 	}
 	// Excel の 1900年基準: シリアル値 1 = 1900-01-01
-	// Excel のバグ: 1900-02-29 を存在する日として扱う（実際は存在しない）
-	// シリアル値 60 以下は 1899-12-31 基準、61 以上は 1899-12-30 基準
+	// シリアル値 excelLeapYearBugSerial 以下は 1899-12-31 基準、それより上は 1899-12-30 基準
 	base := time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC)
-	if serial <= 60 {
+	if serial <= excelLeapYearBugSerial {
 		base = time.Date(1899, 12, 31, 0, 0, 0, 0, time.UTC)
 	}
 	days := int(serial)
 	fraction := serial - float64(days)
 	t := base.AddDate(0, 0, days)
 	// 時刻部分（小数部）
-	const secondsPerDay = 86400
-	const secondsPerHour = 3600
 	totalSeconds := fraction * secondsPerDay
 	hours := int(totalSeconds / secondsPerHour)
-	minutes := int(math.Mod(totalSeconds, secondsPerHour) / 60)
-	seconds := int(math.Mod(totalSeconds, 60))
+	minutes := int(math.Mod(totalSeconds, secondsPerHour) / secondsPerMinute)
+	seconds := int(math.Mod(totalSeconds, secondsPerMinute))
 	t = t.Add(time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second)
 	return t, nil
 }
@@ -162,13 +171,17 @@ func isErrorValue(s string) bool {
 	return false
 }
 
+// builtinDateFormatIDs は ECMA-376 で定義された組み込み日付フォーマットIDの集合。
+// numFmtId がこの集合に含まれる場合、そのセルは日付型として扱う。
+var builtinDateFormatIDs = map[int]bool{
+	14: true, 15: true, 16: true, 17: true, 18: true, 19: true, 20: true, 21: true, 22: true,
+	27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 34: true, 35: true, 36: true,
+	45: true, 46: true, 47: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true,
+}
+
 // isDateFormat は数値フォーマットが日付系かどうかを判定する
 func isDateFormat(numFmtID int, numFmtStr string) bool {
-	// excelize の組み込み日付フォーマットID
-	switch numFmtID {
-	case 14, 15, 16, 17, 18, 19, 20, 21, 22,
-		27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
-		45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58:
+	if builtinDateFormatIDs[numFmtID] {
 		return true
 	}
 	if numFmtStr == "" {

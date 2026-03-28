@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"encoding/xml"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -39,12 +38,14 @@ func (f *File) LoadComments(sheet string) CommentMap {
 		return nil
 	}
 
+	warnings := &ParseWarnings{Context: sheet}
+
 	// レガシーコメントを読む
 	comments := make(CommentMap)
 	for _, rel := range rels {
 		if strings.Contains(rel.Type, "/comments") {
 			commentsPath := resolveRelTarget(xmlPath, rel.Target)
-			parseComments(f.zr, commentsPath, comments)
+			parseComments(f.zr, commentsPath, comments, warnings)
 		}
 	}
 
@@ -52,9 +53,11 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	for _, rel := range rels {
 		if strings.Contains(rel.Type, "threadedcomments") || strings.Contains(rel.Type, "threadedComments") {
 			threadPath := resolveRelTarget(xmlPath, rel.Target)
-			parseThreadedComments(f.zr, threadPath, comments)
+			parseThreadedComments(f.zr, threadPath, comments, warnings)
 		}
 	}
+
+	warnings.Flush()
 
 	if len(comments) == 0 {
 		return nil
@@ -98,9 +101,9 @@ func resolveRelTarget(sheetXMLPath, target string) string {
 }
 
 // parseComments はレガシーコメント（comments.xml）をパースする
-func parseComments(zr *zip.ReadCloser, path string, comments CommentMap) {
+func parseComments(zr *zip.ReadCloser, path string, comments CommentMap, warnings *ParseWarnings) {
 	if entry := findZipEntry(zr, path); entry != nil {
-		parseCommentsEntry(entry, comments)
+		parseCommentsEntry(entry, comments, warnings)
 	}
 }
 
@@ -113,10 +116,10 @@ type commentParseState struct {
 	inT       bool
 }
 
-func parseCommentsEntry(entry *zip.File, comments CommentMap) {
+func parseCommentsEntry(entry *zip.File, comments CommentMap, warnings *ParseWarnings) {
 	rc, err := entry.Open()
 	if err != nil {
-		log.Printf("[WARN] parseCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
+		warnings.Add("parseCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return
 	}
 	defer rc.Close()
@@ -138,7 +141,7 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] parseCommentsEntry: XMLトークン読み取りに失敗: %v", err)
+			warnings.Add("parseCommentsEntry: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 
@@ -213,10 +216,16 @@ func parseCommentsEntry(entry *zip.File, comments CommentMap) {
 }
 
 // parseThreadedComments はスレッドコメント（threadedComment.xml）をパースする
-func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap) {
+func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap, warnings *ParseWarnings) {
 	if entry := findZipEntry(zr, path); entry != nil {
-		parseThreadedCommentsEntry(entry, comments)
+		parseThreadedCommentsEntry(entry, comments, warnings)
 	}
+}
+
+// threadedCommentState は parseThreadedCommentsEntry の SAX パーサー状態
+type threadedCommentState struct {
+	inComment bool
+	inText    bool
 }
 
 // threadedCommentRaw はパース時の中間データ
@@ -230,10 +239,10 @@ type threadedCommentRaw struct {
 	done     bool
 }
 
-func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
+func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap, warnings *ParseWarnings) {
 	rc, err := entry.Open()
 	if err != nil {
-		log.Printf("[WARN] parseThreadedCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
+		warnings.Add("parseThreadedCommentsEntry: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
 		return
 	}
 	defer rc.Close()
@@ -242,7 +251,7 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 
 	var items []threadedCommentRaw
 	var current threadedCommentRaw
-	var inComment, inText bool
+	var st threadedCommentState
 	var textBuf strings.Builder
 
 	for {
@@ -251,14 +260,14 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] parseThreadedCommentsEntry: XMLトークン読み取りに失敗: %v", err)
+			warnings.Add("parseThreadedCommentsEntry: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 
 		switch t := tok.(type) {
 		case xml.StartElement:
 			if t.Name.Local == "threadedComment" {
-				inComment = true
+				st.inComment = true
 				current = threadedCommentRaw{}
 				textBuf.Reset()
 				for _, attr := range t.Attr {
@@ -277,8 +286,8 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 						current.done = attr.Value == "1"
 					}
 				}
-			} else if t.Name.Local == "text" && inComment {
-				inText = true
+			} else if t.Name.Local == "text" && st.inComment {
+				st.inText = true
 				textBuf.Reset()
 			}
 
@@ -286,13 +295,13 @@ func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
 			if t.Name.Local == "threadedComment" {
 				current.text = textBuf.String()
 				items = append(items, current)
-				inComment = false
+				st.inComment = false
 			} else if t.Name.Local == "text" {
-				inText = false
+				st.inText = false
 			}
 
 		case xml.CharData:
-			if inText {
+			if st.inText {
 				textBuf.Write(t)
 			}
 		}

@@ -8,12 +8,17 @@ import (
 // ParseWarnings はパース中の警告を収集する。
 // 各警告は即座にログ出力せず、呼び出し元が Flush() で一括出力できる。
 type ParseWarnings struct {
-	items []string
+	Context string // 警告メッセージに付与するコンテキスト（例: シート名）
+	items   []string
 }
 
-// Add は警告メッセージを追加する
+// Add は警告メッセージを追加する。Context が設定されている場合はプレフィックスとして付与する。
 func (w *ParseWarnings) Add(format string, args ...any) {
-	w.items = append(w.items, fmt.Sprintf(format, args...))
+	msg := fmt.Sprintf(format, args...)
+	if w.Context != "" {
+		msg = "[" + w.Context + "] " + msg
+	}
+	w.items = append(w.items, msg)
 }
 
 // Flush は収集した警告をログに出力する

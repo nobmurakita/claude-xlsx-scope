@@ -104,35 +104,6 @@ func QuickInfo(path string) (*QuickInfoResult, error) {
 	}, nil
 }
 
-// workbook.xml のパース用構造体
-type xmlWorkbook struct {
-	Sheets       []xmlSheet       `xml:"sheets>sheet"`
-	DefinedNames []xmlDefinedName `xml:"definedNames>definedName"`
-}
-
-type xmlSheet struct {
-	Name  string `xml:"name,attr"`
-	RID   string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
-	State string `xml:"state,attr"`
-}
-
-type xmlDefinedName struct {
-	Name         string `xml:"name,attr"`
-	LocalSheetID *int   `xml:"localSheetId,attr"`
-	Value        string `xml:",chardata"`
-}
-
-// workbook.xml.rels のパース用構造体
-type xmlRelationships struct {
-	Rels []xmlRelationship `xml:"Relationship"`
-}
-
-type xmlRelationship struct {
-	ID     string `xml:"Id,attr"`
-	Type   string `xml:"Type,attr"`
-	Target string `xml:"Target,attr"`
-}
-
 // relsPathFor は XML パスから対応する .rels ファイルのパスを構築する
 func relsPathFor(xmlPath string) string {
 	dir := xmlPath[:strings.LastIndex(xmlPath, "/")+1]
@@ -187,10 +158,11 @@ func readWorkbook(r *zip.ReadCloser, name string) (*xmlWorkbook, error) {
 	return &wb, nil
 }
 
+// readRels は .rels ファイルを読み、rId → Type のマップを返す。
+// .rels ファイルが存在しない場合はエラーではなく空マップを返す（rels はオプショナルなため）。
 func readRels(r *zip.ReadCloser, name string) (map[string]string, error) {
 	data, err := readZipFile(r, name)
 	if err != nil {
-		// rels がない場合は空を返す
 		return map[string]string{}, nil
 	}
 	var rels xmlRelationships
