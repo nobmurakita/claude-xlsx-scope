@@ -22,7 +22,7 @@ type pictureParseState struct {
 
 // parsePicture は <pic> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	shape, _ := p.newShapeInfo("picture", z, cell, groupStack)
+	shape, _ := p.newShapeInfo(ShapeTypePicture, z, cell, groupStack)
 
 	depth := 1
 	var st pictureParseState

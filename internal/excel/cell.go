@@ -179,6 +179,9 @@ var builtinDateFormatIDs = map[int]bool{
 	45: true, 46: true, 47: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true,
 }
 
+// dateFormatTokens はカスタム数値フォーマットが日付系かを判定するためのキーワード
+var dateFormatTokens = []string{"yy", "mm", "dd", "d", "h", "ss", "am/pm", "yyyy", "gg"}
+
 // isDateFormat は数値フォーマットが日付系かどうかを判定する
 func isDateFormat(numFmtID int, numFmtStr string) bool {
 	if builtinDateFormatIDs[numFmtID] {
@@ -190,8 +193,7 @@ func isDateFormat(numFmtID int, numFmtStr string) bool {
 	// カスタムフォーマットの簡易判定
 	lower := strings.ToLower(numFmtStr)
 	// 日付系キーワードの存在をチェック（"0.00" のような数値フォーマットを除外）
-	dateTokens := []string{"yy", "mm", "dd", "d", "h", "ss", "am/pm", "yyyy", "gg"}
-	for _, tok := range dateTokens {
+	for _, tok := range dateFormatTokens {
 		if strings.Contains(lower, tok) {
 			// "mm" は分にも使われるので、"h" や "s" と共に使われる場合は時刻と判断
 			return true

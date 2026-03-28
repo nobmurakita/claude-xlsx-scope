@@ -215,8 +215,6 @@ func parseCNvPr(t xml.StartElement) (name string, excelID int) {
 			name = attr.Value
 		case "id":
 			excelID = safeAtoi(attr.Value)
-		case "descr":
-			// parsePicture でのみ使用（呼び出し元で個別に取得）
 		}
 	}
 	return

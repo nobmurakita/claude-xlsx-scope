@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+// 図形タイプ（ShapeInfo.Type に出力される値）
+const (
+	ShapeTypeCustom    = "customShape"
+	ShapeTypeGroup     = "group"
+	ShapeTypePicture   = "picture"
+	ShapeTypeConnector = "connector"
+)
+
 // LineStyle は図形の枠線スタイル（色・線種・太さ）
 type LineStyle struct {
 	Color string  `json:"color,omitempty"`  // #RRGGBB

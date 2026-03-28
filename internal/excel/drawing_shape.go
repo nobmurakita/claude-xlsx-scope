@@ -13,7 +13,7 @@ type shapeParseState struct {
 
 // parseShape は <sp> 要素を末尾まで読み、ShapeInfo を返す
 func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	shape, _ := p.newShapeInfo("customShape", z, cell, groupStack)
+	shape, _ := p.newShapeInfo(ShapeTypeCustom, z, cell, groupStack)
 
 	depth := 1
 	var st shapeParseState
@@ -117,7 +117,7 @@ func determineFillCtx(inLn, inRPr, inDefRPr, inSpPr bool) string {
 // startGroup は <grpSp> の先頭（nvGrpSpPr, grpSpPr）を読み、ShapeInfo を返す
 // grpSp の EndElement は呼び出し元で処理される
 func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
-	shape, _ := p.newShapeInfo("group", z, cell, groupStack)
+	shape, _ := p.newShapeInfo(ShapeTypeGroup, z, cell, groupStack)
 
 	// nvGrpSpPr と grpSpPr を読む
 	// grpSp 内の子要素はメインループで処理されるため、ここでは先頭のプロパティだけ読む

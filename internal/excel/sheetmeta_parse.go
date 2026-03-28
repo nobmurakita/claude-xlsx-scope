@@ -346,6 +346,9 @@ func (sm *SheetMeta) BuildMergeInfo() *MergeInfo {
 		}
 		sCol, sRow := parseCellRef(parts[0])
 		eCol, eRow := parseCellRef(parts[1])
+		if sCol == 0 || sRow == 0 || eCol == 0 || eRow == 0 {
+			continue
+		}
 
 		mi.topLeft[[2]int{sCol, sRow}] = mc.Ref
 		for r := sRow; r <= eRow; r++ {
