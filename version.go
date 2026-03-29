@@ -16,6 +16,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "バージョン情報を表示する",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("cc-read-excel version %s\n", version)
+		fmt.Printf("cc-read-xlsx version %s\n", version)
 	},
 }

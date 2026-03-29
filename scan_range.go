@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/nobmurakita/cc-read-excel/internal/excel"
+	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
 )
 
 // parseScanRange は --range / --start フラグを解析して走査範囲を返す

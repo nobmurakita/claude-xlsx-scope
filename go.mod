@@ -1,4 +1,4 @@
-module github.com/nobmurakita/cc-read-excel
+module github.com/nobmurakita/cc-read-xlsx
 
 go 1.25.0
 
