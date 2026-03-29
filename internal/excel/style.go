@@ -125,8 +125,9 @@ func buildBorderObjFromParsed(edges []parsedBorderEdge) *BorderObj {
 			obj.Left = edge
 		case "right":
 			obj.Right = edge
-		case "diagonal":
+		case "diagonal_up":
 			obj.DiagonalUp = edge
+		case "diagonal_down":
 			obj.DiagonalDown = edge
 		}
 	}

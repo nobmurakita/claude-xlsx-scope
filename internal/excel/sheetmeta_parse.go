@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -309,7 +308,6 @@ func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
 
 	rc, err := entry.Open()
 	if err != nil {
-		log.Printf("[WARN] LoadDimensionOnly: ZIPエントリ %s のオープンに失敗: %v", xmlPath, err)
 		return ""
 	}
 	defer rc.Close()
@@ -318,9 +316,6 @@ func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
-			if err != io.EOF {
-				log.Printf("[WARN] LoadDimensionOnly: XMLトークン読み取りに失敗: %v", err)
-			}
 			return ""
 		}
 		if se, ok := tok.(xml.StartElement); ok {

@@ -237,8 +237,15 @@ func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineB
 // parseCellRef はセル参照（例: "AB123"）を列番号と行番号に分解する
 func parseCellRef(ref string) (col, row int) {
 	i := 0
-	for i < len(ref) && ref[i] >= 'A' && ref[i] <= 'Z' {
-		col = col*26 + int(ref[i]-'A') + 1
+	for i < len(ref) {
+		ch := ref[i]
+		if ch >= 'A' && ch <= 'Z' {
+			col = col*26 + int(ch-'A') + 1
+		} else if ch >= 'a' && ch <= 'z' {
+			col = col*26 + int(ch-'a') + 1
+		} else {
+			break
+		}
 		i++
 	}
 	for i < len(ref) {

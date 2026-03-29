@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"encoding/xml"
 	"io"
-	"log"
 	"strings"
 )
 
@@ -136,7 +135,6 @@ func parseCommentsSAX(decoder *xml.Decoder, comments CommentMap) {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] parseCommentsEntry: XMLトークン読み取りに失敗: %v", err)
 			return
 		}
 
@@ -256,7 +254,6 @@ func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] parseThreadedCommentsSAX: XMLトークン読み取りに失敗: %v", err)
 			return items
 		}
 

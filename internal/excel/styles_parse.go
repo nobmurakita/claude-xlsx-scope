@@ -140,11 +140,13 @@ type xmlBorders struct {
 }
 
 type xmlBorderDef struct {
-	Left     *xmlBorderEdge `xml:"left"`
-	Right    *xmlBorderEdge `xml:"right"`
-	Top      *xmlBorderEdge `xml:"top"`
-	Bottom   *xmlBorderEdge `xml:"bottom"`
-	Diagonal *xmlBorderEdge `xml:"diagonal"`
+	DiagonalUp   string         `xml:"diagonalUp,attr"`
+	DiagonalDown string         `xml:"diagonalDown,attr"`
+	Left         *xmlBorderEdge `xml:"left"`
+	Right        *xmlBorderEdge `xml:"right"`
+	Top          *xmlBorderEdge `xml:"top"`
+	Bottom       *xmlBorderEdge `xml:"bottom"`
+	Diagonal     *xmlBorderEdge `xml:"diagonal"`
 }
 
 type xmlBorderEdge struct {
@@ -275,7 +277,18 @@ func parseStyleSheet(data []byte) (*styleSheet, error) {
 		addEdge(b.Right, "right")
 		addEdge(b.Top, "top")
 		addEdge(b.Bottom, "bottom")
-		addEdge(b.Diagonal, "diagonal")
+		// diagonal は diagonalUp/diagonalDown 属性で方向を区別する
+		if b.Diagonal != nil && b.Diagonal.Style != "" {
+			diagUp := b.DiagonalUp == "1" || strings.EqualFold(b.DiagonalUp, "true")
+			diagDown := b.DiagonalDown == "1" || strings.EqualFold(b.DiagonalDown, "true")
+			if diagUp {
+				addEdge(b.Diagonal, "diagonal_up")
+			}
+			if diagDown {
+				addEdge(b.Diagonal, "diagonal_down")
+			}
+			// diagonalUp/diagonalDown 属性がどちらも未指定の場合はスキップ
+		}
 		ss.borders[i] = pb
 	}
 

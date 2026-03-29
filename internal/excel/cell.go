@@ -2,7 +2,6 @@ package excel
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +17,6 @@ const (
 	CellTypeFormula CellType = "formula"
 	CellTypeEmpty   CellType = "empty"
 )
-
-// maxExactIntFloat は float64 で整数として正確に表現できる最大値。
-// この値を超える場合、FormatFloat の結果が不正確になりうる。
-const maxExactIntFloat = 1e15
 
 // excelLeapYearBugSerial は Excel の 1900年うるう年バグの閾値。
 // シリアル値がこの値以下の場合、基準日を 1899-12-31 にする必要がある。
@@ -65,11 +60,6 @@ func valueToJSONString(v any) string {
 	case string:
 		return val
 	case float64:
-		if val == math.Trunc(val) && !math.IsInf(val, 0) && !math.IsNaN(val) {
-			if val >= -maxExactIntFloat && val <= maxExactIntFloat {
-				return strconv.FormatFloat(val, 'f', -1, 64)
-			}
-		}
 		return strconv.FormatFloat(val, 'f', -1, 64)
 	case bool:
 		if val {
@@ -102,11 +92,12 @@ func excelDateToTime(serial float64) (time.Time, error) {
 	days := int(serial)
 	fraction := serial - float64(days)
 	t := base.AddDate(0, 0, days)
-	// 時刻部分（小数部）
-	totalSeconds := fraction * secondsPerDay
-	hours := int(totalSeconds / secondsPerHour)
-	minutes := int(math.Mod(totalSeconds, secondsPerHour) / secondsPerMinute)
-	seconds := int(math.Mod(totalSeconds, secondsPerMinute))
+	// 時刻部分（小数部）— 整数演算で分解することで浮動小数点の中間誤差を防ぐ
+	// Excel は時刻を切り捨て（truncate）で表示するため Round ではなく int() を使う
+	totalSec := int(fraction*secondsPerDay + 0.5e-3) // μs レベルの丸め誤差を吸収
+	hours := totalSec / secondsPerHour
+	minutes := (totalSec % secondsPerHour) / secondsPerMinute
+	seconds := totalSec % secondsPerMinute
 	t = t.Add(time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second)
 	return t, nil
 }

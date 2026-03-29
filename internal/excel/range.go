@@ -135,5 +135,5 @@ func colName(n int) string {
 
 // CellRef はセル座標文字列を返す（例: col=2, row=3 → "B3"）
 func CellRef(col, row int) string {
-	return fmt.Sprintf("%s%d", colName(col), row)
+	return colName(col) + strconv.Itoa(row)
 }
