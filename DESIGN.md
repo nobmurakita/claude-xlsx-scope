@@ -486,10 +486,8 @@ cc-read-xlsx version 0.1.0
 | `--sheet <name\|index>` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
 | `--limit <n>` | 出力図形数の上限 | 1000 |
 | `--style` | 書式情報（塗りつぶし、枠線、フォント）を出力する | OFF（書式は省略） |
-| `--extract-images <dir>` | 画像を指定ディレクトリに抽出する。未指定時は画像をスキップ | OFF（画像スキップ） |
-
 - `--limit 0` で上限なし
-- `--extract-images` 未指定時は `xdr:pic` 要素をスキップする（画像は出力に含まれない）
+- 画像（`xdr:pic`）は常にパースされ、メタデータとファイル抽出が行われる。抽出先は一時ディレクトリに自動生成される
 
 **出力例:**
 
@@ -552,12 +550,12 @@ shapes の最初の行に出力される。
 
 コネクタの `from` / `to` は、drawing XML 内の `a:stCxn` / `a:endCxn` 要素の `id` 属性を参照する。この `id` は Excel が付与する図形IDであり、`shapes` コマンドが割り当てる連番 `id` とは異なる。パース時に Excel 図形IDから連番IDへのマッピングを行い、出力時は連番IDで参照する。接続先が drawing 内に見つからない場合は `from` / `to` を省略する。
 
-#### 画像フィールド（`--extract-images` 指定時）
+#### 画像フィールド
 
-画像（`xdr:pic`）は `type` が `"picture"` となり、以下の追加フィールドを持つ。`--extract-images` 未指定時は画像要素自体がスキップされる。
+画像（`xdr:pic`）は `type` が `"picture"` となり、以下の追加フィールドを持つ。画像は常に一時ディレクトリに抽出される。
 
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"システム構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/shapes/image_1.png"}}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"システム構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}}
 ```
 
 | フィールド | 型 | 説明 |
@@ -573,7 +571,7 @@ shapes の最初の行に出力される。
 | `width` | number | 画像の幅（ピクセル）。`a:ext` の `cx` をEMUからピクセルに変換（÷ 9525） |
 | `height` | number | 画像の高さ（ピクセル）。`a:ext` の `cy` をEMUからピクセルに変換（÷ 9525） |
 | `size` | number | ファイルサイズ（バイト）。ZIPエントリから取得 |
-| `path` | string | 抽出先のファイルパス。`--extract-images` で指定したディレクトリ内に `image_1.png`, `image_2.jpg`, ... の形式で連番出力 |
+| `path` | string | 抽出先のファイルパス。一時ディレクトリ内に一意なファイル名で出力 |
 
 画像ファイルは drawing の `.rels` から `blip` の `r:embed` 属性で参照されるリレーションIDを解決し、ZIP内の `xl/media/` 配下から抽出する。
 

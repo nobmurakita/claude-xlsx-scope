@@ -16,11 +16,18 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 2. scan   → used_range と has_drawings を取得（任意）
 3. cells  → セルデータを取得（先頭に _meta でレイアウト情報を出力）
 4. shapes → 図形・フローチャート・画像を取得（has_drawings: true のシートに対して）
-5. search → 特定値の検索（cells より効率的）
+5.          → 画像があれば出力の image.path を Read で確認し、一時ディレクトリを削除
+6. search → 特定値の検索（cells より効率的）
 ```
 
 scan は used_range の取得に特化。cells の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → cells で直接データ取得も可能。
-図形がある場合は shapes で構造を把握する。画像を確認するには `--extract-images <dir>` で抽出し、出力の `image.path` を Read ツールで読む。
+図形がある場合は shapes で構造を把握する。画像は自動的に一時ディレクトリに抽出される。
+
+**画像の確認手順:** `scan` の結果で `has_drawings: true` のシートがある場合、`shapes` で画像を含む図形情報を取得できる。画像がある場合は以下の手順で確認すること:
+
+1. `shapes` コマンドを実行する（画像は一時ディレクトリに自動抽出される）
+2. 出力の `image.path` を Read ツールで読み、画像の内容を確認する
+3. 確認が終わったら `image.path` の親ディレクトリを削除する
 
 **書式情報（`--style`）の取得判断:**
 
@@ -135,7 +142,6 @@ cc-read-xlsx shapes [options] <file>
 | `--sheet <name\|index>` | 対象シート | 最初のシート |
 | `--limit <n>` | 出力図形数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力 | OFF |
-| `--extract-images <dir>` | 画像を指定ディレクトリに抽出 | OFF（画像スキップ） |
 
 出力例:
 ```jsonl
@@ -145,9 +151,9 @@ cc-read-xlsx shapes [options] <file>
 {"id":3,"type":"connector","from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","z":2}
 ```
 
-`--extract-images` 指定時の画像出力:
+画像は自動的に一時ディレクトリに抽出される:
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/imgs/image_1.png"}}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}}
 ```
 
 **図形種別:**
@@ -155,7 +161,7 @@ cc-read-xlsx shapes [options] <file>
 - シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision`, `flowChartTerminator` 等
 - コネクタ: `type` は常に `"connector"`。`from`/`to` で接続先の図形IDを参照。`connector_type` でコネクタ形状
 - グループ: `type` は `"group"`。`children` に子要素ID配列。子要素は `parent` で親を参照
-- 画像: `type` は `"picture"`。`--extract-images` 未指定時はスキップされる
+- 画像: `type` は `"picture"`。一時ディレクトリに自動抽出される
 
 **図形内テキスト:**
 
@@ -165,7 +171,7 @@ cc-read-xlsx shapes [options] <file>
 
 **画像の確認方法:**
 
-`--extract-images` で抽出後、出力の `image.path` を Read ツールで読むことで画像の中身を視覚的に確認できる。
+画像は自動抽出されるため、出力の `image.path` を Read ツールで読むことで画像の中身を視覚的に確認できる。
 
 ### search
 

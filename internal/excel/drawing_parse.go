@@ -34,7 +34,7 @@ type drawingParser struct {
 	drawingPath string
 	drawingRels map[string]xmlRelationship
 	zipEntries  map[string]*zip.File
-	extractDir  string // 空なら画像スキップ
+	extractDir  string // 空なら画像抽出をスキップ（パースは行う）
 }
 
 type connRef struct {
@@ -59,7 +59,7 @@ type drawingParserConfig struct {
 	drawingPath  string
 	drawingRels  map[string]xmlRelationship
 	zipEntries   map[string]*zip.File
-	extractDir   string // 空なら画像スキップ
+	extractDir   string // 空なら画像抽出をスキップ（パースは行う）
 }
 
 func newDrawingParser(cfg drawingParserConfig) *drawingParser {
@@ -205,10 +205,6 @@ func (p *drawingParser) parse(r io.Reader) error {
 
 			case "pic":
 				if !inAnchor {
-					continue
-				}
-				if p.extractDir == "" {
-					skipDepth = 1
 					continue
 				}
 				z := p.currentZOrder(groupStack)

@@ -27,7 +27,7 @@ type ImageInfo struct {
 	Width  int    `json:"width,omitempty"`  // ピクセル
 	Height int    `json:"height,omitempty"` // ピクセル
 	Size   int64  `json:"size,omitempty"`   // バイト数
-	Path   string `json:"path,omitempty"`   // 抽出先パス（--extract-images 時のみ）
+	Path   string `json:"path,omitempty"`   // 抽出先パス
 }
 
 // ShapeInfo は Drawing XML から取得した図形情報。
@@ -81,7 +81,7 @@ func (f *File) HasDrawings(sheet string) bool {
 // DrawingOptions は LoadDrawing の動作を制御するオプション
 type DrawingOptions struct {
 	IncludeStyle bool   // true: fill/line/font 等の書式情報を出力に含める
-	ExtractDir   string // 非空: 画像を指定ディレクトリに抽出する
+	ExtractDir   string // 非空: 画像を一時ディレクトリに抽出する
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。

@@ -3,12 +3,10 @@ package excel
 import (
 	"archive/zip"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"log"
 	"math"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -122,8 +120,13 @@ func (p *drawingParser) resolveAndExtractImage(embedRID string, extCX, extCY int
 		ext = strings.ToLower(imagePath[dotIdx+1:])
 	}
 
+	format := ext
+	if format == "jpg" {
+		format = "jpeg"
+	}
+
 	info := &ImageInfo{
-		Format: ext,
+		Format: format,
 	}
 
 	// EMU → ピクセル変換（1px = 9525 EMU）
@@ -161,22 +164,30 @@ func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
 	}
 	defer rc.Close()
 
-	// ファイル名: image_1.png, image_2.jpg, ...
-	filename := fmt.Sprintf("image_%d.%s", p.picCount+1, ext)
-	outPath := filepath.Join(p.extractDir, filename)
-
-	outFile, err := os.Create(outPath)
+	// 一意なファイル名を自動生成
+	outFile, err := os.CreateTemp(p.extractDir, "image_*."+ext)
 	if err != nil {
-		log.Printf("[WARN] extractImage: ファイル %s の作成に失敗: %v", outPath, err)
+		log.Printf("[WARN] extractImage: 一時ファイルの作成に失敗: %v", err)
 		return ""
 	}
-	defer outFile.Close()
+	outPath := outFile.Name()
+	writeOK := false
+	defer func() {
+		if !writeOK {
+			outFile.Close()
+			os.Remove(outPath)
+		}
+	}()
 
 	if _, err := io.Copy(outFile, rc); err != nil {
 		log.Printf("[WARN] extractImage: 画像の書き込みに失敗: %v", err)
-		os.Remove(outPath)
 		return ""
 	}
+	if err := outFile.Close(); err != nil {
+		log.Printf("[WARN] extractImage: ファイルのクローズに失敗: %v", err)
+		return ""
+	}
+	writeOK = true
 
 	return outPath
 }

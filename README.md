@@ -114,14 +114,10 @@ cc-read-xlsx shapes --sheet 0 処理フロー.xlsx
 {"id":3,"type":"connector","from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","z":2}
 ```
 
-画像を抽出する場合:
-
-```bash
-cc-read-xlsx shapes --sheet 0 --extract-images /tmp/images 設計書.xlsx
-```
+画像は自動的に一時ディレクトリに抽出される:
 
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/images/image_1.png"}}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}}
 ```
 
 **オプション:**
@@ -131,7 +127,6 @@ cc-read-xlsx shapes --sheet 0 --extract-images /tmp/images 設計書.xlsx
 | `--sheet` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
 | `--limit` | 出力図形数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力する | OFF |
-| `--extract-images` | 画像を指定ディレクトリに抽出する | OFF（画像スキップ） |
 
 ### search — セル値を検索
 
