@@ -33,15 +33,8 @@ func runShapes(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	// 画像抽出用の一時ディレクトリを作成
-	extractDir, err := os.MkdirTemp("", "cc-read-xlsx-images-*")
-	if err != nil {
-		return fmt.Errorf("一時ディレクトリの作成エラー: %w", err)
-	}
-
 	result, err := f.LoadDrawing(sheet, excel.DrawingOptions{
 		IncludeStyle: showStyle,
-		ExtractDir:   extractDir,
 	})
 	if err != nil {
 		return err

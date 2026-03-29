@@ -104,8 +104,6 @@ type drawingParser struct {
 	// 画像対応
 	drawingPath string
 	drawingRels map[string]xmlRelationship
-	zipEntries  map[string]*zip.File
-	extractDir  string // 空なら画像抽出をスキップ（パースは行う）
 }
 
 type connRef struct {
@@ -129,8 +127,6 @@ type drawingParserConfig struct {
 	includeStyle bool
 	drawingPath  string
 	drawingRels  map[string]xmlRelationship
-	zipEntries   map[string]*zip.File
-	extractDir   string // 空なら画像抽出をスキップ（パースは行う）
 	sheetMeta    *SheetMeta
 }
 
@@ -142,8 +138,6 @@ func newDrawingParser(cfg drawingParserConfig) *drawingParser {
 		nextID:       1,
 		drawingPath:  cfg.drawingPath,
 		drawingRels:  cfg.drawingRels,
-		zipEntries:   cfg.zipEntries,
-		extractDir:   cfg.extractDir,
 	}
 	if cfg.sheetMeta != nil {
 		p.posCalc = &posCalculator{meta: cfg.sheetMeta}

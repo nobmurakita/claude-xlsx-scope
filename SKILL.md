@@ -2,7 +2,7 @@
 name: cc-read-xlsx
 description: Excelファイル（.xlsx/.xlsm）を読み取る。Excelの内容確認、データ抽出、Excel方眼紙の解析時に使用する。
 user-invocable: false
-allowed-tools: Bash(cc-read-xlsx *)
+allowed-tools: Bash(cc-read-xlsx *), Read
 ---
 
 # cc-read-xlsx
@@ -16,18 +16,19 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 2. scan   → used_range と has_shapes を取得（任意）
 3. cells  → セルデータを取得（先頭に _meta でレイアウト情報を出力）
 4. shapes → 図形・フローチャート・画像を取得（has_shapes: true のシートに対して）
-5.          → 画像があれば出力の image_path を Read で確認し、一時ディレクトリを削除
+5. image  → 必要な画像を個別に取得して確認
 6. search → 特定値の検索（cells より効率的）
 ```
 
 scan は used_range の取得に特化。cells の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → cells で直接データ取得も可能。
-図形がある場合は shapes で構造を把握する。画像は自動的に一時ディレクトリに抽出される。
+図形がある場合は shapes で構造を把握する。
 
-**画像の確認手順:** `scan` の結果で `has_shapes: true` のシートがある場合、`shapes` で画像を含む図形情報を取得できる。画像がある場合は以下の手順で確認すること:
+**画像の確認手順:** 出力に `image_id` がある場合:
 
-1. `shapes` コマンドを実行する（画像は一時ディレクトリに自動抽出される）
-2. 出力の `image_path` を Read ツールで読み、画像の内容を確認する
-3. 確認が終わったら `image_path` の親ディレクトリを削除する
+1. `image` サブコマンドでファイルに保存する: `cc-read-xlsx image <file> <image_id> <output>`
+   - `<output>` は重複しない一時ファイルパスを生成して指定する（拡張子は `image_id` に合わせる）
+2. Read ツールで保存したファイルを読み、画像の内容を確認する
+3. 確認が終わったら画像を削除する
 
 **書式情報（`--style`）の取得判断:**
 
@@ -156,9 +157,9 @@ cc-read-xlsx shapes [options] <file>
 - `start`/`end`: コネクタの始点・終点座標。`pos` と `flip` から算出
 - `callout_target`: 吹き出しのポインタ先座標。wedge 系等の吹き出し形状でのみ出力
 
-画像は自動的に一時ディレクトリに抽出される:
+画像の出力例:
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_id":"xl/media/image1.png"}
 ```
 
 **図形種別:**
@@ -167,7 +168,7 @@ cc-read-xlsx shapes [options] <file>
 - 吹き出し: `wedgeRectCallout`, `wedgeRoundRectCallout` 等。`callout_target` でポインタ先を出力
 - コネクタ: `type` は常に `"connector"`。`from`/`to` で接続先の図形IDを参照。`start`/`end` で両端座標。`connector_type` でコネクタ形状
 - グループ: `type` は `"group"`。`children` に子要素ID配列。子要素は `parent` で親を参照
-- 画像: `type` は `"picture"`。一時ディレクトリに自動抽出される
+- 画像: `type` は `"picture"`。`image_id` で `image` サブコマンドにより画像を取得可能
 
 **図形内テキスト:**
 
@@ -177,7 +178,27 @@ cc-read-xlsx shapes [options] <file>
 
 **画像の確認方法:**
 
-画像は自動抽出されるため、出力の `image_path` を Read ツールで読むことで画像の中身を視覚的に確認できる。
+出力の `image_id` を使い、`image` サブコマンドで画像のバイナリを取得できる。
+
+```jsonl
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_id":"xl/media/image1.png"}
+```
+
+```bash
+cc-read-xlsx image example.xlsx xl/media/image1.png <output>
+```
+
+### image
+
+```bash
+cc-read-xlsx image <file> <image_id> <output>
+```
+
+`shapes` 出力の `image_id`（ZIP内のメディアパス）を指定して、画像をファイルに保存する。
+
+```bash
+cc-read-xlsx image example.xlsx xl/media/image1.png <output>
+```
 
 ### search
 

@@ -1,12 +1,8 @@
 package excel
 
 import (
-	"archive/zip"
 	"encoding/xml"
-	"io"
 	"log"
-	"os"
-	"strings"
 )
 
 // pictureParseState は parsePicture の SAX パーサー状態
@@ -81,15 +77,15 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, p
 	// Excel ID マッピング
 	p.registerExcelID(excelID, shape.ID)
 
-	// 画像の抽出
-	shape.ImagePath = p.extractEmbeddedImage(embedRID)
+	// 画像の ZIP パスを解決
+	shape.ImageID = p.resolveImagePath(embedRID)
 
 	return shape
 }
 
-// extractEmbeddedImage は embed RID から画像を解決し、一時ディレクトリに抽出してパスを返す
-func (p *drawingParser) extractEmbeddedImage(embedRID string) string {
-	if embedRID == "" || p.drawingRels == nil || p.extractDir == "" {
+// resolveImagePath は embed RID から ZIP 内の画像パスを解決する
+func (p *drawingParser) resolveImagePath(embedRID string) string {
+	if embedRID == "" || p.drawingRels == nil {
 		return ""
 	}
 
@@ -98,56 +94,5 @@ func (p *drawingParser) extractEmbeddedImage(embedRID string) string {
 		return ""
 	}
 
-	// 画像ファイルの ZIP パスを解決
-	imagePath := resolveRelTarget(p.drawingPath, rel.Target)
-
-	// 拡張子を取得
-	ext := ""
-	if dotIdx := strings.LastIndex(imagePath, "."); dotIdx >= 0 {
-		ext = strings.ToLower(imagePath[dotIdx+1:])
-	}
-
-	zipEntry, ok := p.zipEntries[imagePath]
-	if !ok {
-		return ""
-	}
-
-	return p.extractImage(zipEntry, ext)
-}
-
-// extractImage は ZIP エントリからファイルを抽出する
-func (p *drawingParser) extractImage(entry *zip.File, ext string) string {
-	rc, err := entry.Open()
-	if err != nil {
-		log.Printf("[WARN] extractImage: ZIPエントリ %s のオープンに失敗: %v", entry.Name, err)
-		return ""
-	}
-	defer rc.Close()
-
-	// 一意なファイル名を自動生成
-	outFile, err := os.CreateTemp(p.extractDir, "image_*."+ext)
-	if err != nil {
-		log.Printf("[WARN] extractImage: 一時ファイルの作成に失敗: %v", err)
-		return ""
-	}
-	outPath := outFile.Name()
-	writeOK := false
-	defer func() {
-		if !writeOK {
-			outFile.Close()
-			os.Remove(outPath)
-		}
-	}()
-
-	if _, err := io.Copy(outFile, rc); err != nil {
-		log.Printf("[WARN] extractImage: 画像の書き込みに失敗: %v", err)
-		return ""
-	}
-	if err := outFile.Close(); err != nil {
-		log.Printf("[WARN] extractImage: ファイルのクローズに失敗: %v", err)
-		return ""
-	}
-	writeOK = true
-
-	return outPath
+	return resolveRelTarget(p.drawingPath, rel.Target)
 }

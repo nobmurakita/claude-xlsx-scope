@@ -3,6 +3,7 @@ package excel
 import (
 	"archive/zip"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -59,7 +60,7 @@ type ShapeInfo struct {
 	Parent        *int          `json:"parent,omitempty"`
 	CalloutTarget *Point        `json:"callout_target,omitempty"`
 	AltText       string        `json:"alt_text,omitempty"`
-	ImagePath     string        `json:"image_path,omitempty"`
+	ImageID       string        `json:"image_id,omitempty"`
 	Fill          string        `json:"fill,omitempty"`
 	Line          *LineStyle    `json:"line,omitempty"`
 	Font          *FontObj      `json:"font,omitempty"`
@@ -89,8 +90,7 @@ func (f *File) HasShapes(sheet string) bool {
 
 // DrawingOptions は LoadDrawing の動作を制御するオプション
 type DrawingOptions struct {
-	IncludeStyle bool   // true: fill/line/font 等の書式情報を出力に含める
-	ExtractDir   string // 非空: 画像を一時ディレクトリに抽出する
+	IncludeStyle bool // true: fill/line/font 等の書式情報を出力に含める
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
@@ -121,14 +121,8 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 	// drawing の .rels を読む（画像パス解決用）
 	drawingRels := loadDrawingRels(zr, drawingPath)
 
-	// ZIP エントリのマップを構築
-	zipEntries := make(map[string]*zip.File, len(zr.File))
-	for _, entry := range zr.File {
-		zipEntries[entry.Name] = entry
-	}
-
-	entry, ok := zipEntries[drawingPath]
-	if !ok {
+	entry := findZipEntry(zr, drawingPath)
+	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
 	}
 
@@ -137,10 +131,24 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 		includeStyle: opts.IncludeStyle,
 		drawingPath:  drawingPath,
 		drawingRels:  drawingRels,
-		zipEntries:   zipEntries,
-		extractDir:   opts.ExtractDir,
 		sheetMeta:    sheetMeta,
 	})
+}
+
+// ExtractImage は ZIP 内の画像を w に書き出す。
+func (f *File) ExtractImage(mediaPath string, w io.Writer) error {
+	entry := findZipEntry(f.zr, mediaPath)
+	if entry == nil {
+		return fmt.Errorf("ZIP 内に %s が見つかりません", mediaPath)
+	}
+	rc, err := entry.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	_, err = io.Copy(w, rc)
+	return err
 }
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
