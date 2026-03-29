@@ -15,8 +15,9 @@ type connectorParseState struct {
 }
 
 // parseConnector は <cxnSp> 要素を末尾まで読み、ShapeInfo を返す
-func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
+func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string, pos *Position, groupStack []groupContext) ShapeInfo {
 	shape := p.newShapeInfo(ShapeTypeConnector, z, cell, groupStack)
+	shape.Pos = pos
 
 	var cr connRef
 	depth := 1
@@ -141,6 +142,11 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 
 	// Excel ID マッピング
 	p.registerExcelID(excelID, shape.ID)
+
+	// コネクタの始点・終点を算出
+	if pos != nil {
+		shape.Start, shape.End = connectorEndpoints(pos, shape.Flip)
+	}
 
 	// 接続情報を記録（後処理で解決）
 	if cr.hasStart || cr.hasEnd {

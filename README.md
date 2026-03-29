@@ -52,10 +52,10 @@ cc-read-xlsx scan --sheet 0 基本設計書.xlsx
 ```
 
 ```json
-{"sheet":"表紙","used_range":"A1:CD55","has_drawings":true}
+{"sheet":"表紙","used_range":"A1:CD55","has_shapes":true}
 ```
 
-dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。`has_drawings` は図形が存在するシートでのみ `true` を出力する。
+dimension（XMLのシート範囲属性）があれば即座に返す。なければ全セル走査で算出する。`has_shapes` は図形が存在するシートでのみ `true` を出力する。
 
 ### cells — セルデータを出力
 
@@ -109,15 +109,17 @@ cc-read-xlsx shapes --sheet 0 処理フロー.xlsx
 
 ```jsonl
 {"_meta":true,"shape_count":8,"connector_count":3}
-{"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","z":0}
-{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","z":1}
-{"id":3,"type":"connector","from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","z":2}
+{"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","pos":{"x":120,"y":80,"w":200,"h":60},"z":0}
+{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","pos":{"x":120,"y":200,"w":200,"h":80},"z":1}
+{"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}
 ```
+
+`pos` はピクセル座標（96 DPI 基準、左上原点）。コネクタは `start`/`end` で両端座標を出力する。吹き出し形状は `callout_target` でポインタ先座標を出力する。
 
 画像は自動的に一時ディレクトリに抽出される:
 
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}
 ```
 
 **オプション:**

@@ -3,23 +3,29 @@ package excel
 import (
 	"encoding/xml"
 	"log"
+	"strconv"
+	"strings"
 )
 
 // shapeParseState は parseShape の SAX パーサー状態
 type shapeParseState struct {
-	inNvSpPr bool
-	inSpPr   bool
+	inNvSpPr   bool
+	inSpPr     bool
+	inPrstGeom bool
+	inAvLst    bool
 }
 
 // parseShape は <sp> 要素を末尾まで読み、ShapeInfo を返す
-func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
+func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, pos *Position, groupStack []groupContext) ShapeInfo {
 	shape := p.newShapeInfo(ShapeTypeCustom, z, cell, groupStack)
+	shape.Pos = pos
 
 	depth := 1
 	var st shapeParseState
 	var ts drawingTextState
 	sh := drawingStyleHandler{p: p}
 	var excelID int
+	var adjValues map[string]int
 
 	for depth > 0 {
 		tok, err := decoder.Token()
@@ -61,6 +67,23 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 					if v := attrVal(t, "prst"); v != "" {
 						shape.Type = v
 					}
+					st.inPrstGeom = true
+				}
+			case "avLst":
+				if st.inPrstGeom {
+					st.inAvLst = true
+				}
+			case "gd":
+				if st.inAvLst {
+					name := attrVal(t, "name")
+					fmla := attrVal(t, "fmla")
+					if name != "" && strings.HasPrefix(fmla, "val ") {
+						val, _ := strconv.Atoi(strings.TrimPrefix(fmla, "val "))
+						if adjValues == nil {
+							adjValues = make(map[string]int)
+						}
+						adjValues[name] = val
+					}
 				}
 			}
 
@@ -71,6 +94,10 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 				st.inNvSpPr = false
 			case "spPr":
 				st.inSpPr = false
+			case "prstGeom":
+				st.inPrstGeom = false
+			case "avLst":
+				st.inAvLst = false
 			}
 			ts.handleEndElement(t.Name.Local, p.includeStyle, p.theme)
 			sh.handleEndElement(t.Name.Local)
@@ -94,6 +121,10 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, gro
 			shape.Font = buildDrawingFontObj(ts.shapeFont, p.theme)
 		}
 	}
+	// 吹き出しのポインタ先を算出
+	if pos != nil {
+		shape.CalloutTarget = calcCalloutTarget(pos, shape.Type, adjValues)
+	}
 	p.registerExcelID(excelID, shape.ID)
 	return shape
 }
@@ -116,8 +147,9 @@ func determineFillCtx(inLn, inRPr, inDefRPr, inSpPr bool) string {
 
 // startGroup は <grpSp> の先頭（nvGrpSpPr, grpSpPr）を読み、ShapeInfo を返す
 // grpSp の EndElement は呼び出し元で処理される
-func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, groupStack []groupContext) ShapeInfo {
+func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, pos *Position, groupStack []groupContext) ShapeInfo {
 	shape := p.newShapeInfo(ShapeTypeGroup, z, cell, groupStack)
+	shape.Pos = pos
 
 	// nvGrpSpPr と grpSpPr を読む
 	// grpSp 内の子要素はメインループで処理されるため、ここでは先頭のプロパティだけ読む

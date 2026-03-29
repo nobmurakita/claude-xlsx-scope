@@ -13,21 +13,21 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 
 ```
 1. info   → シート一覧を確認し対象シートを特定
-2. scan   → used_range と has_drawings を取得（任意）
+2. scan   → used_range と has_shapes を取得（任意）
 3. cells  → セルデータを取得（先頭に _meta でレイアウト情報を出力）
-4. shapes → 図形・フローチャート・画像を取得（has_drawings: true のシートに対して）
-5.          → 画像があれば出力の image.path を Read で確認し、一時ディレクトリを削除
+4. shapes → 図形・フローチャート・画像を取得（has_shapes: true のシートに対して）
+5.          → 画像があれば出力の image_path を Read で確認し、一時ディレクトリを削除
 6. search → 特定値の検索（cells より効率的）
 ```
 
 scan は used_range の取得に特化。cells の `_meta` 行で列幅・行高を取得できるため、scan を省略して info → cells で直接データ取得も可能。
 図形がある場合は shapes で構造を把握する。画像は自動的に一時ディレクトリに抽出される。
 
-**画像の確認手順:** `scan` の結果で `has_drawings: true` のシートがある場合、`shapes` で画像を含む図形情報を取得できる。画像がある場合は以下の手順で確認すること:
+**画像の確認手順:** `scan` の結果で `has_shapes: true` のシートがある場合、`shapes` で画像を含む図形情報を取得できる。画像がある場合は以下の手順で確認すること:
 
 1. `shapes` コマンドを実行する（画像は一時ディレクトリに自動抽出される）
-2. 出力の `image.path` を Read ツールで読み、画像の内容を確認する
-3. 確認が終わったら `image.path` の親ディレクトリを削除する
+2. 出力の `image_path` を Read ツールで読み、画像の内容を確認する
+3. 確認が終わったら `image_path` の親ディレクトリを削除する
 
 **書式情報（`--style`）の取得判断:**
 
@@ -66,11 +66,11 @@ cc-read-xlsx scan --sheet <name|index> <file>
 
 出力例:
 ```json
-{"sheet":"機能一覧","used_range":"A1:H200","has_drawings":true}
+{"sheet":"機能一覧","used_range":"A1:H200","has_shapes":true}
 ```
 
 - `used_range`: シートのデータ使用範囲。空シートの場合は省略
-- `has_drawings`: 図形が存在する場合のみ `true`。`shapes` コマンドを使うべきか判断に使う
+- `has_shapes`: 図形が存在する場合のみ `true`。`shapes` コマンドを使うべきか判断に使う
 
 ### cells
 
@@ -146,20 +146,26 @@ cc-read-xlsx shapes [options] <file>
 出力例:
 ```jsonl
 {"_meta":true,"shape_count":8,"connector_count":3}
-{"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","z":0}
-{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","z":1}
-{"id":3,"type":"connector","from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","z":2}
+{"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","pos":{"x":120,"y":80,"w":200,"h":60},"z":0}
+{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","pos":{"x":120,"y":200,"w":200,"h":80},"z":1}
+{"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}
+{"id":4,"type":"wedgeRoundRectCallout","text":"注意","cell":"E2:G4","pos":{"x":300,"y":50,"w":150,"h":40},"callout_target":{"x":269,"y":75},"z":3}
 ```
+
+- `pos`: ピクセル座標（96 DPI）。`{x, y, w, h}` で左上原点。グループ内の子要素では省略
+- `start`/`end`: コネクタの始点・終点座標。`pos` と `flip` から算出
+- `callout_target`: 吹き出しのポインタ先座標。wedge 系等の吹き出し形状でのみ出力
 
 画像は自動的に一時ディレクトリに抽出される:
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","z":5,"alt_text":"構成図","image":{"format":"png","width":640,"height":480,"size":45230,"path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}
 ```
 
 **図形種別:**
 
 - シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision`, `flowChartTerminator` 等
-- コネクタ: `type` は常に `"connector"`。`from`/`to` で接続先の図形IDを参照。`connector_type` でコネクタ形状
+- 吹き出し: `wedgeRectCallout`, `wedgeRoundRectCallout` 等。`callout_target` でポインタ先を出力
+- コネクタ: `type` は常に `"connector"`。`from`/`to` で接続先の図形IDを参照。`start`/`end` で両端座標。`connector_type` でコネクタ形状
 - グループ: `type` は `"group"`。`children` に子要素ID配列。子要素は `parent` で親を参照
 - 画像: `type` は `"picture"`。一時ディレクトリに自動抽出される
 
@@ -171,7 +177,7 @@ cc-read-xlsx shapes [options] <file>
 
 **画像の確認方法:**
 
-画像は自動抽出されるため、出力の `image.path` を Read ツールで読むことで画像の中身を視覚的に確認できる。
+画像は自動抽出されるため、出力の `image_path` を Read ツールで読むことで画像の中身を視覚的に確認できる。
 
 ### search
 

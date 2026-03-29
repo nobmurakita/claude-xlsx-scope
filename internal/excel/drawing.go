@@ -21,13 +21,18 @@ type LineStyle struct {
 	Width float64 `json:"width,omitempty"` // ポイント単位
 }
 
-// ImageInfo は埋め込み画像のメタデータ
-type ImageInfo struct {
-	Format string `json:"format"`           // 拡張子（"png", "jpg" 等）
-	Width  int    `json:"width,omitempty"`  // ピクセル
-	Height int    `json:"height,omitempty"` // ピクセル
-	Size   int64  `json:"size,omitempty"`   // バイト数
-	Path   string `json:"path,omitempty"`   // 抽出先パス
+// Position は図形のピクセル座標（左上原点、96 DPI 基準）
+type Position struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// Point はピクセル座標の点
+type Point struct {
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
 // ShapeInfo は Drawing XML から取得した図形情報。
@@ -38,6 +43,7 @@ type ShapeInfo struct {
 	Name          string        `json:"name"`
 	Text          string        `json:"text,omitempty"`
 	Cell          string        `json:"cell,omitempty"`
+	Pos           *Position     `json:"pos,omitempty"`
 	Z             int           `json:"z"`
 	Rotation      float64       `json:"rotation,omitempty"`
 	Flip          string        `json:"flip,omitempty"`
@@ -46,11 +52,14 @@ type ShapeInfo struct {
 	To            *int          `json:"to,omitempty"`
 	ConnectorType string        `json:"connector_type,omitempty"`
 	Arrow         string        `json:"arrow,omitempty"`
+	Start         *Point        `json:"start,omitempty"`
+	End           *Point        `json:"end,omitempty"`
 	Label         string        `json:"label,omitempty"`
 	Children      []int         `json:"children,omitempty"`
 	Parent        *int          `json:"parent,omitempty"`
+	CalloutTarget *Point        `json:"callout_target,omitempty"`
 	AltText       string        `json:"alt_text,omitempty"`
-	Image         *ImageInfo    `json:"image,omitempty"`
+	ImagePath     string        `json:"image_path,omitempty"`
 	Fill          string        `json:"fill,omitempty"`
 	Line          *LineStyle    `json:"line,omitempty"`
 	Font          *FontObj      `json:"font,omitempty"`
@@ -69,8 +78,8 @@ type DrawingResult struct {
 	Shapes []ShapeInfo
 }
 
-// HasDrawings はシートに drawing リレーションが存在するかを返す
-func (f *File) HasDrawings(sheet string) bool {
+// HasShapes はシートに drawing リレーションが存在するかを返す
+func (f *File) HasShapes(sheet string) bool {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return false
@@ -100,6 +109,12 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 		}, nil
 	}
 
+	// シートメタデータを読み込む（図形の座標計算用）
+	sheetMeta, metaErr := LoadSheetMeta(zr, xmlPath)
+	if metaErr != nil {
+		sheetMeta = newSheetMeta()
+	}
+
 	// drawing XML パスを解決
 	drawingPath := resolveRelTarget(xmlPath, target)
 
@@ -124,6 +139,7 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 		drawingRels:  drawingRels,
 		zipEntries:   zipEntries,
 		extractDir:   opts.ExtractDir,
+		sheetMeta:    sheetMeta,
 	})
 }
 

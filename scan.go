@@ -26,7 +26,7 @@ const singleCellDimension = "A1:A1"
 type scanOutput struct {
 	Sheet       string `json:"sheet"`
 	UsedRange   string `json:"used_range,omitempty"`
-	HasDrawings bool   `json:"has_drawings,omitempty"`
+	HasShapes bool `json:"has_shapes,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -39,7 +39,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	defer f.Close()
 
 	out := scanOutput{Sheet: sheet}
-	out.HasDrawings = f.HasDrawings(sheet)
+	out.HasShapes = f.HasShapes(sheet)
 
 	// dimension があればそのまま使用、なければフルスキャン
 	dim := f.LoadDimension(sheet)
