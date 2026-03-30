@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
 	"github.com/spf13/cobra"
@@ -13,9 +14,9 @@ func init() {
 }
 
 var imageCmd = &cobra.Command{
-	Use:   "image <file> <image_id> <output>",
+	Use:   "image <file> <image_id> [output]",
 	Short: "画像をファイルに保存する",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.RangeArgs(2, 3),
 	RunE:  runImage,
 }
 
@@ -26,11 +27,32 @@ func runImage(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	out, err := os.Create(args[2])
+	imageID := args[1]
+
+	var outputPath string
+	if len(args) >= 3 {
+		outputPath = args[2]
+	} else {
+		// 一時ファイルを自動生成（拡張子は image_id から取得）
+		ext := filepath.Ext(imageID)
+		tmp, err := os.CreateTemp("", "cc-read-xlsx-*"+ext)
+		if err != nil {
+			return fmt.Errorf("一時ファイルの作成エラー: %w", err)
+		}
+		tmp.Close()
+		outputPath = tmp.Name()
+	}
+
+	out, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("出力ファイルの作成エラー: %w", err)
 	}
 	defer out.Close()
 
-	return f.ExtractImage(args[1], out)
+	if err := f.ExtractImage(imageID, out); err != nil {
+		return err
+	}
+
+	fmt.Println(outputPath)
+	return nil
 }
