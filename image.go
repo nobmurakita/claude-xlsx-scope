@@ -30,22 +30,23 @@ func runImage(cmd *cobra.Command, args []string) error {
 	imageID := args[1]
 
 	var outputPath string
+	var out *os.File
 	if len(args) >= 3 {
 		outputPath = args[2]
+		var err error
+		out, err = os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("出力ファイルの作成エラー: %w", err)
+		}
 	} else {
 		// 一時ファイルを自動生成（拡張子は image_id から取得）
 		ext := filepath.Ext(imageID)
-		tmp, err := os.CreateTemp("", "cc-read-xlsx-*"+ext)
+		var err error
+		out, err = os.CreateTemp("", "cc-read-xlsx-*"+ext)
 		if err != nil {
 			return fmt.Errorf("一時ファイルの作成エラー: %w", err)
 		}
-		tmp.Close()
-		outputPath = tmp.Name()
-	}
-
-	out, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("出力ファイルの作成エラー: %w", err)
+		outputPath = out.Name()
 	}
 	defer out.Close()
 

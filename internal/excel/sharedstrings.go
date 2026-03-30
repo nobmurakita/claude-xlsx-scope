@@ -174,7 +174,7 @@ func parseSharedStringsSAX(decoder *xml.Decoder, ss *sharedStrings) error {
 			switch t.Name.Local {
 			case "si":
 				item := sharedStringItem{Text: textBuf.String()}
-				if len(runs) > 1 {
+				if len(runs) > 0 {
 					item.Runs = runs
 				}
 				ss.items = append(ss.items, item)

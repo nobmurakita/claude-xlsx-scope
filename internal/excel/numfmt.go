@@ -674,10 +674,10 @@ func detectFixedDenom(tokens []fmtToken, slashIdx int) int {
 		}
 	}
 	if numStr != "" && !strings.Contains(numStr, "0") {
-		// 全部リテラル数字
+		if v, err := strconv.Atoi(numStr); err == nil && v > 0 {
+			return v
+		}
 	}
-	// 実際には分母のトークンが全て0トークンで構成されているかで判定
-	// 単純化: fracDenomDigitsが0なら固定分母の可能性
 	return 0
 }
 

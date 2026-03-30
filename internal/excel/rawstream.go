@@ -234,6 +234,12 @@ func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineB
 	}
 }
 
+// Excel の列・行上限
+const (
+	maxExcelCol = 16384   // XFD
+	maxExcelRow = 1048576
+)
+
 // parseCellRef はセル参照（例: "AB123"）を列番号と行番号に分解する
 func parseCellRef(ref string) (col, row int) {
 	i := 0
@@ -249,8 +255,17 @@ func parseCellRef(ref string) (col, row int) {
 		i++
 	}
 	for i < len(ref) {
+		if ref[i] < '0' || ref[i] > '9' {
+			break
+		}
 		row = row*10 + int(ref[i]-'0')
 		i++
+	}
+	if col > maxExcelCol {
+		col = maxExcelCol
+	}
+	if row > maxExcelRow {
+		row = maxExcelRow
 	}
 	return col, row
 }

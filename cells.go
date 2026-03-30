@@ -49,11 +49,12 @@ func (dc *cellsContext) emitRowInfo(enc *json.Encoder, row int) error {
 		return nil
 	}
 	ri := rowOutput{Row: row}
-	if info.Height != dc.defaultHeight {
+	heightDiffers := info.Height != 0 && info.Height != dc.defaultHeight
+	if heightDiffers {
 		ri.Height = info.Height
 	}
 	ri.Hidden = info.Hidden
-	if ri.Height == 0 && !ri.Hidden {
+	if !heightDiffers && !ri.Hidden {
 		return nil
 	}
 	return enc.Encode(ri)

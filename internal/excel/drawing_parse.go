@@ -280,12 +280,7 @@ func (p *drawingParser) parse(r io.Reader) error {
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZOrder(groupStack)
-				cell := p.buildCell(anchorType, anchorFrom.col, anchorFrom.row, anchorTo.col, anchorTo.row, hasTo)
-				var pos *Position
-				if len(groupStack) == 0 {
-					pos = p.buildPos(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY)
-				}
+				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parseShape(decoder, z, cell, pos, groupStack)
 				p.incrementZOrder(groupStack)
 				p.addShape(shape, groupStack)
@@ -294,12 +289,7 @@ func (p *drawingParser) parse(r io.Reader) error {
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZOrder(groupStack)
-				cell := p.buildCell(anchorType, anchorFrom.col, anchorFrom.row, anchorTo.col, anchorTo.row, hasTo)
-				var pos *Position
-				if len(groupStack) == 0 {
-					pos = p.buildPos(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY)
-				}
+				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parseConnector(decoder, z, cell, pos, groupStack)
 				p.incrementZOrder(groupStack)
 				p.connCount++
@@ -309,12 +299,7 @@ func (p *drawingParser) parse(r io.Reader) error {
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZOrder(groupStack)
-				cell := p.buildCell(anchorType, anchorFrom.col, anchorFrom.row, anchorTo.col, anchorTo.row, hasTo)
-				var pos *Position
-				if len(groupStack) == 0 {
-					pos = p.buildPos(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY)
-				}
+				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				grpShape := p.startGroup(decoder, z, cell, pos, groupStack)
 				p.incrementZOrder(groupStack)
 				p.addShape(grpShape, groupStack)
@@ -326,12 +311,7 @@ func (p *drawingParser) parse(r io.Reader) error {
 				if !inAnchor {
 					continue
 				}
-				z := p.currentZOrder(groupStack)
-				cell := p.buildCell(anchorType, anchorFrom.col, anchorFrom.row, anchorTo.col, anchorTo.row, hasTo)
-				var pos *Position
-				if len(groupStack) == 0 {
-					pos = p.buildPos(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY)
-				}
+				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parsePicture(decoder, z, cell, pos, groupStack)
 				p.incrementZOrder(groupStack)
 				p.picCount++
@@ -363,6 +343,19 @@ func (p *drawingParser) parse(r io.Reader) error {
 	}
 
 	return nil
+}
+
+// prepareShapeContext は図形パース前の共通処理（z-order, セル参照, 位置情報の算出）
+func (p *drawingParser) prepareShapeContext(
+	anchorType string, anchorFrom, anchorTo anchorPos, hasTo bool,
+	extCX, extCY, absX, absY int, groupStack []groupContext,
+) (z int, cell string, pos *Position) {
+	z = p.currentZOrder(groupStack)
+	cell = p.buildCell(anchorType, anchorFrom.col, anchorFrom.row, anchorTo.col, anchorTo.row, hasTo)
+	if len(groupStack) == 0 {
+		pos = p.buildPos(anchorType, anchorFrom, anchorTo, hasTo, extCX, extCY, absX, absY)
+	}
+	return z, cell, pos
 }
 
 // addShape は図形を shapes に追加し、グループの children を更新する
