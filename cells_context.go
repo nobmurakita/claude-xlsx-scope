@@ -24,6 +24,10 @@ type cellsContext struct {
 	showFormula    bool
 	hiddenColCache map[int]bool         // 列の非表示キャッシュ
 	styleCache     map[int]*styleResult // スタイルIDのキャッシュ
+
+	// スタイル参照化: ExcelのstyleID → 出力用インデックス
+	styleRefMap    map[int]int
+	nextStyleIdx   int
 }
 
 type styleResult struct {
@@ -31,6 +35,19 @@ type styleResult struct {
 	fill      *excel.FillObj
 	border    *excel.BorderObj
 	alignment *excel.AlignmentObj
+}
+
+func (sr *styleResult) isEmpty() bool {
+	return sr.font == nil && sr.fill == nil && sr.border == nil && sr.alignment == nil
+}
+
+// styleDefOutput はスタイル定義行の出力構造体
+type styleDefOutput struct {
+	StyleDef  int                 `json:"_style"`
+	Font      *excel.FontObj      `json:"font,omitempty"`
+	Fill      *excel.FillObj      `json:"fill,omitempty"`
+	Border    *excel.BorderObj    `json:"border,omitempty"`
+	Alignment *excel.AlignmentObj `json:"alignment,omitempty"`
 }
 
 func newCellsContext(f *excel.File, sheet string, showStyle, showFormula bool) (*cellsContext, error) {
@@ -51,6 +68,7 @@ func newCellsContext(f *excel.File, sheet string, showStyle, showFormula bool) (
 		showFormula:    showFormula,
 		hiddenColCache: make(map[int]bool),
 		styleCache:     make(map[int]*styleResult),
+		styleRefMap:    make(map[int]int),
 	}
 
 	if showStyle {
@@ -90,6 +108,29 @@ func (dc *cellsContext) getCellStyleByID(styleID int) *styleResult {
 	return result
 }
 
+// resolveStyleRef はスタイル参照のインデックスを返す。
+// 初出のスタイルの場合は定義行（styleDefOutput）も返す。
+// スタイルなし、または全フィールドが空の場合は (0, nil) を返す。
+func (dc *cellsContext) resolveStyleRef(styleID int) (int, *styleDefOutput) {
+	sr := dc.getCellStyleByID(styleID)
+	if sr == nil || sr.isEmpty() {
+		return 0, nil
+	}
+	if idx, ok := dc.styleRefMap[styleID]; ok {
+		return idx, nil
+	}
+	dc.nextStyleIdx++
+	idx := dc.nextStyleIdx
+	dc.styleRefMap[styleID] = idx
+	return idx, &styleDefOutput{
+		StyleDef:  idx,
+		Font:      sr.font,
+		Fill:      sr.fill,
+		Border:    sr.border,
+		Alignment: sr.alignment,
+	}
+}
+
 type cellOutput struct {
 	Cell      string               `json:"cell"`
 	Value     any                  `json:"value,omitempty"`
@@ -102,14 +143,14 @@ type cellOutput struct {
 	Link      *excel.HyperlinkData `json:"link,omitempty"`
 	HiddenCol bool                 `json:"hidden_col,omitempty"`
 	Comment   *excel.CommentData   `json:"comment,omitempty"`
-	Font      *excel.FontObj       `json:"font,omitempty"`
-	Fill      *excel.FillObj       `json:"fill,omitempty"`
-	Border    *excel.BorderObj     `json:"border,omitempty"`
-	Alignment *excel.AlignmentObj  `json:"alignment,omitempty"`
+	// スタイル参照（--style 時、スタイルがある場合のみ出力）
+	StyleRef  *int                 `json:"s,omitempty"`
 	RichText  []excel.RichTextRun  `json:"rich_text,omitempty"`
 }
 
-func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) cellOutput {
+// buildCellOutput はセルデータから出力構造体を生成する。
+// --style 使用時、初出のスタイルがあれば styleDefOutput も返す。
+func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw *excel.RawCell) (cellOutput, *styleDefOutput) {
 	out := cellOutput{
 		Cell: excel.CellRef(col, row),
 	}
@@ -149,18 +190,24 @@ func (dc *cellsContext) buildCellOutput(col, row int, data *excel.CellData, raw 
 		out.Comment = dc.comments[out.Cell]
 	}
 
+	var styleDef *styleDefOutput
 	if dc.showStyle {
+		idx, def := dc.resolveStyleRef(data.StyleID)
+		if idx > 0 {
+			out.StyleRef = &idx
+			styleDef = def
+		}
+
+		// rich_text はセル固有（共有文字列依存）なのでインラインのまま
+		var cellFont *excel.FontObj
 		sr := dc.getCellStyleByID(data.StyleID)
 		if sr != nil {
-			out.Font = sr.font
-			out.Fill = sr.fill
-			out.Border = sr.border
-			out.Alignment = sr.alignment
+			cellFont = sr.font
 		}
 		if raw != nil {
-			out.RichText = dc.styler.GetRichText(raw.SharedStrIdx, out.Font, dc.defaultFont)
+			out.RichText = dc.styler.GetRichText(raw.SharedStrIdx, cellFont, dc.defaultFont)
 		}
 	}
 
-	return out
+	return out, styleDef
 }

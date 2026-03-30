@@ -77,7 +77,12 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 			lastRow = row
 		}
 
-		out := cfg.dc.buildCellOutput(col, row, data, raw)
+		out, styleDef := cfg.dc.buildCellOutput(col, row, data, raw)
+		if styleDef != nil {
+			if encErr = cfg.enc.Encode(styleDef); encErr != nil {
+				return false
+			}
+		}
 		if encErr = cfg.enc.Encode(out); encErr != nil {
 			return false
 		}
