@@ -172,10 +172,10 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 				}
 				st.inCell = false
 
-				resolveCell(&cell, ss, &valueBuf, &formulaBuf, &inlineBuf, needFormula)
+				resolveCell(&cell, ss, &valueBuf, &formulaBuf, &inlineBuf)
 
-				// 空セルはスキップ
-				if cell.Value == "" && cell.Formula == "" {
+				// スタイルのみのセルも --include-empty --style で出力するためコールバックに渡す
+				if cell.Value == "" && cell.Formula == "" && cell.StyleID == 0 {
 					continue
 				}
 
@@ -211,7 +211,7 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 }
 
 // resolveCell はセルの値と数式を各バッファから解決する
-func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineBuf *strings.Builder, needFormula bool) {
+func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineBuf *strings.Builder) {
 	// 値の解決
 	if cell.ValueType == vtInlineStr {
 		cell.Value = inlineBuf.String()
@@ -225,11 +225,8 @@ func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineB
 		cell.Value = valueBuf.String()
 	}
 
-	// 数式
-	if needFormula || cell.ValueType == vtFormulaStr {
-		cell.Formula = formulaBuf.String()
-	} else if formulaBuf.Len() > 0 {
-		// 数式は不要だが、値が数式の結果かどうかの判定用にフラグを保持
+	// 数式（セルが数式セルかどうかの判定に必要なため、常に保持する）
+	if formulaBuf.Len() > 0 {
 		cell.Formula = formulaBuf.String()
 	}
 }

@@ -47,10 +47,11 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	}
 
 	// スレッドコメントを読む
+	persons := f.loadPersons()
 	for _, rel := range rels {
 		if strings.Contains(strings.ToLower(rel.Type), relKeywordThreadedComments) {
 			threadPath := resolveRelTarget(xmlPath, rel.Target)
-			parseThreadedComments(f.zr, threadPath, comments)
+			parseThreadedComments(f.zr, threadPath, comments, persons)
 		}
 	}
 
@@ -58,6 +59,14 @@ func (f *File) LoadComments(sheet string) CommentMap {
 		return nil
 	}
 	return comments
+}
+
+// loadPersons は xl/persons/person.xml をオンデマンドでパースし、personId → displayName のマップを返す
+func (f *File) loadPersons() map[string]string {
+	f.personsOnce.Do(func() {
+		f.persons = parsePersons(f.zr)
+	})
+	return f.persons
 }
 
 // loadSheetRelsAll はシートの .rels から全リレーションを返す
@@ -208,10 +217,49 @@ func parseCommentsSAX(decoder *xml.Decoder, comments CommentMap) {
 	}
 }
 
+// parsePersons は xl/persons/person.xml をパースし、personId → displayName のマップを返す
+func parsePersons(zr *zip.ReadCloser) map[string]string {
+	entry := findZipEntry(zr, "xl/persons/person.xml")
+	if entry == nil {
+		return nil
+	}
+	persons := make(map[string]string)
+	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
+		for {
+			tok, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil
+			}
+			if se, ok := tok.(xml.StartElement); ok && se.Name.Local == "person" {
+				var id, name string
+				for _, attr := range se.Attr {
+					switch attr.Name.Local {
+					case "id":
+						id = attr.Value
+					case "displayName":
+						name = attr.Value
+					}
+				}
+				if id != "" && name != "" {
+					persons[id] = name
+				}
+			}
+		}
+		return nil
+	})
+	if len(persons) == 0 {
+		return nil
+	}
+	return persons
+}
+
 // parseThreadedComments はスレッドコメント（threadedComment.xml）をパースする
-func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap) {
+func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap, persons map[string]string) {
 	if entry := findZipEntry(zr, path); entry != nil {
-		parseThreadedCommentsEntry(entry, comments)
+		parseThreadedCommentsEntry(entry, comments, persons)
 	}
 }
 
@@ -232,14 +280,14 @@ type threadedCommentRaw struct {
 	done     bool
 }
 
-func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap) {
+func parseThreadedCommentsEntry(entry *zip.File, comments CommentMap, persons map[string]string) {
 	var items []threadedCommentRaw
 	// スレッドコメントもベストエフォート（レガシーコメントの補助情報）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		items = parseThreadedCommentsSAX(decoder)
 		return nil
 	})
-	resolveThreadedComments(items, comments)
+	resolveThreadedComments(items, comments, persons)
 }
 
 func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
@@ -303,7 +351,7 @@ func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
 }
 
 // resolveThreadedComments はパース済みスレッドコメントをレガシーコメントに統合する
-func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
+func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap, persons map[string]string) {
 	if len(items) == 0 {
 		return
 	}
@@ -321,6 +369,8 @@ func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
 	for i := range items {
 		item := &items[i]
 
+		author := persons[item.personID]
+
 		if item.parentID == "" {
 			cd, ok := comments[item.ref]
 			if !ok {
@@ -328,6 +378,9 @@ func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
 				comments[item.ref] = cd
 			}
 			cd.Text = item.text
+			if author != "" {
+				cd.Author = author
+			}
 		} else {
 			parent, ok := idMap[item.parentID]
 			if !ok {
@@ -338,8 +391,9 @@ func resolveThreadedComments(items []threadedCommentRaw, comments CommentMap) {
 				continue
 			}
 			te := ThreadEntry{
-				Text: item.text,
-				Date: item.date,
+				Author: author,
+				Text:   item.text,
+				Date:   item.date,
 			}
 			if item.done {
 				te.Done = true

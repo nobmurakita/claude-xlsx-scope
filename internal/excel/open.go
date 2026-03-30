@@ -30,8 +30,10 @@ type File struct {
 	styles        *styleSheet
 
 	// 遅延ロード対象
-	theme     *themeColors
-	themeOnce sync.Once
+	theme      *themeColors
+	themeOnce  sync.Once
+	persons    map[string]string // personId → displayName
+	personsOnce sync.Once
 }
 
 // OpenFile はExcelファイルを開き、メタデータをZIPから直接パースする。
@@ -142,7 +144,11 @@ func (f *File) DetectDefaultFont() FontInfo {
 	if name == "" {
 		name = defaultFontName
 	}
-	return FontInfo{Name: name, Size: defaultFontSize}
+	size := f.styles.DefaultFontSize()
+	if size == 0 {
+		size = defaultFontSize
+	}
+	return FontInfo{Name: name, Size: size}
 }
 
 // ResolveTabColor は SheetMeta のタブ色をRGB文字列に解決する

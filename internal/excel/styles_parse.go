@@ -460,3 +460,11 @@ func (ss *styleSheet) DefaultFontName() string {
 	}
 	return ss.fonts[0].Name
 }
+
+// DefaultFontSize はブックのデフォルトフォントサイズを返す
+func (ss *styleSheet) DefaultFontSize() float64 {
+	if len(ss.fonts) == 0 {
+		return 0
+	}
+	return ss.fonts[0].Size
+}

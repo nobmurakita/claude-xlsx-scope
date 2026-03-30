@@ -6,7 +6,7 @@ import "encoding/xml"
 const (
 	relKeywordDrawing          = "drawing"
 	relKeywordComments         = "/comments"
-	relKeywordThreadedComments = "threadedcomments" // 大文字小文字混在あり、小文字で比較する
+	relKeywordThreadedComments = "threadedcomment" // 大文字小文字混在あり、小文字で比較する
 )
 
 // workbook.xml のパース用構造体（複数モジュールで共有）

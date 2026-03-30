@@ -20,9 +20,6 @@ var scanCmd = &cobra.Command{
 	RunE:  runScan,
 }
 
-// singleCellDimension は dimension が実質的に空（データ範囲なし）であることを示す特殊値
-const singleCellDimension = "A1:A1"
-
 type scanOutput struct {
 	Sheet       string `json:"sheet"`
 	UsedRange   string `json:"used_range,omitempty"`
@@ -43,7 +40,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	// dimension があればそのまま使用、なければフルスキャン
 	dim := f.LoadDimension(sheet)
-	if dim != "" && dim != singleCellDimension {
+	if dim != "" {
 		out.UsedRange = dim
 	} else {
 		rc := excel.NewRowCache()

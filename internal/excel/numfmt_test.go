@@ -103,6 +103,7 @@ func TestFormatNumericValue(t *testing.T) {
 		// ── 指数 ──
 		{"exponent E+00", "0.00E+00", 12345, "1.23E+04"},
 		{"exponent small", "0.00E+00", 0.00123, "1.23E-03"},
+		{"exponent zero", "0.00E+00", 0, "0.00E+00"},
 
 		// ── 組み込みフォーマットID相当 ──
 		{"builtin 1: 0", "0", 42, "42"},

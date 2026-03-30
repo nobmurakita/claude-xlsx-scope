@@ -31,7 +31,6 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 		currentPara strings.Builder
 		inTxBody    bool
 		inP         bool
-		inR         bool
 
 		excelID int
 	)
@@ -122,9 +121,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 					currentPara.Reset()
 				}
 			case "r":
-				if inP {
-					inR = true
-				}
+				// inP 内の r は CharData で inP として処理される
 			}
 
 		case xml.EndElement:
@@ -148,12 +145,12 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 					inP = false
 				}
 			case "r":
-				inR = false
+				// noop
 			}
 			sh.handleEndElement(t.Name.Local)
 
 		case xml.CharData:
-			if inR || (inP && !inR) {
+			if inP {
 				text := string(t)
 				if strings.TrimSpace(text) != "" {
 					currentPara.Write(t)

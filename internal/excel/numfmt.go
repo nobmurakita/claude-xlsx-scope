@@ -90,6 +90,8 @@ type parsedNumFmt struct {
 
 // ── キャッシュ ──────────────────────────────────────
 
+// numFmtCache はパース済みフォーマットのキャッシュ。
+// 本ツールは単一 goroutine で動作するため、排他制御は行わない。
 var numFmtCache = make(map[string]*parsedNumFmt)
 
 func getOrParseNumFmt(format string) *parsedNumFmt {
@@ -1100,10 +1102,6 @@ func addThousandSep(s string) string {
 // ── 指数フォーマッター ──────────────────────────────
 
 func formatExponent(sec *fmtSection, value float64) string {
-	if value == 0 {
-		return "0" + sec.tokens[0].raw[0:0] // 簡易実装
-	}
-
 	absVal := math.Abs(value)
 	exp := 0
 	if absVal != 0 {
