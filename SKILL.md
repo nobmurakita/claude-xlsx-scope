@@ -83,7 +83,7 @@ cc-read-xlsx cells [options] <file>
 |-----------|------|-----------|
 | `--sheet <name\|index>` | 対象シート | 最初のシート |
 | `--range <range>` | セル範囲（`A1:H20`, `A:F`, `1:20`） | 全体 |
-| `--start <cell>` | 開始セル位置（`--range` と排他） | 先頭 |
+| `--start <cell>` | 開始セル位置（`--range` と併用可） | 先頭 |
 | `--limit <n>` | 出力セル数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力 | OFF |
 | `--formula` | 数式文字列を出力 | OFF |
@@ -120,14 +120,14 @@ cc-read-xlsx cells [options] <file>
 
 **続きの取得:**
 
-`--limit` で打ち切られた場合、最終行に切り捨て通知が出力される。`next_cell` をそのまま `--start` に渡す。
+`--limit` で打ち切られた場合、最終行に切り捨て通知が出力される。`next_cell` をそのまま `--start` に渡す。`--range` と `--start` は併用できるため、範囲内でのページングも可能。
 
 ```bash
-# 最初の1000セル
-cc-read-xlsx cells --sheet 0 example.xlsx
-# 最終行: {"_truncated":true,"next_cell":"B501"}
-# 続きを取得
-cc-read-xlsx cells --sheet 0 --start B501 example.xlsx
+# A1:H200 の最初の1000セル
+cc-read-xlsx cells --sheet 0 --range A1:H200 example.xlsx
+# 最終行: {"_truncated":true,"next_cell":"A101"}
+# 範囲内の続きを取得
+cc-read-xlsx cells --sheet 0 --range A1:H200 --start A101 example.xlsx
 ```
 
 `_truncated` 行が出力されなければ、残りのデータはない。

@@ -1,31 +1,23 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
-)
+import "github.com/nobmurakita/cc-read-xlsx/internal/excel"
 
 // parseScanRange は --range / --start フラグを解析して走査範囲を返す
 func parseScanRange(rangeFlag, startFlag string) (scanRange *excel.CellRange, startCol, startRow int, err error) {
-	if rangeFlag != "" && startFlag != "" {
-		return nil, 0, 0, fmt.Errorf("--range と --start は同時に指定できません")
-	}
 	if rangeFlag != "" {
 		r, err := excel.ParseRange(rangeFlag, "")
 		if err != nil {
 			return nil, 0, 0, err
 		}
-		return &r, 0, 0, nil
+		scanRange = &r
 	}
 	if startFlag != "" {
 		startCol, startRow, err = excel.StartPosition(startFlag)
 		if err != nil {
 			return nil, 0, 0, err
 		}
-		return nil, startCol, startRow, nil
 	}
-	return nil, 0, 0, nil
+	return scanRange, startCol, startRow, nil
 }
 
 // filterByRange はセルが走査範囲内かを判定する。
