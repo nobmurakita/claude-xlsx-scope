@@ -110,6 +110,8 @@ type connRef struct {
 	shapeIndex int // shapes スライス内のインデックス
 	startID    int // Excel の接続元ID
 	endID      int // Excel の接続先ID
+	startIdx   int // 接続元の接続ポイントインデックス
+	endIdx     int // 接続先の接続ポイントインデックス
 	hasStart   bool
 	hasEnd     bool
 }

@@ -12,6 +12,8 @@ type connectorParseState struct {
 	inNvCxnSpPr bool
 	inCxnSpPr   bool // cNvCxnSpPr
 	inSpPr      bool
+	inPrstGeom  bool
+	inAvLst     bool
 }
 
 // parseConnector は <cxnSp> 要素を末尾まで読み、ShapeInfo を返す
@@ -23,6 +25,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 	depth := 1
 	var st connectorParseState
 	sh := drawingStyleHandler{p: p}
+	var adjValues map[string]int
 	var (
 		textParts   []string
 		currentPara strings.Builder
@@ -69,12 +72,18 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 						cr.startID, _ = strconv.Atoi(v)
 						cr.hasStart = true
 					}
+					if v := attrVal(t, "idx"); v != "" {
+						cr.startIdx, _ = strconv.Atoi(v)
+					}
 				}
 			case "endCxn":
 				if st.inCxnSpPr {
 					if v := attrVal(t, "id"); v != "" {
 						cr.endID, _ = strconv.Atoi(v)
 						cr.hasEnd = true
+					}
+					if v := attrVal(t, "idx"); v != "" {
+						cr.endIdx, _ = strconv.Atoi(v)
 					}
 				}
 			case "spPr":
@@ -86,6 +95,23 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 			case "prstGeom":
 				if st.inSpPr {
 					shape.ConnectorType = attrVal(t, "prst")
+					st.inPrstGeom = true
+				}
+			case "avLst":
+				if st.inPrstGeom {
+					st.inAvLst = true
+				}
+			case "gd":
+				if st.inAvLst {
+					name := attrVal(t, "name")
+					fmla := attrVal(t, "fmla")
+					if name != "" && strings.HasPrefix(fmla, "val ") {
+						val, _ := strconv.Atoi(strings.TrimPrefix(fmla, "val "))
+						if adjValues == nil {
+							adjValues = make(map[string]int)
+						}
+						adjValues[name] = val
+					}
 				}
 			case "txBody":
 				inTxBody = true
@@ -110,6 +136,10 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				st.inCxnSpPr = false
 			case "spPr":
 				st.inSpPr = false
+			case "prstGeom":
+				st.inPrstGeom = false
+			case "avLst":
+				st.inAvLst = false
 			case "txBody":
 				inTxBody = false
 			case "p":
@@ -134,6 +164,9 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 
 	// テキスト
 	shape.Label = strings.Join(textParts, "\n")
+
+	// 調整値
+	shape.Adj = adjValues
 
 	// スタイル
 	if p.includeStyle {
@@ -166,11 +199,15 @@ func (p *drawingParser) resolveConnectors() {
 		if cr.hasStart {
 			if seqID, ok := p.excelIDMap[cr.startID]; ok {
 				p.shapes[cr.shapeIndex].From = &seqID
+				idx := cr.startIdx
+				p.shapes[cr.shapeIndex].FromIdx = &idx
 			}
 		}
 		if cr.hasEnd {
 			if seqID, ok := p.excelIDMap[cr.endID]; ok {
 				p.shapes[cr.shapeIndex].To = &seqID
+				idx := cr.endIdx
+				p.shapes[cr.shapeIndex].ToIdx = &idx
 			}
 		}
 	}

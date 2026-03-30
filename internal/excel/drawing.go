@@ -51,7 +51,10 @@ type ShapeInfo struct {
 	RichText      []RichTextRun `json:"rich_text,omitempty"`
 	From          *int          `json:"from,omitempty"`
 	To            *int          `json:"to,omitempty"`
+	FromIdx       *int          `json:"from_idx,omitempty"`
+	ToIdx         *int          `json:"to_idx,omitempty"`
 	ConnectorType string        `json:"connector_type,omitempty"`
+	Adj           map[string]int `json:"adj,omitempty"`
 	Arrow         string        `json:"arrow,omitempty"`
 	Start         *Point        `json:"start,omitempty"`
 	End           *Point        `json:"end,omitempty"`
