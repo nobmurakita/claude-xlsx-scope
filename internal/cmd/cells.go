@@ -158,17 +158,45 @@ func emitTruncated(enc *json.Encoder, truncatedNext string) error {
 
 func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {
 	dwPx := math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPxFactor*100) / 100
-	widths := make(map[string]float64)
+	// デフォルトと異なる幅の列を (col, px) ペアとして収集
+	type colWidth struct {
+		col int
+		px  float64
+	}
+	var entries []colWidth
 	for _, ci := range meta.Cols {
 		px := math.Round(ci.Width*excel.ColWidthPxFactor*100) / 100
 		if px != dwPx && ci.Width != 0 {
 			for c := ci.Min; c <= ci.Max; c++ {
-				widths[excel.ColName(c)] = px
+				entries = append(entries, colWidth{c, px})
 			}
 		}
 	}
-	if len(widths) == 0 {
+	if len(entries) == 0 {
 		return nil
 	}
+	// 連続する同じ幅の列をまとめてキーを生成
+	widths := make(map[string]float64)
+	start := entries[0]
+	prev := start
+	for i := 1; i < len(entries); i++ {
+		e := entries[i]
+		if e.col == prev.col+1 && e.px == start.px {
+			prev = e
+		} else {
+			widths[colRangeKey(start.col, prev.col)] = start.px
+			start = e
+			prev = e
+		}
+	}
+	widths[colRangeKey(start.col, prev.col)] = start.px
 	return widths
+}
+
+// colRangeKey は列範囲のキー文字列を返す（単一列: "B", 範囲: "B:D"）
+func colRangeKey(min, max int) string {
+	if min == max {
+		return excel.ColName(min)
+	}
+	return excel.ColName(min) + ":" + excel.ColName(max)
 }

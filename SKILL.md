@@ -91,7 +91,7 @@ cc-read-xlsx cells [options] <file>
 
 出力例:
 ```jsonl
-{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B":183.75,"H":225},"origin":{"x":0,"y":0}}
+{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75,"H":225},"origin":{"x":0,"y":0}}
 {"_row":1,"height":32}
 {"cell":"A1","value":"項目名"}
 {"cell":"B1","value":"数量"}
@@ -106,7 +106,7 @@ cc-read-xlsx cells [options] <file>
 |-----------|------|
 | `default_width` | デフォルト列幅（ピクセル） |
 | `default_height` | デフォルト行高（ピクセル） |
-| `col_widths` | デフォルトと異なる列幅のマップ（ピクセル） |
+| `col_widths` | デフォルトと異なる列幅のマップ（ピクセル）。連続する同じ幅の列は `"B:D"` のように範囲表記 |
 | `origin` | 起点セルとそのピクセル座標。`shapes` の `pos` と同じ座標系 |
 
 `--style` 指定時（スタイル参照化）:

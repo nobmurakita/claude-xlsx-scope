@@ -58,7 +58,7 @@ cc-read-xlsx cells --sheet 0 --limit 5 見積計算.xlsx
 ```
 
 ```jsonl
-{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B":183.75,"H":225},"origin":{"x":0,"y":0}}
+{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75,"H":225},"origin":{"x":0,"y":0}}
 {"cell":"A1","value":"項目名"}
 {"cell":"B1","value":"数量"}
 {"cell":"C1","value":"単価"}
@@ -76,7 +76,7 @@ cc-read-xlsx cells --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 ```
 
 ```jsonl
-{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B":183.75},"origin":{"x":63,"y":40}}
+{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75},"origin":{"x":63,"y":40}}
 {"_row":3,"height":30}
 {"cell":"B3","value":"工程","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
 {"cell":"C3","value":"作業内容","font":{"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"vertical":"center"}}
