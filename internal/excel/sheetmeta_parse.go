@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -12,6 +13,13 @@ import (
 // DefaultColWidth は XML に defaultColWidth が未指定の場合に使用する
 // Excel の標準デフォルト列幅（標準フォント8文字幅 + パディング）
 const DefaultColWidth = 9.140625
+
+// ピクセル変換係数
+const (
+	ColWidthPxFactor  = 7.5       // Excel 列幅単位 → ピクセル（標準フォント近似値）
+	RowHeightPxFactor = 4.0 / 3.0 // ポイント → ピクセル（96 DPI）
+	DefaultRowHeight  = 15.0      // デフォルト行高（ポイント）
+)
 
 // SheetMeta はワークシートXMLから直接パースしたシートメタデータ。
 // LoadSheetMeta で取得する。
@@ -295,6 +303,49 @@ func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
 		return sm.DefaultWidth
 	}
 	return DefaultColWidth
+}
+
+// ColWidthPx は指定列（1始まり）のピクセル幅を返す。
+func (sm *SheetMeta) ColWidthPx(col int) float64 {
+	w := sm.EffectiveDefaultWidth()
+	for _, ci := range sm.Cols {
+		if col >= ci.Min && col <= ci.Max {
+			if ci.Hidden {
+				return 0
+			}
+			w = ci.Width
+			break
+		}
+	}
+	return w * ColWidthPxFactor
+}
+
+// RowHeightPx は指定行（1始まり）のピクセル高さを返す。
+func (sm *SheetMeta) RowHeightPx(row int) float64 {
+	h := sm.DefaultHeight
+	if h <= 0 {
+		h = DefaultRowHeight
+	}
+	if ri, ok := sm.Rows[row]; ok {
+		if ri.Hidden {
+			return 0
+		}
+		h = ri.Height
+	}
+	return h * RowHeightPxFactor
+}
+
+// CellOriginPx は指定セル（col, row: 1始まり）の左上ピクセル座標を返す。
+func (sm *SheetMeta) CellOriginPx(col, row int) (int, int) {
+	var x float64
+	for c := 1; c < col; c++ {
+		x += sm.ColWidthPx(c)
+	}
+	var y float64
+	for r := 1; r < row; r++ {
+		y += sm.RowHeightPx(r)
+	}
+	return int(math.Round(x)), int(math.Round(y))
 }
 
 // LoadDimensionOnly はワークシートXMLから dimension 属性のみを高速に取得する。

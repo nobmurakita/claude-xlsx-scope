@@ -91,8 +91,8 @@ cc-read-xlsx cells [options] <file>
 
 出力例:
 ```jsonl
-{"_meta":true,"default_width":8.43,"default_height":15,"col_widths":{"B":24.5,"H":30}}
-{"_row":1,"height":24}
+{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B":183.75,"H":225},"origin":{"x":0,"y":0}}
+{"_row":1,"height":32}
 {"cell":"A1","value":"項目名"}
 {"cell":"B1","value":"数量"}
 {"cell":"C1","value":"単価"}
@@ -104,9 +104,10 @@ cc-read-xlsx cells [options] <file>
 
 | フィールド | 説明 |
 |-----------|------|
-| `default_width` | デフォルト列幅 |
-| `default_height` | デフォルト行高 |
-| `col_widths` | デフォルトと異なる列幅のマップ |
+| `default_width` | デフォルト列幅（ピクセル） |
+| `default_height` | デフォルト行高（ピクセル） |
+| `col_widths` | デフォルトと異なる列幅のマップ（ピクセル） |
+| `origin` | 起点セルとそのピクセル座標。`shapes` の `pos` と同じ座標系 |
 
 `--style` 指定時（スタイル参照化）:
 
@@ -243,14 +244,14 @@ cc-read-xlsx search --text "合計" --sheet 0 example.xlsx
 
 ### メタ情報（`_meta`）
 
-cells の最初の行に出力。シートのレイアウト基準値を含む。
+cells の最初の行に出力。シートのレイアウト基準値と起点座標を含む。幅・高さはすべてピクセル単位（96 DPI 基準）で、`shapes` の `pos` と同じ座標系。`origin` は起点セルとピクセル座標で、`--range` / `--start` 指定時は先行セル分の累積座標を含む。
 
 ### 行情報（`_row`）
 
 行高がデフォルトと異なる、または非表示の行でのみ、セル出力の前に挿入される。デフォルト行高の行では出力されない。
 
 ```jsonl
-{"_row":1,"height":30}
+{"_row":1,"height":40}
 {"_row":5,"hidden":true}
 ```
 

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
@@ -29,9 +30,15 @@ func NewCellsCmd() *cobra.Command {
 
 type metaOutput struct {
 	Meta          bool               `json:"_meta"`
+	Origin        *originOutput      `json:"origin,omitempty"`
 	DefaultWidth  float64            `json:"default_width"`
 	DefaultHeight float64            `json:"default_height"`
 	ColWidths     map[string]float64 `json:"col_widths,omitempty"`
+}
+
+type originOutput struct {
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
 type rowOutput struct {
@@ -51,7 +58,7 @@ func (dc *cellsContext) emitRowInfo(enc *json.Encoder, row int) error {
 	ri := rowOutput{Row: row}
 	heightDiffers := info.Height != 0 && info.Height != dc.defaultHeight
 	if heightDiffers {
-		ri.Height = info.Height
+		ri.Height = math.Round(info.Height*excel.RowHeightPxFactor*100) / 100
 	}
 	ri.Hidden = info.Hidden
 	if !heightDiffers && !ri.Hidden {
@@ -87,8 +94,8 @@ func runCells(cmd *cobra.Command, args []string) error {
 
 	enc := newJSONLWriter(os.Stdout)
 
-	// _meta 行を出力（col_widths, default_width/height）
-	if err := emitMeta(enc, dc.sheetMeta); err != nil {
+	// _meta 行を出力（col_widths, default_width/height, origin）
+	if err := emitMeta(enc, dc.sheetMeta, scanRange, startCol, startRow); err != nil {
 		return err
 	}
 
@@ -115,16 +122,30 @@ func runCells(cmd *cobra.Command, args []string) error {
 }
 
 // emitMeta は _meta 行を出力する
-func emitMeta(enc *json.Encoder, meta *excel.SheetMeta) error {
+func emitMeta(enc *json.Encoder, meta *excel.SheetMeta, scanRange *excel.CellRange, startCol, startRow int) error {
 	if meta == nil {
 		return nil
 	}
-	return enc.Encode(metaOutput{
+	out := metaOutput{
 		Meta:          true,
-		DefaultWidth:  meta.EffectiveDefaultWidth(),
-		DefaultHeight: meta.DefaultHeight,
+		DefaultWidth:  math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPxFactor*100) / 100,
+		DefaultHeight: math.Round(meta.DefaultHeight*excel.RowHeightPxFactor*100) / 100,
 		ColWidths:     colWidthsFromMeta(meta),
-	})
+		Origin:        buildOrigin(meta, scanRange, startCol, startRow),
+	}
+	return enc.Encode(out)
+}
+
+// buildOrigin は出力の起点セルとそのピクセル座標を構築する
+func buildOrigin(meta *excel.SheetMeta, scanRange *excel.CellRange, startCol, startRow int) *originOutput {
+	col, row := 1, 1
+	if scanRange != nil {
+		col, row = scanRange.StartCol, scanRange.StartRow
+	} else if startCol > 0 {
+		col, row = startCol, startRow
+	}
+	x, y := meta.CellOriginPx(col, row)
+	return &originOutput{X: x, Y: y}
 }
 
 // emitTruncated は打ち切り行を出力する（truncatedNext が空なら何もしない）
@@ -136,12 +157,13 @@ func emitTruncated(enc *json.Encoder, truncatedNext string) error {
 }
 
 func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {
-	dw := meta.EffectiveDefaultWidth()
+	dwPx := math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPxFactor*100) / 100
 	widths := make(map[string]float64)
 	for _, ci := range meta.Cols {
-		if ci.Width != dw && ci.Width != 0 {
+		px := math.Round(ci.Width*excel.ColWidthPxFactor*100) / 100
+		if px != dwPx && ci.Width != 0 {
 			for c := ci.Min; c <= ci.Max; c++ {
-				widths[excel.ColName(c)] = ci.Width
+				widths[excel.ColName(c)] = px
 			}
 		}
 	}

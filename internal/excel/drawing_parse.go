@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-// 座標計算用の定数
-const (
-	colWidthFactor  = 7.5       // Excel 列幅単位 → ピクセル（標準フォント近似値）
-	rowHeightFactor = 4.0 / 3.0 // ポイント → ピクセル（96 DPI）
-	defaultRowHeight = 15.0     // デフォルト行高（ポイント）
-)
-
 // anchorPos は anchor の from/to 内の位置情報
 type anchorPos struct {
 	col    int
@@ -30,39 +23,11 @@ type posCalculator struct {
 	meta *SheetMeta
 }
 
-func (pc *posCalculator) colWidthPx(col int) float64 {
-	w := pc.meta.EffectiveDefaultWidth()
-	for _, ci := range pc.meta.Cols {
-		if col >= ci.Min && col <= ci.Max {
-			if ci.Hidden {
-				return 0
-			}
-			w = ci.Width
-			break
-		}
-	}
-	return w * colWidthFactor
-}
-
-func (pc *posCalculator) rowHeightPx(row int) float64 {
-	h := pc.meta.DefaultHeight
-	if h <= 0 {
-		h = defaultRowHeight
-	}
-	if ri, ok := pc.meta.Rows[row]; ok {
-		if ri.Hidden {
-			return 0
-		}
-		h = ri.Height
-	}
-	return h * rowHeightFactor
-}
-
 // calcX は列+オフセットからX座標（ピクセル）を算出する（col は 0 始まり、off は EMU）
 func (pc *posCalculator) calcX(col, off int) int {
 	var x float64
 	for c := 1; c <= col; c++ {
-		x += pc.colWidthPx(c)
+		x += pc.meta.ColWidthPx(c)
 	}
 	x += float64(off) / emuPerPixel
 	return int(math.Round(x))
@@ -72,7 +37,7 @@ func (pc *posCalculator) calcX(col, off int) int {
 func (pc *posCalculator) calcY(row, off int) int {
 	var y float64
 	for r := 1; r <= row; r++ {
-		y += pc.rowHeightPx(r)
+		y += pc.meta.RowHeightPx(r)
 	}
 	y += float64(off) / emuPerPixel
 	return int(math.Round(y))
