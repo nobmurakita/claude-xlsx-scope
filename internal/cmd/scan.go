@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -8,22 +8,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	scanCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	rootCmd.AddCommand(scanCmd)
-}
-
-var scanCmd = &cobra.Command{
-	Use:   "scan <file>",
-	Short: "シートの構造（used_range）を分析する",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runScan,
+// NewScanCmd は scan サブコマンドを生成する
+func NewScanCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "scan <file>",
+		Short: "シートの構造（used_range）を分析する",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runScan,
+	}
+	cmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
+	return cmd
 }
 
 type scanOutput struct {
-	Sheet       string `json:"sheet"`
-	UsedRange   string `json:"used_range,omitempty"`
-	HasShapes bool `json:"has_shapes,omitempty"`
+	Sheet     string `json:"sheet"`
+	UsedRange string `json:"used_range,omitempty"`
+	HasShapes bool   `json:"has_shapes,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {

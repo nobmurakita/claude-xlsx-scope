@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -8,24 +8,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	searchCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	searchCmd.Flags().String("text", "", "検索文字列（部分一致）")
-	searchCmd.Flags().String("numeric", "", "数値比較（例: \">100\", \"100:200\", \"=42\"）")
-	searchCmd.Flags().String("type", "", "セルの型でフィルタ（string, number, bool, formula）")
-	searchCmd.Flags().String("range", "", "セル範囲（例: A1:H20）")
-	searchCmd.Flags().String("start", "", "開始セル位置（例: A51）")
-	searchCmd.Flags().Bool("style", false, "書式情報を出力する")
-	searchCmd.Flags().Bool("formula", false, "数式文字列を出力する")
-	searchCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
-	rootCmd.AddCommand(searchCmd)
-}
-
-var searchCmd = &cobra.Command{
-	Use:   "search <file>",
-	Short: "セル値を検索する",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSearch,
+// NewSearchCmd は search サブコマンドを生成する
+func NewSearchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "search <file>",
+		Short: "セル値を検索する",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runSearch,
+	}
+	cmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
+	cmd.Flags().String("text", "", "検索文字列（部分一致）")
+	cmd.Flags().String("numeric", "", "数値比較（例: \">100\", \"100:200\", \"=42\"）")
+	cmd.Flags().String("type", "", "セルの型でフィルタ（string, number, bool, formula）")
+	cmd.Flags().String("range", "", "セル範囲（例: A1:H20）")
+	cmd.Flags().String("start", "", "開始セル位置（例: A51）")
+	cmd.Flags().Bool("style", false, "書式情報を出力する")
+	cmd.Flags().Bool("formula", false, "数式文字列を出力する")
+	cmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
+	return cmd
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {

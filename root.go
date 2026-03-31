@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/nobmurakita/cc-read-xlsx/internal/cmd"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +18,17 @@ var rootCmd = &cobra.Command{
 	Short:         "Excel ファイル（.xlsx / .xlsm）の内容をAIエージェント向けに読み取るツール",
 	SilenceUsage:  true,
 	SilenceErrors: true,
+}
+
+func init() {
+	rootCmd.AddCommand(
+		cmd.NewCellsCmd(),
+		cmd.NewSearchCmd(),
+		cmd.NewScanCmd(),
+		cmd.NewInfoCmd(),
+		cmd.NewShapesCmd(),
+		cmd.NewImageCmd(),
+	)
 }
 
 func execute() int {

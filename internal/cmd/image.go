@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -9,15 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	rootCmd.AddCommand(imageCmd)
-}
-
-var imageCmd = &cobra.Command{
-	Use:   "image <file> <image_id> [output]",
-	Short: "画像をファイルに保存する",
-	Args:  cobra.RangeArgs(2, 3),
-	RunE:  runImage,
+// NewImageCmd は image サブコマンドを生成する
+func NewImageCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "image <file> <image_id> [output]",
+		Short: "画像をファイルに保存する",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE:  runImage,
+	}
 }
 
 func runImage(cmd *cobra.Command, args []string) error {

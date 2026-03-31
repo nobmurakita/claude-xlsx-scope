@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -8,18 +8,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	shapesCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	shapesCmd.Flags().Int("limit", defaultOutputLimit, "出力図形数の上限（0で無制限）")
-	shapesCmd.Flags().Bool("style", false, "書式情報を出力する")
-	rootCmd.AddCommand(shapesCmd)
-}
-
-var shapesCmd = &cobra.Command{
-	Use:   "shapes <file>",
-	Short: "シート上の図形をJSONL形式で出力する",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runShapes,
+// NewShapesCmd は shapes サブコマンドを生成する
+func NewShapesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "shapes <file>",
+		Short: "シート上の図形をJSONL形式で出力する",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runShapes,
+	}
+	cmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
+	cmd.Flags().Int("limit", defaultOutputLimit, "出力図形数の上限（0で無制限）")
+	cmd.Flags().Bool("style", false, "書式情報を出力する")
+	return cmd
 }
 
 func runShapes(cmd *cobra.Command, args []string) error {

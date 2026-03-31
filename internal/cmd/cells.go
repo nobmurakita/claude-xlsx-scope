@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"encoding/json"
@@ -9,22 +9,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	cellsCmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
-	cellsCmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
-	cellsCmd.Flags().String("start", "", "開始セル位置（例: A51）")
-	cellsCmd.Flags().Bool("include-empty", false, "空セルも出力する")
-	cellsCmd.Flags().Bool("style", false, "書式情報を出力する")
-	cellsCmd.Flags().Bool("formula", false, "数式文字列を出力する")
-	cellsCmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
-	rootCmd.AddCommand(cellsCmd)
-}
-
-var cellsCmd = &cobra.Command{
-	Use:   "cells <file>",
-	Short: "セルの値と書式をJSONL形式で出力する",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runCells,
+// NewCellsCmd は cells サブコマンドを生成する
+func NewCellsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cells <file>",
+		Short: "セルの値と書式をJSONL形式で出力する",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runCells,
+	}
+	cmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
+	cmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
+	cmd.Flags().String("start", "", "開始セル位置（例: A51）")
+	cmd.Flags().Bool("include-empty", false, "空セルも出力する")
+	cmd.Flags().Bool("style", false, "書式情報を出力する")
+	cmd.Flags().Bool("formula", false, "数式文字列を出力する")
+	cmd.Flags().Int("limit", defaultOutputLimit, "出力セル数の上限（0で無制限）")
+	return cmd
 }
 
 type metaOutput struct {
