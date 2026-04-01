@@ -5,8 +5,9 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS" in
-  Darwin) OS="darwin" ;;
-  Linux)  OS="linux" ;;
+  Darwin)   OS="darwin" ;;
+  Linux)    OS="linux" ;;
+  MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
   *)
     echo "cc-read-xlsx: unsupported OS: $OS" >&2
     exit 1
@@ -25,6 +26,7 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BIN="${SCRIPT_DIR}/cc-read-xlsx-${OS}-${ARCH}"
+[ "$OS" = "windows" ] && BIN="${BIN}.exe"
 
 if [ ! -f "$BIN" ]; then
   echo "cc-read-xlsx: binary not found: $BIN" >&2
