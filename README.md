@@ -104,10 +104,17 @@ cc-read-xlsx shapes --sheet 0 処理フロー.xlsx
 
 `pos` はピクセル座標（96 DPI 基準、左上原点）。コネクタは `start`/`end` で両端座標を出力する。吹き出し形状は `callout_target` でポインタ先座標を出力する。
 
-画像は自動的に一時ディレクトリに抽出される:
+画像は `image_id` フィールドで参照される:
 
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_path":"/tmp/cc-read-xlsx-images-xxx/image_abc.png"}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"構成図","image_id":"xl/media/image1.png"}
+```
+
+`image_id` を `image` サブコマンドに渡すと画像を取得できる:
+
+```bash
+cc-read-xlsx image 処理フロー.xlsx xl/media/image1.png
+# stdout: /var/folders/.../cc-read-xlsx-1234567.png
 ```
 
 **オプション:**
