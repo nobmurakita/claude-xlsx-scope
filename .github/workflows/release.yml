@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        run: |
+          LDFLAGS="-s -w"
+          TARGETS=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+          )
+          mkdir -p scripts
+          for TARGET in "${TARGETS[@]}"; do
+            GOOS="${TARGET%/*}"
+            GOARCH="${TARGET#*/}"
+            OUTPUT="scripts/cc-read-xlsx-${GOOS}-${GOARCH}"
+            if [ "$GOOS" = "windows" ]; then
+              OUTPUT="${OUTPUT}.exe"
+            fi
+            echo "Building ${OUTPUT}..."
+            CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+              go build -ldflags="$LDFLAGS" -o "$OUTPUT" .
+          done
+
+      - name: Create zip
+        run: |
+          cp scripts/cc-read-xlsx-linux-amd64 scripts/cc-read-xlsx
+          chmod +x scripts/cc-read-xlsx
+          zip -r "cc-read-xlsx-${GITHUB_REF_NAME}.zip" \
+            SKILL.md \
+            scripts/cc-read-xlsx \
+            scripts/cc-read-xlsx-darwin-amd64 \
+            scripts/cc-read-xlsx-darwin-arm64 \
+            scripts/cc-read-xlsx-linux-amd64 \
+            scripts/cc-read-xlsx-linux-arm64 \
+            scripts/cc-read-xlsx-windows-amd64.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "cc-read-xlsx-${{ github.ref_name }}.zip"
+          generate_release_notes: true
