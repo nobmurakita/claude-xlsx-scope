@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$OS" in
+  Darwin) OS="darwin" ;;
+  Linux)  OS="linux" ;;
+  *)
+    echo "cc-read-xlsx: unsupported OS: $OS" >&2
+    exit 1
+    ;;
+esac
+
+case "$ARCH" in
+  aarch64) ARCH="arm64" ;;
+  x86_64)  ARCH="amd64" ;;
+  arm64)   ARCH="arm64" ;;
+  *)
+    echo "cc-read-xlsx: unsupported architecture: $ARCH" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BIN="${SCRIPT_DIR}/cc-read-xlsx-${OS}-${ARCH}"
+
+if [ ! -f "$BIN" ]; then
+  echo "cc-read-xlsx: binary not found: $BIN" >&2
+  exit 1
+fi
+
+exec "$BIN" "$@"
