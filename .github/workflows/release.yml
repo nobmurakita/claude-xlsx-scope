@@ -43,8 +43,6 @@ jobs:
 
       - name: Create zip
         run: |
-          cp scripts/cc-read-xlsx-linux-amd64 scripts/cc-read-xlsx
-          chmod +x scripts/cc-read-xlsx
           zip -r "cc-read-xlsx-${GITHUB_REF_NAME}.zip" \
             SKILL.md \
             scripts/cc-read-xlsx \
