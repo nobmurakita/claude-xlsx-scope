@@ -83,7 +83,7 @@ cc-read-xlsx cells --sheet 0 --style --range "B3:K4" --limit 3 見積計算.xlsx
 |-----------|------|-----------|
 | `--sheet` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
 | `--range` | セル範囲（例: `A1:H20`, `A:F`, `1:20`） | 全体 |
-| `--start` | 開始セル位置（例: `A51`）。`--range` と排他 | 先頭 |
+| `--start` | 開始セル位置（例: `A51`）。`--range` と併用可 | 先頭 |
 | `--include-empty` | 空セルも出力する | OFF |
 | `--style` | 書式情報を出力する | OFF |
 | `--formula` | 数式文字列を出力する | OFF |
@@ -99,7 +99,7 @@ cc-read-xlsx shapes --sheet 0 処理フロー.xlsx
 {"_meta":true,"shape_count":8,"connector_count":3}
 {"id":1,"type":"flowChartProcess","text":"処理A","cell":"B2:D4","pos":{"x":120,"y":80,"w":200,"h":60},"z":0}
 {"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","pos":{"x":120,"y":200,"w":200,"h":80},"z":1}
-{"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"connector_type":"straightConnector1","arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}
+{"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"from_idx":2,"to_idx":0,"connector_type":"bentConnector3","adj":{"adj1":50000},"arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}
 ```
 
 `pos` はピクセル座標（96 DPI 基準、左上原点）。コネクタは `start`/`end` で両端座標を出力する。吹き出し形状は `callout_target` でポインタ先座標を出力する。
@@ -124,6 +124,19 @@ cc-read-xlsx image 処理フロー.xlsx xl/media/image1.png
 | `--sheet` | 対象シート（名前 or 0始まりインデックス） | 最初のシート |
 | `--limit` | 出力図形数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力する | OFF |
+
+### image — 画像を取得
+
+```bash
+cc-read-xlsx image <file> <image_id> [output]
+```
+
+`shapes` 出力の `image_id` を指定して画像をファイルに保存する。`output` を省略すると一時ファイルが自動生成され、パスが stdout に出力される。
+
+```bash
+cc-read-xlsx image 処理フロー.xlsx xl/media/image1.png
+# stdout: /var/folders/.../cc-read-xlsx-1234567.png
+```
 
 ### search — セル値を検索
 
@@ -155,7 +168,7 @@ cc-read-xlsx search --numeric ">100" 見積計算.xlsx
 | `--type` | 型フィルタ（`string`, `number`, `bool`, `formula`） | — |
 | `--sheet` | 対象シート | 最初のシート |
 | `--range` | セル範囲 | 全体 |
-| `--start` | 開始セル位置。`--range` と排他 | 先頭 |
+| `--start` | 開始セル位置。`--range` と併用可 | 先頭 |
 | `--style` | 書式情報を出力する | OFF |
 | `--formula` | 数式文字列を出力する | OFF |
 | `--limit` | 出力セル数の上限（0で無制限） | 1000 |
