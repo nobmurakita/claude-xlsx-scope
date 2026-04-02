@@ -15,6 +15,15 @@ curl -fsSL https://raw.githubusercontent.com/nobmurakita/cc-read-xlsx/main/insta
 
 macOS / Linux / Git Bash（Windows）で動作する。インストール後、Claude Code が Excel ファイルの読み取りが必要な場面で自動的に cc-read-xlsx を使用する。
 
+### Claude Desktop で使う
+
+1. [Releases](https://github.com/nobmurakita/cc-read-xlsx/releases) から最新の zip をダウンロード
+2. Claude の設定で「コード実行とファイル作成」が有効になっていることを確認
+3. [カスタマイズ > スキル](https://claude.ai/customize/skills) を開く
+4. 「+」→「スキルをアップロード」で zip をアップロード
+
+スキルリストに追加されたら、Claude が Excel ファイルの読み取りが必要な場面で自動的に cc-read-xlsx を使用する。
+
 ### Go ツールとして使う
 
 ```bash
