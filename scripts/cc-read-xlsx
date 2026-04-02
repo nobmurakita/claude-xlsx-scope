@@ -33,4 +33,14 @@ if [ ! -f "$BIN" ]; then
   exit 1
 fi
 
+# 実行権限がなければ一時ディレクトリにコピーして権限を付与
+if [ ! -x "$BIN" ]; then
+  TMP_BIN="${TMPDIR:-/tmp}/cc-read-xlsx-$(id -u)-${OS}-${ARCH}"
+  if [ ! -x "$TMP_BIN" ] || ! cmp -s "$BIN" "$TMP_BIN"; then
+    cp "$BIN" "$TMP_BIN"
+    chmod +x "$TMP_BIN"
+  fi
+  BIN="$TMP_BIN"
+fi
+
 exec "$BIN" "$@"
