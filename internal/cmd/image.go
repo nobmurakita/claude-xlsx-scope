@@ -12,9 +12,9 @@ import (
 // NewImageCmd は image サブコマンドを生成する
 func NewImageCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "image <file> <image_id> [output]",
-		Short: "画像をファイルに保存する",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:   "image <file> <image_id>",
+		Short: "画像を一時ファイルに保存する",
+		Args:  cobra.ExactArgs(2),
 		RunE:  runImage,
 	}
 }
@@ -28,24 +28,10 @@ func runImage(cmd *cobra.Command, args []string) error {
 
 	imageID := args[1]
 
-	var outputPath string
-	var out *os.File
-	if len(args) >= 3 {
-		outputPath = args[2]
-		var err error
-		out, err = os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("出力ファイルの作成エラー: %w", err)
-		}
-	} else {
-		// 一時ファイルを自動生成（拡張子は image_id から取得）
-		ext := filepath.Ext(imageID)
-		var err error
-		out, err = os.CreateTemp("", "cc-read-xlsx-*"+ext)
-		if err != nil {
-			return fmt.Errorf("一時ファイルの作成エラー: %w", err)
-		}
-		outputPath = out.Name()
+	ext := filepath.Ext(imageID)
+	out, err := os.CreateTemp("", "read-xlsx-*"+ext)
+	if err != nil {
+		return fmt.Errorf("一時ファイルの作成エラー: %w", err)
 	}
 	defer out.Close()
 
@@ -53,6 +39,6 @@ func runImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println(outputPath)
+	fmt.Println(out.Name())
 	return nil
 }

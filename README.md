@@ -137,10 +137,10 @@ read-xlsx image 処理フロー.xlsx xl/media/image1.png
 ### image — 画像を取得
 
 ```bash
-read-xlsx image <file> <image_id> [output]
+read-xlsx image <file> <image_id>
 ```
 
-`shapes` 出力の `image_id` を指定して画像をファイルに保存する。`output` を省略すると一時ファイルが自動生成され、パスが stdout に出力される。
+`shapes` 出力の `image_id` を指定して画像を一時ファイルに保存する。パスが stdout に出力される。
 
 ```bash
 read-xlsx image 処理フロー.xlsx xl/media/image1.png
