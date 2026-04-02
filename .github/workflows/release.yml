@@ -43,9 +43,9 @@ jobs:
 
       - name: Create zip
         run: |
-          zip -r "cc-read-xlsx-${GITHUB_REF_NAME}.zip" \
+          zip -r "read-xlsx-${GITHUB_REF_NAME}.zip" \
             SKILL.md \
-            scripts/cc-read-xlsx \
+            scripts/read-xlsx \
             scripts/cc-read-xlsx-darwin-amd64 \
             scripts/cc-read-xlsx-darwin-arm64 \
             scripts/cc-read-xlsx-linux-amd64 \
@@ -55,5 +55,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "cc-read-xlsx-${{ github.ref_name }}.zip"
+          files: "read-xlsx-${{ github.ref_name }}.zip"
           generate_release_notes: true
