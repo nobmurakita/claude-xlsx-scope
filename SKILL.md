@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/read-xlsx *), Read
 ---
 
-# cc-read-xlsx
+# read-xlsx
 
 Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 
@@ -211,7 +211,7 @@ bash ${CLAUDE_SKILL_DIR}/scripts/read-xlsx image <file> <image_id> [output]
 
 ```bash
 bash ${CLAUDE_SKILL_DIR}/scripts/read-xlsx image example.xlsx xl/media/image1.png
-# stdout: /var/folders/.../cc-read-xlsx-1234567.png
+# stdout: /var/folders/.../read-xlsx-1234567.png
 ```
 
 ### search

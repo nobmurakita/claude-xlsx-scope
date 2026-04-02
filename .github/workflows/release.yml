@@ -32,13 +32,13 @@ jobs:
           for TARGET in "${TARGETS[@]}"; do
             GOOS="${TARGET%/*}"
             GOARCH="${TARGET#*/}"
-            OUTPUT="scripts/cc-read-xlsx-${GOOS}-${GOARCH}"
+            OUTPUT="scripts/read-xlsx-${GOOS}-${GOARCH}"
             if [ "$GOOS" = "windows" ]; then
               OUTPUT="${OUTPUT}.exe"
             fi
             echo "Building ${OUTPUT}..."
             CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
-              go build -ldflags="$LDFLAGS" -o "$OUTPUT" .
+              go build -ldflags="$LDFLAGS" -o "$OUTPUT" ./cmd/read-xlsx
           done
 
       - name: Create zip
@@ -46,11 +46,11 @@ jobs:
           zip -r "read-xlsx-${GITHUB_REF_NAME}.zip" \
             SKILL.md \
             scripts/read-xlsx \
-            scripts/cc-read-xlsx-darwin-amd64 \
-            scripts/cc-read-xlsx-darwin-arm64 \
-            scripts/cc-read-xlsx-linux-amd64 \
-            scripts/cc-read-xlsx-linux-arm64 \
-            scripts/cc-read-xlsx-windows-amd64.exe
+            scripts/read-xlsx-darwin-amd64 \
+            scripts/read-xlsx-darwin-arm64 \
+            scripts/read-xlsx-linux-amd64 \
+            scripts/read-xlsx-linux-arm64 \
+            scripts/read-xlsx-windows-amd64.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

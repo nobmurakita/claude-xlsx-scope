@@ -29,6 +29,6 @@ rm -f "$TMP_ZIP"
 
 # 実行権限を付与
 chmod +x "${INSTALL_DIR}/scripts/read-xlsx"
-chmod +x "${INSTALL_DIR}/scripts/cc-read-xlsx-"* 2>/dev/null || true
+chmod +x "${INSTALL_DIR}/scripts/read-xlsx-"* 2>/dev/null || true
 
 echo "Done. Installed to ${INSTALL_DIR}"
