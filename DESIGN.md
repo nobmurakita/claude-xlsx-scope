@@ -532,6 +532,7 @@ shapes の最初の行に出力される。
 | `z` | number | Z-order。drawing XML 内のアンカー要素の出現順で0始まり。大きいほど前面 |
 | `rotation` | number | 回転角度（度単位、時計回り）。`a:xfrm` の `rot` 属性を60000で除算して度に変換。0の場合は省略 |
 | `flip` | string | 反転。`"h"`（水平）、`"v"`（垂直）、`"hv"`（両方）。`a:xfrm` の `flipH` / `flipV` 属性から判定。なければ省略 |
+| `adj` | object | 図形の調整値マップ（1/100000単位の比率）。`prstGeom` の `avLst` 内の `gd` 要素から取得。角丸半径（`roundRect` の `adj1`）、台形の傾き等の形状パラメータ。デフォルト値の場合は `avLst` が空のため省略される |
 | `callout_target` | object | 吹き出しのポインタ先座標 `{x, y}`。wedge 系・borderCallout1 等の吹き出し形状でのみ出力。`prstGeom` の `avLst` から算出 |
 | `rich_text` | array | リッチテキストラン。図形内テキストに書式の異なるランが存在する場合のみ出力。構造はセルの `rich_text` と同一 |
 

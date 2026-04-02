@@ -121,6 +121,8 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, pos
 			shape.Font = buildDrawingFontObj(ts.shapeFont, p.theme)
 		}
 	}
+	// 調整値（角丸半径、吹き出しポインタ等）を出力
+	shape.Adj = adjValues
 	// 吹き出しのポインタ先を算出
 	if pos != nil {
 		shape.CalloutTarget = calcCalloutTarget(pos, shape.Type, adjValues)
