@@ -20,7 +20,7 @@ macOS / Linux / Windows (Git Bash)で動作する。インストール後、Clau
 1. [Releases](https://github.com/nobmurakita/claude-xlsx-scope/releases) から最新の zip をダウンロード
 2. Claude の設定で「機能 > コード実行とファイル作成」が有効になっていることを確認
 3. [カスタマイズ > スキル](https://claude.ai/customize/skills) を開く
-4. 「+」→「スキルをアップロード」で zip をアップロード
+4. 「+」→「スキルを作成」→「スキルをアップロード」で zip をアップロード
 
 スキルリストに追加されたら、Claude が Excel ファイルの読み取りが必要な場面で自動的に xlsx-scope を使用する。
 
