@@ -28,6 +28,7 @@ func init() {
 		cmd.NewInfoCmd(),
 		cmd.NewShapesCmd(),
 		cmd.NewImageCmd(),
+		cmd.NewValuesCmd(),
 	)
 }
 

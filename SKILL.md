@@ -14,10 +14,11 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 ```
 1. info   → シート一覧を確認し対象シートを特定
 2. scan   → used_range, value_count, merged_cells, has_shapes, style_variants を取得
-3. cells  → セルデータを取得
-4. shapes → 図形・フローチャート・画像を取得（has_shapes: true のシートで必ず実行）
-5. image  → image_id がある図形の画像を取得して確認
-6. search → 特定値の検索（cells より効率的）
+3. cells  → セルデータを取得（書式・結合セル等のレイアウト情報が必要な場合）
+4. values   → 値のみを行単位で取得（書式不要と判断したデータシート向け）
+5. shapes → 図形・フローチャート・画像を取得（has_shapes: true のシートで必ず実行）
+6. image  → image_id がある図形の画像を取得して確認
+7. search → 特定値の検索（cells より効率的）
 ```
 
 scan は各シートに対して基本的に実行する。各指標を総合してシートの性質（データ/ドキュメント/図）を推測し、後続のコマンドとオプションを判断する。
@@ -148,6 +149,46 @@ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope cells --sheet 0 --range A1:H200 --st
 ```
 
 `_truncated` 行が出力されなければ、残りのデータはない。
+
+### values
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope values [options] <file>
+```
+
+値のみを行単位で出力する。書式・結合セル・レイアウト情報を含まないため、データシート向け。
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet <name\|index>` | 対象シート | 最初のシート |
+| `--range <range>` | セル範囲（`A1:H20`, `A:F`, `1:20`） | 全体 |
+| `--start <row>` | 開始行番号（1始まり） | 先頭 |
+| `--limit <n>` | 出力行数の上限（0で無制限） | 1000 |
+
+出力例:
+```jsonl
+{"_meta":true,"cols":["A","B","C","D"]}
+{"row":1,"values":["ID","名前","部署","入社日"]}
+{"row":2,"values":[1,"田中太郎","営業部","2025/4/1"]}
+{"row":3,"values":[2,"鈴木花子",null,"2025/4/15"]}
+```
+
+- `_meta` 行の `cols` は values 配列の各インデックスに対応する列名
+- 値は `display`（表示文字列）があればそちらを優先出力（日付・数値フォーマット済み）
+- 空行はスキップ
+- 末尾の null はトリム
+
+**続きの取得:**
+
+`--limit` で打ち切られた場合:
+```jsonl
+{"_truncated":true,"next_row":101}
+```
+
+`next_row` をそのまま `--start` に渡す:
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope values --sheet 0 --start 101 example.xlsx
+```
 
 ### shapes
 
