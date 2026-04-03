@@ -67,7 +67,7 @@ func BookInfo(path string) (*BookInfoResult, error) {
 			Index:  i,
 			Name:   s.Name,
 			Type:   sheetType,
-			Hidden: s.State != "",
+			Hidden: s.State != "" && s.State != "visible",
 		}
 	}
 
