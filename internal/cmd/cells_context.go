@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 )
 
 // cellStyler はセルのスタイル・リッチテキスト取得機能を抽象化する

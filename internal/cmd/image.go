@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ func runImage(cmd *cobra.Command, args []string) error {
 	imageID := args[1]
 
 	ext := filepath.Ext(imageID)
-	out, err := os.CreateTemp("", "read-xlsx-*"+ext)
+	out, err := os.CreateTemp("", "xlsx-scope-*"+ext)
 	if err != nil {
 		return fmt.Errorf("一時ファイルの作成エラー: %w", err)
 	}

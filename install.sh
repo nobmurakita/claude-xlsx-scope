@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="nobmurakita/cc-read-xlsx"
-SKILL_NAME="read-xlsx"
+REPO="nobmurakita/claude-xlsx-scope"
+SKILL_NAME="xlsx-scope"
 INSTALL_DIR="${HOME}/.claude/skills/${SKILL_NAME}"
 
 # 最新リリースの zip URL を取得
@@ -17,7 +17,7 @@ if [ -z "$ZIP_URL" ]; then
 fi
 
 echo "Downloading ${ZIP_URL}..."
-TMP_ZIP="$(mktemp /tmp/read-xlsx-XXXXXX.zip)"
+TMP_ZIP="$(mktemp /tmp/xlsx-scope-XXXXXX.zip)"
 curl -fsSL -o "$TMP_ZIP" "$ZIP_URL"
 
 # インストール先を準備
@@ -28,7 +28,7 @@ unzip -o "$TMP_ZIP" -d "$INSTALL_DIR"
 rm -f "$TMP_ZIP"
 
 # 実行権限を付与
-chmod +x "${INSTALL_DIR}/scripts/read-xlsx"
-chmod +x "${INSTALL_DIR}/scripts/read-xlsx-"* 2>/dev/null || true
+chmod +x "${INSTALL_DIR}/scripts/xlsx-scope"
+chmod +x "${INSTALL_DIR}/scripts/xlsx-scope-"* 2>/dev/null || true
 
 echo "Done. Installed to ${INSTALL_DIR}"

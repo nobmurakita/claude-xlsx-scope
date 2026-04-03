@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 )
 
 // mockStyler はテスト用のスタイラー

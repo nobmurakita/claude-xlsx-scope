@@ -1,6 +1,6 @@
 package cmd
 
-import "github.com/nobmurakita/cc-read-xlsx/internal/excel"
+import "github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 
 // parseScanRange は --range / --start フラグを解析して走査範囲を返す
 func parseScanRange(rangeFlag, startFlag string) (scanRange *excel.CellRange, startCol, startRow int, err error) {

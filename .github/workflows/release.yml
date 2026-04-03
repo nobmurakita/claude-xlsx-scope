@@ -32,28 +32,28 @@ jobs:
           for TARGET in "${TARGETS[@]}"; do
             GOOS="${TARGET%/*}"
             GOARCH="${TARGET#*/}"
-            OUTPUT="scripts/read-xlsx-${GOOS}-${GOARCH}"
+            OUTPUT="scripts/xlsx-scope-${GOOS}-${GOARCH}"
             if [ "$GOOS" = "windows" ]; then
               OUTPUT="${OUTPUT}.exe"
             fi
             echo "Building ${OUTPUT}..."
             CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
-              go build -ldflags="$LDFLAGS" -o "$OUTPUT" ./cmd/read-xlsx
+              go build -ldflags="$LDFLAGS" -o "$OUTPUT" ./cmd/xlsx-scope
           done
 
       - name: Create zip
         run: |
-          zip -r "read-xlsx-${GITHUB_REF_NAME}.zip" \
+          zip -r "xlsx-scope-${GITHUB_REF_NAME}.zip" \
             SKILL.md \
-            scripts/read-xlsx \
-            scripts/read-xlsx-darwin-amd64 \
-            scripts/read-xlsx-darwin-arm64 \
-            scripts/read-xlsx-linux-amd64 \
-            scripts/read-xlsx-linux-arm64 \
-            scripts/read-xlsx-windows-amd64.exe
+            scripts/xlsx-scope \
+            scripts/xlsx-scope-darwin-amd64 \
+            scripts/xlsx-scope-darwin-arm64 \
+            scripts/xlsx-scope-linux-amd64 \
+            scripts/xlsx-scope-linux-arm64 \
+            scripts/xlsx-scope-windows-amd64.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "read-xlsx-${{ github.ref_name }}.zip"
+          files: "xlsx-scope-${{ github.ref_name }}.zip"
           generate_release_notes: true

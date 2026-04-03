@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
 )
 

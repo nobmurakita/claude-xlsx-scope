@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/nobmurakita/cc-read-xlsx/internal/excel"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 )
 
 // streamConfig はストリーミング走査の設定

@@ -9,7 +9,7 @@ case "$OS" in
   Linux)    OS="linux" ;;
   MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
   *)
-    echo "read-xlsx: unsupported OS: $OS" >&2
+    echo "xlsx-scope: unsupported OS: $OS" >&2
     exit 1
     ;;
 esac
@@ -19,23 +19,23 @@ case "$ARCH" in
   x86_64)  ARCH="amd64" ;;
   arm64)   ARCH="arm64" ;;
   *)
-    echo "read-xlsx: unsupported architecture: $ARCH" >&2
+    echo "xlsx-scope: unsupported architecture: $ARCH" >&2
     exit 1
     ;;
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BIN="${SCRIPT_DIR}/read-xlsx-${OS}-${ARCH}"
+BIN="${SCRIPT_DIR}/xlsx-scope-${OS}-${ARCH}"
 [ "$OS" = "windows" ] && BIN="${BIN}.exe"
 
 if [ ! -f "$BIN" ]; then
-  echo "read-xlsx: binary not found: $BIN" >&2
+  echo "xlsx-scope: binary not found: $BIN" >&2
   exit 1
 fi
 
 # 実行権限がなければ一時ディレクトリにコピーして権限を付与
 if [ ! -x "$BIN" ]; then
-  TMP_BIN="${TMPDIR:-/tmp}/read-xlsx-$(id -u)-${OS}-${ARCH}"
+  TMP_BIN="${TMPDIR:-/tmp}/xlsx-scope-$(id -u)-${OS}-${ARCH}"
   if [ ! -x "$TMP_BIN" ] || ! cmp -s "$BIN" "$TMP_BIN"; then
     cp "$BIN" "$TMP_BIN"
     chmod +x "$TMP_BIN"

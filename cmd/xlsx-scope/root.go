@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nobmurakita/cc-read-xlsx/internal/cmd"
+	"github.com/nobmurakita/claude-xlsx-scope/internal/cmd"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ const (
 )
 
 var rootCmd = &cobra.Command{
-	Use:           "read-xlsx",
+	Use:           "xlsx-scope",
 	Short:         "Excel ファイル（.xlsx / .xlsm）の内容をAIエージェント向けに読み取るツール",
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -36,6 +36,6 @@ func execute() int {
 	if err == nil {
 		return exitOK
 	}
-	fmt.Fprintf(os.Stderr, "read-xlsx: %s\n", err)
+	fmt.Fprintf(os.Stderr, "xlsx-scope: %s\n", err)
 	return exitError
 }

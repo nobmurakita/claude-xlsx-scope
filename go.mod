@@ -1,4 +1,4 @@
-module github.com/nobmurakita/cc-read-xlsx
+module github.com/nobmurakita/claude-xlsx-scope
 
 go 1.25.0
 

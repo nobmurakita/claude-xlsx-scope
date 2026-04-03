@@ -1,6 +1,6 @@
 package cmd
 
-import "github.com/nobmurakita/cc-read-xlsx/internal/excel"
+import "github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 
 // openAndResolveSheet はファイルを開いてシートを解決する共通処理。
 // 呼び出し元で defer f.Close() すること。
