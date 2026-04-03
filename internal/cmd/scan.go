@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
 )
 
@@ -21,9 +20,12 @@ func NewScanCmd() *cobra.Command {
 }
 
 type scanOutput struct {
-	Sheet     string `json:"sheet"`
-	UsedRange string `json:"used_range,omitempty"`
-	HasShapes bool   `json:"has_shapes,omitempty"`
+	Sheet         string `json:"sheet"`
+	UsedRange     string `json:"used_range,omitempty"`
+	ValueCount    int    `json:"value_count"`
+	MergedCells   int    `json:"merged_cells"`
+	StyleVariants int    `json:"style_variants"`
+	HasShapes     bool   `json:"has_shapes,omitempty"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -38,18 +40,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 	out := scanOutput{Sheet: sheet}
 	out.HasShapes = f.HasShapes(sheet)
 
-	// dimension があればそのまま使用、なければフルスキャン
-	dim := f.LoadDimension(sheet)
-	if dim != "" {
-		out.UsedRange = dim
-	} else {
-		rc := excel.NewRowCache()
-		f.StreamSheet(sheet, false, func(raw *excel.RawCell) bool {
-			rc.Add(raw.Col, raw.Row)
-			return true
-		})
-		out.UsedRange = rc.CalcUsedRange()
+	// 1パスで used_range・セル数・スタイルバリエーションを取得
+	visualIDs := f.VisualStyleIDs()
+	result, err := f.ScanSheet(sheet, visualIDs)
+	if err != nil {
+		return err
 	}
+	out.UsedRange = result.UsedRange
+	out.ValueCount = result.ValueCount
+	out.MergedCells = result.MergedCells
+	out.StyleVariants = result.StyleVariants
 
 	enc := newJSONLWriter(os.Stdout)
 	if err := enc.Encode(out); err != nil {

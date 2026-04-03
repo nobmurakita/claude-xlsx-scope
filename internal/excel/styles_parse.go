@@ -453,6 +453,22 @@ func (ss *styleSheet) GetAlignment(styleID int) *parsedAlignment {
 	return &ss.cellXfs[styleID].Alignment
 }
 
+// VisualStyleIDs は視覚的に意味のあるスタイルID（font/fill/border/alignment のいずれかが非nil）のセットを返す。
+// scan コマンドで style_variants の判定に使用する。
+func (ss *styleSheet) VisualStyleIDs(defaultFont FontInfo, tc *themeColors) map[int]struct{} {
+	ids := make(map[int]struct{})
+	for i := range ss.cellXfs {
+		font := buildFontObjFromParsed(ss.GetFont(i), defaultFont, tc)
+		fill := buildFillObjFromParsed(ss.GetFill(i), tc)
+		border := buildBorderObjFromParsed(ss.GetBorder(i))
+		alignment := buildAlignmentObjFromParsed(ss.GetAlignment(i))
+		if font != nil || fill != nil || border != nil || alignment != nil {
+			ids[i] = struct{}{}
+		}
+	}
+	return ids
+}
+
 // DefaultFontName はブックのデフォルトフォント名を返す
 func (ss *styleSheet) DefaultFontName() string {
 	if len(ss.fonts) == 0 {

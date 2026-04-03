@@ -196,6 +196,15 @@ func (f *File) StyleByID(styleID int, defaultFont FontInfo) (*FontObj, *FillObj,
 	return font, fill, border, alignment
 }
 
+// VisualStyleIDs は視覚的に意味のあるスタイルIDのセットを返す
+func (f *File) VisualStyleIDs() map[int]struct{} {
+	if f.styles == nil {
+		return nil
+	}
+	defaultFont := f.DetectDefaultFont()
+	return f.styles.VisualStyleIDs(defaultFont, f.getTheme())
+}
+
 // buildSheetPaths は workbook.xml と workbook.xml.rels からシート名→XMLパスのマップとシート名リストを構築する
 func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, []string, error) {
 	wb, err := readWorkbook(zr, "xl/workbook.xml")
