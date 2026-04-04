@@ -3,9 +3,7 @@ name: xlsx-scope
 description: Excelファイル（.xlsx/.xlsm）を読み取る。Excelの内容確認、データ抽出、Excel方眼紙の解析時に使用する。
 user-invocable: false
 allowed-tools:
-  - Bash(bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope *)
-  - Bash(f=$(mktemp /tmp/xlsx-scope-XXXXXX) && bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope * > "$f" && wc -l "$f")
-  - Bash(rm /tmp/xlsx-scope-*)
+  - Bash
   - Read
 ---
 
