@@ -28,11 +28,11 @@ jobs:
             "linux/arm64"
             "windows/amd64"
           )
-          mkdir -p scripts
+          mkdir -p skills/xlsx-scope/scripts
           for TARGET in "${TARGETS[@]}"; do
             GOOS="${TARGET%/*}"
             GOARCH="${TARGET#*/}"
-            OUTPUT="scripts/xlsx-scope-${GOOS}-${GOARCH}"
+            OUTPUT="skills/xlsx-scope/scripts/xlsx-scope-${GOOS}-${GOARCH}"
             if [ "$GOOS" = "windows" ]; then
               OUTPUT="${OUTPUT}.exe"
             fi
@@ -43,8 +43,10 @@ jobs:
 
       - name: Create zip
         run: |
-          zip -r "xlsx-scope-${GITHUB_REF_NAME}.zip" \
+          cd skills/xlsx-scope
+          zip -r "../../xlsx-scope-${GITHUB_REF_NAME}.zip" \
             SKILL.md \
+            references/ \
             scripts/xlsx-scope \
             scripts/xlsx-scope-darwin-amd64 \
             scripts/xlsx-scope-darwin-arm64 \
