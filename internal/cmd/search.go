@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
@@ -64,7 +63,13 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	enc := newJSONLWriter(os.Stdout)
+	ow, err := newOutputWriter(cmd)
+	if err != nil {
+		return err
+	}
+	defer ow.cleanup()
+
+	enc := newJSONLWriter(ow)
 
 	result, err := runStream(&streamConfig{
 		f:           f,
@@ -84,7 +89,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	if err := emitTruncated(enc, result.TruncatedNext); err != nil {
 		return fmt.Errorf("JSON出力エラー: %w", err)
 	}
-	return nil
+	return ow.finalize()
 }
 
 // buildFilter はフラグからフィルタを構築する

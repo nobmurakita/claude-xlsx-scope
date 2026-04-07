@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
@@ -40,7 +39,13 @@ func runShapes(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	enc := newJSONLWriter(os.Stdout)
+	ow, err := newOutputWriter(cmd)
+	if err != nil {
+		return err
+	}
+	defer ow.cleanup()
+
+	enc := newJSONLWriter(ow)
 
 	// _meta 行
 	if err := enc.Encode(result.Meta); err != nil {
@@ -57,5 +62,5 @@ func runShapes(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return nil
+	return ow.finalize()
 }

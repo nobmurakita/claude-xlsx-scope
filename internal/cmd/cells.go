@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 
 	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
@@ -92,7 +91,13 @@ func runCells(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	enc := newJSONLWriter(os.Stdout)
+	ow, err := newOutputWriter(cmd)
+	if err != nil {
+		return err
+	}
+	defer ow.cleanup()
+
+	enc := newJSONLWriter(ow)
 
 	// _meta 行を出力（col_widths, default_width/height, origin）
 	if err := emitMeta(enc, dc.sheetMeta, scanRange, startCol, startRow); err != nil {
@@ -118,7 +123,7 @@ func runCells(cmd *cobra.Command, args []string) error {
 	if err := emitTruncated(enc, result.TruncatedNext); err != nil {
 		return fmt.Errorf("JSON出力エラー: %w", err)
 	}
-	return nil
+	return ow.finalize()
 }
 
 // emitMeta は _meta 行を出力する

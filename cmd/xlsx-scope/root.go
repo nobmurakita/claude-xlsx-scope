@@ -21,6 +21,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().Bool("stdout", false, "出力を標準出力に直接書き出す（デバッグ用）")
 	rootCmd.AddCommand(
 		cmd.NewCellsCmd(),
 		cmd.NewSearchCmd(),

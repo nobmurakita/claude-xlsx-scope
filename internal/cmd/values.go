@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/nobmurakita/claude-xlsx-scope/internal/excel"
 	"github.com/spf13/cobra"
@@ -78,7 +77,13 @@ func runValues(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	enc := newJSONLWriter(os.Stdout)
+	ow, err := newOutputWriter(cmd)
+	if err != nil {
+		return err
+	}
+	defer ow.cleanup()
+
+	enc := newJSONLWriter(ow)
 
 	// _meta 行: cols 配列を出力
 	if endCol > 0 {
@@ -211,5 +216,5 @@ func runValues(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return nil
+	return ow.finalize()
 }
