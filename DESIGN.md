@@ -160,7 +160,7 @@ Claude Code からの典型的な利用フローは以下の通り:
 
 ## セルの出力構造
 
-出力形式はJSONL固定。大きなファイルでも行単位でフィルタ・パイプ処理が可能。
+出力形式はJSONL固定（1行1JSONオブジェクト）。
 
 ### メタ情報（`_meta`）
 
@@ -578,18 +578,18 @@ shapes の最初の行に出力される。
 
 #### 画像フィールド
 
-画像（`xdr:pic`）は `type` が `"picture"` となり、以下の追加フィールドを持つ。画像は常に一時ディレクトリに抽出される。
+画像（`xdr:pic`）は `type` が `"picture"` となり、以下の追加フィールドを持つ。
 
 ```jsonl
-{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"システム構成図","image_path":"/tmp/xlsx-scope-images-xxx/image_abc.png"}
+{"id":10,"type":"picture","name":"図 1","cell":"B2:F8","pos":{"x":120,"y":80,"w":640,"h":480},"z":5,"alt_text":"システム構成図","image_id":"xl/media/image1.png"}
 ```
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
 | `alt_text` | string | 代替テキスト（`cNvPr` の `descr` 属性）。設定されていない場合は省略 |
-| `image_path` | string | 抽出先のファイルパス。一時ディレクトリ内に一意なファイル名で出力。画像の表示サイズは `pos` の `w`/`h` で取得できる |
+| `image_id` | string | ZIP 内の画像パス。`image` サブコマンドに渡して画像を一時ファイルに抽出する |
 
-画像ファイルは drawing の `.rels` から `blip` の `r:embed` 属性で参照されるリレーションIDを解決し、ZIP内の `xl/media/` 配下から抽出する。
+`image_id` は drawing の `.rels` から `blip` の `r:embed` 属性で参照されるリレーションIDを解決し、ZIP内のパスを取得する。
 
 #### グループフィールド
 
