@@ -10,7 +10,6 @@ allowed-tools:
 # xlsx-scope
 
 Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
-各コマンドの詳細は [references/](references/) 内のファイルを参照。
 
 実行ファイル: `bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope <command> [options] <file>`
 
@@ -60,14 +59,178 @@ scan は各シートに対して基本的に実行する。各指標を総合し
 
 used_range が広いシートでは、まず `--range` で必要な領域を絞って取得する。全体が必要な場合は `--limit`（デフォルト1000）で分割し、`--start` でページングする。
 
-## コマンド一覧
+## コマンド詳細
 
-| コマンド | 説明 | 詳細 |
-|---------|------|------|
-| `info <file>` | シート一覧・名前付き範囲 | |
-| `scan --sheet <s> <file>` | シート概要（used_range, value_count 等） | |
-| `cells <file>` | セルデータ（書式・結合セル含む） | [cells.md](references/cells.md) |
-| `values <file>` | 値のみ行単位出力 | [values.md](references/values.md) |
-| `shapes <file>` | 図形・画像 | [shapes.md](references/shapes.md) |
-| `image <file> <image_id>` | 画像を一時ファイルに保存 | |
-| `search <file>` | セル値の検索 | [search.md](references/search.md) |
+### info
+
+`xlsx-scope info <file>` — シート一覧・名前付き範囲を JSON で出力。
+
+出力例:
+```json
+{"file":"基本設計書.xlsx","defined_names":[{"name":"マスタ","scope":"Workbook","refer":"Sheet1!$A$1:$D$100"}],"sheets":[{"index":0,"name":"表紙","type":"worksheet"},{"index":1,"name":"機能一覧","type":"worksheet"},{"index":2,"name":"非表示データ","type":"worksheet","hidden":true}]}
+```
+
+### scan
+
+`xlsx-scope scan --sheet <name|index> <file>` — シートの構造概要を JSON で出力。
+
+出力例:
+```json
+{"sheet":"機能一覧","used_range":"A1:H200","value_count":1520,"merged_cells":42,"style_variants":8,"has_shapes":true}
+```
+
+### cells
+
+```
+xlsx-scope cells [options] <file>
+```
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet <name\|index>` | 対象シート | 最初のシート |
+| `--range <range>` | セル範囲（`A1:H20`, `A:F`, `1:20`） | 全体 |
+| `--start <cell>` | 開始セル位置（`--range` と併用可） | 先頭 |
+| `--limit <n>` | 出力セル数の上限（0で無制限） | 1000 |
+| `--style` | 書式情報を出力 | OFF |
+| `--formula` | 数式文字列を出力 | OFF |
+| `--include-empty` | 空セルも出力。表形式で空セルの位置が重要な場合に使用 | OFF |
+
+出力例:
+```jsonl
+{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75,"H":225},"origin":{"x":0,"y":0}}
+{"_row":1,"height":32}
+{"cell":"A1","value":"項目名"}
+{"cell":"B1","value":"数量"}
+{"cell":"A2","value":"商品A","merge":"A2:A3"}
+{"cell":"B2","value":100}
+```
+
+**_meta 行（最初の行）:**
+
+| フィールド | 説明 |
+|-----------|------|
+| `default_width` | デフォルト列幅（ピクセル） |
+| `default_height` | デフォルト行高（ピクセル） |
+| `col_widths` | デフォルトと異なる列幅のマップ（ピクセル）。連続する同じ幅の列は `"B:D"` のように範囲表記 |
+| `origin` | 起点セルとそのピクセル座標。`shapes` の `pos` と同じ座標系 |
+
+**_row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。
+
+**セルの範囲まとめ:** 同一行内で隣接する同内容のセルは `"cell":"A1:C1"` のように範囲表記。
+
+**セルの型の判定:**
+
+`type` フィールドは通常省略。JSON 値から判定する:
+
+| 条件 | 型 |
+|------|-----|
+| `value` が JSON 文字列 | string（エラー値 `#N/A`, `#REF!` 等も文字列） |
+| `value` が JSON 数値 | number |
+| `value` が true/false | bool |
+| `formula` フィールドあり | formula（`value` はキャッシュ値） |
+| `value` なし | empty |
+
+日付セルは数値として出力。`value` はシリアル値、`display` はフォーマット済み文字列（例: `"2025/3/19"`）、`fmt` にフォーマット文字列。
+
+**セルの追加フィールド:**
+
+| フィールド | 出力条件 | 説明 |
+|-----------|---------|------|
+| `display` | 表示文字列がvalueと異なる場合 | フォーマット済み表示文字列 |
+| `fmt` | 数値セルにフォーマットがある場合 | 数値フォーマット文字列 |
+| `error` | 値がExcelエラーの場合 | `true` |
+| `merge` | 結合セルの場合 | 結合範囲。左上セルのみ出力 |
+| `link` | ハイパーリンクがある場合 | `{"url":"..."}` または `{"location":"Sheet2!A1"}` |
+| `hidden_col` | 列が非表示の場合 | `true` |
+| `comment` | コメント/メモがある場合 | `{"author":"著者","text":"本文","thread":[...]}` |
+
+**--style 指定時:** 書式情報はスタイル定義行（`_style`）として初出時に1回だけ出力。以降のセルはインデックス `s` で参照。
+
+```jsonl
+{"_style":1,"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"horizontal":"center"}}
+{"cell":"A1","value":"項目名","s":1}
+```
+
+**続きの取得:** `--limit` で打ち切られると `{"_truncated":true,"next_cell":"..."}` が出力される。`next_cell` をそのまま `--start` に渡す。
+
+### values
+
+```
+xlsx-scope values [options] <file>
+```
+
+値のみを行単位で出力。書式・結合セル・レイアウト情報を含まないデータシート向け。
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet <name\|index>` | 対象シート | 最初のシート |
+| `--range <range>` | セル範囲（`A1:H20`, `A:F`, `1:20`） | 全体 |
+| `--start <row>` | 開始行番号（1始まり） | 先頭 |
+| `--limit <n>` | 出力行数の上限（0で無制限） | 1000 |
+
+出力例:
+```jsonl
+{"_meta":true,"cols":["A","B","C","D"]}
+{"row":1,"values":["ID","名前","部署","入社日"]}
+{"row":2,"values":[1,"田中太郎","営業部","2025/4/1"]}
+{"row":3,"values":[2,"鈴木花子",null,"2025/4/15"]}
+```
+
+- `_meta` 行の `cols` は values 配列の各インデックスに対応する列名
+- 値は `display`（表示文字列）があればそちらを優先出力
+- 空行はスキップ、末尾の null はトリム
+
+**続きの取得:** `{"_truncated":true,"next_row":101}` の `next_row` を `--start` に渡す。
+
+### shapes
+
+```
+xlsx-scope shapes [options] <file>
+```
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--sheet <name\|index>` | 対象シート | 最初のシート |
+| `--limit <n>` | 出力図形数の上限（0で無制限） | 1000 |
+| `--style` | 書式情報を出力 | OFF |
+
+出力例:
+```jsonl
+{"_meta":true,"shape_count":8,"connector_count":3}
+{"id":1,"type":"roundRect","text":"処理A","cell":"B2:D4","pos":{"x":120,"y":80,"w":200,"h":60},"adj":{"adj1":16667},"z":0}
+{"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","pos":{"x":120,"y":200,"w":200,"h":80},"z":1}
+{"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"from_idx":2,"to_idx":0,"connector_type":"bentConnector3","adj":{"adj1":50000},"arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}
+```
+
+**図形種別:**
+- シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision` 等
+- 吹き出し: `wedgeRectCallout` 等。`callout_target` でポインタ先を出力
+- コネクタ: `type` は `"connector"`。`from`/`to` で接続先図形ID、`start`/`end` で両端座標
+- グループ: `type` は `"group"`。`children` に子要素ID配列
+- 画像: `type` は `"picture"`。`image_id` で `image` サブコマンドにより取得可能
+
+**図形内テキスト:** `text` にプレーンテキスト（複数段落は `\n` 結合）。コネクタのテキストは `label`。
+
+### image
+
+`xlsx-scope image <file> <image_id>` — 画像を一時ファイルに保存。
+
+shapes 出力の `image_id` を指定する。stdout に `{"file":"/tmp/xlsx-scope-abc123.png"}` が返る。返された `file` パスを Read で確認し、終わったら削除する。
+
+### search
+
+```
+xlsx-scope search [options] <file>
+```
+
+フィルタ（少なくとも1つ必須、複数指定はAND条件）:
+
+| オプション | 説明 |
+|-----------|------|
+| `--text <text>` | 部分一致検索（大文字小文字無視。display と value の両方を検索） |
+| `--numeric <expr>` | 数値比較。`">100"`, `">=50"`, `"<10"`, `"100:200"`（範囲）, `"=42"`（等値） |
+| `--type <type>` | 型フィルタ: `string`, `number`, `bool`, `formula` |
+
+その他: `--sheet`, `--range`, `--start`, `--limit`, `--style`, `--formula`
+
+出力フィールドは cells と同じ。結果なしでも正常終了（終了コード 0）。
