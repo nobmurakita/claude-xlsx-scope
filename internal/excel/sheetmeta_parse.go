@@ -14,11 +14,10 @@ import (
 // Excel の標準デフォルト列幅（標準フォント8文字幅 + パディング）
 const DefaultColWidth = 9.140625
 
-// ピクセル変換係数
+// ポイント変換係数
 const (
-	ColWidthPxFactor  = 7.5       // Excel 列幅単位 → ピクセル（標準フォント近似値）
-	RowHeightPxFactor = 4.0 / 3.0 // ポイント → ピクセル（96 DPI）
-	DefaultRowHeight  = 15.0      // デフォルト行高（ポイント）
+	ColWidthPtFactor = 5.625 // Excel 列幅単位 → ポイント（標準フォント近似値）
+	DefaultRowHeight = 15.0  // デフォルト行高（ポイント）
 )
 
 // SheetMeta はワークシートXMLから直接パースしたシートメタデータ。
@@ -305,8 +304,8 @@ func (sm *SheetMeta) EffectiveDefaultWidth() float64 {
 	return DefaultColWidth
 }
 
-// ColWidthPx は指定列（1始まり）のピクセル幅を返す。
-func (sm *SheetMeta) ColWidthPx(col int) float64 {
+// ColWidthPt は指定列（1始まり）のポイント幅を返す。
+func (sm *SheetMeta) ColWidthPt(col int) float64 {
 	w := sm.EffectiveDefaultWidth()
 	for _, ci := range sm.Cols {
 		if col >= ci.Min && col <= ci.Max {
@@ -317,11 +316,11 @@ func (sm *SheetMeta) ColWidthPx(col int) float64 {
 			break
 		}
 	}
-	return w * ColWidthPxFactor
+	return w * ColWidthPtFactor
 }
 
-// RowHeightPx は指定行（1始まり）のピクセル高さを返す。
-func (sm *SheetMeta) RowHeightPx(row int) float64 {
+// RowHeightPt は指定行（1始まり）のポイント高さを返す。
+func (sm *SheetMeta) RowHeightPt(row int) float64 {
 	h := sm.DefaultHeight
 	if h <= 0 {
 		h = DefaultRowHeight
@@ -332,18 +331,18 @@ func (sm *SheetMeta) RowHeightPx(row int) float64 {
 		}
 		h = ri.Height
 	}
-	return h * RowHeightPxFactor
+	return h
 }
 
-// CellOriginPx は指定セル（col, row: 1始まり）の左上ピクセル座標を返す。
-func (sm *SheetMeta) CellOriginPx(col, row int) (int, int) {
+// CellOriginPt は指定セル（col, row: 1始まり）の左上ポイント座標を返す。
+func (sm *SheetMeta) CellOriginPt(col, row int) (int, int) {
 	var x float64
 	for c := 1; c < col; c++ {
-		x += sm.ColWidthPx(c)
+		x += sm.ColWidthPt(c)
 	}
 	var y float64
 	for r := 1; r < row; r++ {
-		y += sm.RowHeightPx(r)
+		y += sm.RowHeightPt(r)
 	}
 	return int(math.Round(x)), int(math.Round(y))
 }

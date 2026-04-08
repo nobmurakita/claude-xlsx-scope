@@ -105,7 +105,7 @@ xlsx-scope cells [options] <file>
 {"cell":"B2","value":100,"display":"100.00","fmt":"0.00"}
 ```
 
-**_meta 行:** レイアウト情報。`default_width`/`default_height`（ピクセル）、`col_widths`（デフォルトと異なる列幅）、`origin`（起点座標、`shapes` の `pos` と同じ座標系）。
+**_meta 行:** レイアウト情報。`default_width`/`default_height`（ポイント）、`col_widths`（デフォルトと異なる列幅）、`origin`（起点座標、`shapes` の `pos` と同じ座標系）。
 
 **_row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。
 

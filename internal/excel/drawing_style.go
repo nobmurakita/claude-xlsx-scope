@@ -7,8 +7,7 @@ import (
 
 // DrawingML の単位変換定数
 const (
-	emuPerPixel          = 9525   // 1px = 9525 EMU
-	emuPerPoint          = 12700  // 1pt = 12700 EMU
+	emuPerPt             = 12700  // 1pt = 12700 EMU
 	drawingMLPercentUnit = 100000 // DrawingML の色変換パーセント単位
 	drawingMLRotUnit     = 60000  // DrawingML の回転角度単位（1度 = 60000）
 	drawingMLFontUnit    = 100    // DrawingML のフォントサイズ単位（100分の1ポイント）
@@ -163,7 +162,7 @@ func parseLineWidth(t xml.StartElement) *LineStyle {
 	ls := &LineStyle{}
 	for _, attr := range t.Attr {
 		if attr.Name.Local == "w" {
-			ls.Width = math.Round(float64(safeAtoi(attr.Value))/emuPerPoint*100) / 100
+			ls.Width = math.Round(float64(safeAtoi(attr.Value))/emuPerPt*100) / 100
 		}
 	}
 	return ls

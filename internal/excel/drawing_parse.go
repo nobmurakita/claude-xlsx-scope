@@ -18,28 +18,28 @@ type anchorPos struct {
 	rowOff int // EMU
 }
 
-// posCalculator はアンカー位置からピクセル座標を算出する
+// posCalculator はアンカー位置からポイント座標を算出する
 type posCalculator struct {
 	meta *SheetMeta
 }
 
-// calcX は列+オフセットからX座標（ピクセル）を算出する（col は 0 始まり、off は EMU）
+// calcX は列+オフセットからX座標（ポイント）を算出する（col は 0 始まり、off は EMU）
 func (pc *posCalculator) calcX(col, off int) int {
 	var x float64
 	for c := 1; c <= col; c++ {
-		x += pc.meta.ColWidthPx(c)
+		x += pc.meta.ColWidthPt(c)
 	}
-	x += float64(off) / emuPerPixel
+	x += float64(off) / emuPerPt
 	return int(math.Round(x))
 }
 
-// calcY は行+オフセットからY座標（ピクセル）を算出する（row は 0 始まり、off は EMU）
+// calcY は行+オフセットからY座標（ポイント）を算出する（row は 0 始まり、off は EMU）
 func (pc *posCalculator) calcY(row, off int) int {
 	var y float64
 	for r := 1; r <= row; r++ {
-		y += pc.meta.RowHeightPx(r)
+		y += pc.meta.RowHeightPt(r)
 	}
-	y += float64(off) / emuPerPixel
+	y += float64(off) / emuPerPt
 	return int(math.Round(y))
 }
 
@@ -424,7 +424,7 @@ func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) anchorPos {
 	return pos
 }
 
-// buildPos はアンカー情報からピクセル座標を算出する
+// buildPos はアンカー情報からポイント座標を算出する
 func (p *drawingParser) buildPos(anchorType string, from, to anchorPos, hasTo bool, extCX, extCY, absX, absY int) *Position {
 	if p.posCalc == nil {
 		return nil
@@ -442,14 +442,14 @@ func (p *drawingParser) buildPos(anchorType string, from, to anchorPos, hasTo bo
 	case "one":
 		x := p.posCalc.calcX(from.col, from.colOff)
 		y := p.posCalc.calcY(from.row, from.rowOff)
-		w := int(math.Round(float64(extCX) / emuPerPixel))
-		h := int(math.Round(float64(extCY) / emuPerPixel))
+		w := int(math.Round(float64(extCX) / emuPerPt))
+		h := int(math.Round(float64(extCY) / emuPerPt))
 		return &Position{X: x, Y: y, W: w, H: h}
 	case "abs":
-		x := int(math.Round(float64(absX) / emuPerPixel))
-		y := int(math.Round(float64(absY) / emuPerPixel))
-		w := int(math.Round(float64(extCX) / emuPerPixel))
-		h := int(math.Round(float64(extCY) / emuPerPixel))
+		x := int(math.Round(float64(absX) / emuPerPt))
+		y := int(math.Round(float64(absY) / emuPerPt))
+		w := int(math.Round(float64(extCX) / emuPerPt))
+		h := int(math.Round(float64(extCY) / emuPerPt))
 		return &Position{X: x, Y: y, W: w, H: h}
 	}
 	return nil
@@ -485,7 +485,7 @@ var borderCalloutDefaults = map[string][2]int{
 	"callout1":       {-8333, 112963},
 }
 
-// calcCalloutTarget は吹き出し形状のポインタ先ピクセル座標を算出する
+// calcCalloutTarget は吹き出し形状のポインタ先ポイント座標を算出する
 func calcCalloutTarget(pos *Position, shapeType string, adjs map[string]int) *Point {
 	// wedge 系: adj1=x, adj2=y
 	if defaults, ok := calloutDefaults[shapeType]; ok {

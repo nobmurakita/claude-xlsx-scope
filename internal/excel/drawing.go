@@ -22,7 +22,7 @@ type LineStyle struct {
 	Width float64 `json:"width,omitempty"` // ポイント単位
 }
 
-// Position は図形のピクセル座標（左上原点、96 DPI 基準）
+// Position は図形のポイント座標（左上原点）
 type Position struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -30,7 +30,7 @@ type Position struct {
 	H int `json:"h"`
 }
 
-// Point はピクセル座標の点
+// Point はポイント座標の点
 type Point struct {
 	X int `json:"x"`
 	Y int `json:"y"`

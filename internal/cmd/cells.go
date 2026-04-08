@@ -57,7 +57,7 @@ func (dc *cellsContext) emitRowInfo(enc *json.Encoder, row int) error {
 	ri := rowOutput{Row: row}
 	heightDiffers := info.Height != 0 && info.Height != dc.defaultHeight
 	if heightDiffers {
-		ri.Height = math.Round(info.Height*excel.RowHeightPxFactor*100) / 100
+		ri.Height = math.Round(info.Height*100) / 100
 	}
 	ri.Hidden = info.Hidden
 	if !heightDiffers && !ri.Hidden {
@@ -133,15 +133,15 @@ func emitMeta(enc *json.Encoder, meta *excel.SheetMeta, scanRange *excel.CellRan
 	}
 	out := metaOutput{
 		Meta:          true,
-		DefaultWidth:  math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPxFactor*100) / 100,
-		DefaultHeight: math.Round(meta.DefaultHeight*excel.RowHeightPxFactor*100) / 100,
+		DefaultWidth:  math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPtFactor*100) / 100,
+		DefaultHeight: math.Round(meta.DefaultHeight*100) / 100,
 		ColWidths:     colWidthsFromMeta(meta),
 		Origin:        buildOrigin(meta, scanRange, startCol, startRow),
 	}
 	return enc.Encode(out)
 }
 
-// buildOrigin は出力の起点セルとそのピクセル座標を構築する
+// buildOrigin は出力の起点セルとそのポイント座標を構築する
 func buildOrigin(meta *excel.SheetMeta, scanRange *excel.CellRange, startCol, startRow int) *originOutput {
 	col, row := 1, 1
 	if scanRange != nil {
@@ -149,7 +149,7 @@ func buildOrigin(meta *excel.SheetMeta, scanRange *excel.CellRange, startCol, st
 	} else if startCol > 0 {
 		col, row = startCol, startRow
 	}
-	x, y := meta.CellOriginPx(col, row)
+	x, y := meta.CellOriginPt(col, row)
 	return &originOutput{X: x, Y: y}
 }
 
@@ -162,18 +162,18 @@ func emitTruncated(enc *json.Encoder, truncatedNext string) error {
 }
 
 func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {
-	dwPx := math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPxFactor*100) / 100
-	// デフォルトと異なる幅の列を (col, px) ペアとして収集
+	dwPt := math.Round(meta.EffectiveDefaultWidth()*excel.ColWidthPtFactor*100) / 100
+	// デフォルトと異なる幅の列を (col, pt) ペアとして収集
 	type colWidth struct {
 		col int
-		px  float64
+		pt  float64
 	}
 	var entries []colWidth
 	for _, ci := range meta.Cols {
-		px := math.Round(ci.Width*excel.ColWidthPxFactor*100) / 100
-		if px != dwPx && ci.Width != 0 {
+		pt := math.Round(ci.Width*excel.ColWidthPtFactor*100) / 100
+		if pt != dwPt && ci.Width != 0 {
 			for c := ci.Min; c <= ci.Max; c++ {
-				entries = append(entries, colWidth{c, px})
+				entries = append(entries, colWidth{c, pt})
 			}
 		}
 	}
@@ -186,15 +186,15 @@ func colWidthsFromMeta(meta *excel.SheetMeta) map[string]float64 {
 	prev := start
 	for i := 1; i < len(entries); i++ {
 		e := entries[i]
-		if e.col == prev.col+1 && e.px == start.px {
+		if e.col == prev.col+1 && e.pt == start.pt {
 			prev = e
 		} else {
-			widths[colRangeKey(start.col, prev.col)] = start.px
+			widths[colRangeKey(start.col, prev.col)] = start.pt
 			start = e
 			prev = e
 		}
 	}
-	widths[colRangeKey(start.col, prev.col)] = start.px
+	widths[colRangeKey(start.col, prev.col)] = start.pt
 	return widths
 }
 
