@@ -123,12 +123,17 @@ xlsx-scope cells [options] <file>
 | `hidden_col` | `true`（列が非表示の場合） |
 | `comment` | `{"author":"著者","text":"本文","thread":[...]}` |
 
-**--style 指定時:** スタイル定義行（`_style`）が初出時に出力され、セルは `s` で参照。
+**--style 指定時:** あるスタイルが初めて登場したとき `_style` 定義行が出力され、以降の同一スタイルのセルは `s` で参照番号のみを出力する。
+
+`_style` 定義行のフィールド: `font`, `fill`, `border`, `alignment`（デフォルトと異なるもののみ）。
 
 ```jsonl
 {"_style":1,"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"horizontal":"center"}}
 {"cell":"A1","value":"項目名","s":1}
+{"cell":"A2","value":"データ","s":1}
 ```
+
+`rich_text` はセル固有のため `_style` には含まれず、セル行にインライン出力される。
 
 **続きの取得:** `{"_truncated":true,"next_cell":"..."}` が出力されたら `next_cell` を `--start` に渡す。
 
