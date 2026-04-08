@@ -37,6 +37,7 @@ func runImage(cmd *cobra.Command, args []string) error {
 	defer out.Close()
 
 	if err := f.ExtractImage(imageID, out); err != nil {
+		os.Remove(out.Name())
 		return err
 	}
 

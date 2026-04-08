@@ -8,14 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:           "xlsx-scope",
-	Short:         "Excel ファイル（.xlsx / .xlsm）の内容をAIエージェント向けに読み取るツール",
-	SilenceUsage:  true,
-	SilenceErrors: true,
-}
-
-func init() {
+func main() {
+	rootCmd := &cobra.Command{
+		Use:           "xlsx-scope",
+		Short:         "Excel ファイル（.xlsx / .xlsm）の内容をAIエージェント向けに読み取るツール",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
 	rootCmd.PersistentFlags().Bool("stdout", false, "出力を標準出力に直接書き出す（デバッグ用）")
 	rootCmd.AddCommand(
 		cmd.NewCellsCmd(),
@@ -26,11 +25,8 @@ func init() {
 		cmd.NewImageCmd(),
 		cmd.NewValuesCmd(),
 	)
-}
 
-func main() {
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "xlsx-scope: %s\n", err)
 		os.Exit(1)
 	}

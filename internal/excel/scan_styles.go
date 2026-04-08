@@ -72,7 +72,6 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 						continue
 					}
 
-					var hasValue bool
 					var styleID int
 					var col, row int
 
@@ -86,10 +85,6 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 							}
 						}
 					}
-
-					// styleID > 0 のセルは値ありとみなす（軽量スキャンのため子要素を読まない）
-					// styleID == 0 のセルは子要素に <v> か <is> があるかで判定
-					hasValue = styleID > 0
 
 					if !hasDimension && col > 0 && row > 0 {
 						rc.Add(col, row)
@@ -105,11 +100,7 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 						}
 					}
 
-					if !hasValue {
-						hasValue = scanCellHasValue(decoder)
-					}
-
-					if hasValue {
+					if scanCellHasValue(decoder) {
 						result.ValueCount++
 					}
 

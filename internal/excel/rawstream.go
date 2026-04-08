@@ -237,8 +237,12 @@ const (
 	maxExcelRow = 1048576
 )
 
-// parseCellRef はセル参照（例: "AB123"）を列番号と行番号に分解する
+// parseCellRef はセル参照（例: "AB123"）を列番号と行番号に分解する。
+// 不正な入力（空文字列、列なし、行なし等）の場合は col=0 または row=0 を返す。
 func parseCellRef(ref string) (col, row int) {
+	if ref == "" {
+		return 0, 0
+	}
 	i := 0
 	for i < len(ref) {
 		ch := ref[i]
