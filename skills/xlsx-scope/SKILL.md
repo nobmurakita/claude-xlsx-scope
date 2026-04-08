@@ -176,6 +176,8 @@ xlsx-scope shapes [options] <file>
 | `--limit <n>` | 出力図形数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力 | OFF |
 
+座標（`pos`, `start`, `end`, `callout_target`）の単位はすべてpt。`cells` の `_meta.origin` と同じ座標系。
+
 出力例:
 ```jsonl
 {"_meta":true,"shape_count":8,"connector_count":3}
@@ -187,7 +189,7 @@ xlsx-scope shapes [options] <file>
 **図形種別:**
 - シェイプ: `rect`, `roundRect`, `ellipse`, `flowChartProcess`, `flowChartDecision` 等
 - 吹き出し: `wedgeRectCallout` 等。`callout_target` でポインタ先を出力
-- コネクタ: `type` は `"connector"`。`from`/`to` で接続先図形ID、`start`/`end` で両端座標
+- コネクタ: `type` は `"connector"`。`from`/`to` で接続先図形ID、`start`/`end` で両端座標（pt）
 - グループ: `type` は `"group"`。`children` に子要素ID配列
 - 画像: `type` は `"picture"`。`image_id` で `image` サブコマンドにより取得可能
 
