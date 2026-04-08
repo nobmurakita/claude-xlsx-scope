@@ -107,7 +107,7 @@ xlsx-scope cells [options] <file>
 
 **meta 行:** レイアウト情報。`default_width`/`default_height`（ポイント）、`col_widths`（デフォルトと異なる列幅）、`origin`（起点座標、`shapes` の `pos` と同じ座標系）。
 
-**row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。
+**row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。`height`（行高、ポイント。デフォルトと異なる場合のみ）、`hidden`（非表示の場合のみ `true`）。
 
 **セルのフィールド:**
 
@@ -116,7 +116,9 @@ xlsx-scope cells [options] <file>
 | `cell` | セル位置。隣接する同内容セルは `"A1:C1"` のように範囲表記 |
 | `value` | セル値（文字列/数値/真偽値）。日付はシリアル値 |
 | `display` | フォーマット済み表示文字列（value と異なる場合のみ） |
+| `type` | 通常は省略（JSONの型や `formula` の有無から推測可能）。`--include-empty` 時に `"empty"` |
 | `fmt` | 数値フォーマット文字列（例: `"yyyy/m/d"`, `"#,##0"`） |
+| `formula` | 数式文字列（`--formula` 指定時のみ。`value` はキャッシュ値） |
 | `error` | `true`（値が `#N/A`, `#REF!` 等のエラーの場合） |
 | `merge` | 結合範囲（左上セルのみ出力） |
 | `link` | `{"url":"..."}` または `{"location":"Sheet2!A1"}` |
