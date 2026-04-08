@@ -28,7 +28,7 @@ func NewCellsCmd() *cobra.Command {
 }
 
 type metaOutput struct {
-	Meta          bool               `json:"_meta"`
+	Meta          bool               `json:"meta"`
 	Origin        *originOutput      `json:"origin,omitempty"`
 	DefaultWidth  float64            `json:"default_width"`
 	DefaultHeight float64            `json:"default_height"`
@@ -41,7 +41,7 @@ type originOutput struct {
 }
 
 type rowOutput struct {
-	Row    int     `json:"_row"`
+	Row    int     `json:"row"`
 	Height float64 `json:"height,omitempty"`
 	Hidden bool    `json:"hidden,omitempty"`
 }

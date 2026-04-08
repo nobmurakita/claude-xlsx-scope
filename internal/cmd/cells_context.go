@@ -43,7 +43,7 @@ func (sr *styleResult) isEmpty() bool {
 
 // styleDefOutput はスタイル定義行の出力構造体
 type styleDefOutput struct {
-	StyleDef  int                 `json:"_style"`
+	StyleDef  int                 `json:"style"`
 	Font      *excel.FontObj      `json:"font,omitempty"`
 	Fill      *excel.FillObj      `json:"fill,omitempty"`
 	Border    *excel.BorderObj    `json:"border,omitempty"`

@@ -97,17 +97,17 @@ xlsx-scope cells [options] <file>
 
 出力例:
 ```jsonl
-{"_meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75,"H":225},"origin":{"x":0,"y":0}}
-{"_row":1,"height":32}
+{"meta":true,"default_width":63.23,"default_height":20,"col_widths":{"B:D":183.75,"H":225},"origin":{"x":0,"y":0}}
+{"row":1,"height":32}
 {"cell":"A1","value":"項目名"}
 {"cell":"B1","value":"数量"}
 {"cell":"A2","value":"商品A","merge":"A2:A3"}
 {"cell":"B2","value":100,"display":"100.00","fmt":"0.00"}
 ```
 
-**_meta 行:** レイアウト情報。`default_width`/`default_height`（ポイント）、`col_widths`（デフォルトと異なる列幅）、`origin`（起点座標、`shapes` の `pos` と同じ座標系）。
+**meta 行:** レイアウト情報。`default_width`/`default_height`（ポイント）、`col_widths`（デフォルトと異なる列幅）、`origin`（起点座標、`shapes` の `pos` と同じ座標系）。
 
-**_row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。
+**row 行:** 行高がデフォルトと異なる、または非表示の行でのみ出力。
 
 **セルのフィールド:**
 
@@ -123,19 +123,19 @@ xlsx-scope cells [options] <file>
 | `hidden_col` | `true`（列が非表示の場合） |
 | `comment` | `{"author":"著者","text":"本文","thread":[...]}` |
 
-**--style 指定時:** あるスタイルが初めて登場したとき `_style` 定義行が出力され、以降の同一スタイルのセルは `s` で参照番号のみを出力する。
+**--style 指定時:** あるスタイルが初めて登場したとき `style` 定義行が出力され、以降の同一スタイルのセルは `s` で参照番号のみを出力する。
 
-`_style` 定義行のフィールド: `font`, `fill`, `border`, `alignment`（デフォルトと異なるもののみ）。
+`style` 定義行のフィールド: `font`, `fill`, `border`, `alignment`（デフォルトと異なるもののみ）。
 
 ```jsonl
-{"_style":1,"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"horizontal":"center"}}
+{"style":1,"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#4A86E8"},"alignment":{"horizontal":"center"}}
 {"cell":"A1","value":"項目名","s":1}
 {"cell":"A2","value":"データ","s":1}
 ```
 
-`rich_text` はセル固有のため `_style` には含まれず、セル行にインライン出力される。
+`rich_text` はセル固有のため `style` には含まれず、セル行にインライン出力される。
 
-**続きの取得:** `{"_truncated":true,"next_cell":"..."}` が出力されたら `next_cell` を `--start` に渡す。
+**続きの取得:** `{"truncated":true,"next_cell":"..."}` が出力されたら `next_cell` を `--start` に渡す。
 
 ### values
 
@@ -154,15 +154,15 @@ xlsx-scope values [options] <file>
 
 出力例:
 ```jsonl
-{"_meta":true,"cols":["A","B","C","D"]}
+{"meta":true,"cols":["A","B","C","D"]}
 {"row":1,"values":["ID","名前","部署","入社日"]}
 {"row":2,"values":[1,"田中太郎","営業部","2025/4/1"]}
 {"row":3,"values":[2,"鈴木花子",null,"2025/4/15"]}
 ```
 
-`_meta.cols` は values 配列の各インデックスに対応する列名。空行はスキップ、末尾の null はトリム。
+`meta.cols` は values 配列の各インデックスに対応する列名。空行はスキップ、末尾の null はトリム。
 
-**続きの取得:** `{"_truncated":true,"next_row":101}` の `next_row` を `--start` に渡す。
+**続きの取得:** `{"truncated":true,"next_row":101}` の `next_row` を `--start` に渡す。
 
 ### shapes
 
@@ -176,11 +176,11 @@ xlsx-scope shapes [options] <file>
 | `--limit <n>` | 出力図形数の上限（0で無制限） | 1000 |
 | `--style` | 書式情報を出力 | OFF |
 
-座標（`pos`, `start`, `end`, `callout_target`）の単位はすべてpt。`cells` の `_meta.origin` と同じ座標系。
+座標（`pos`, `start`, `end`, `callout_target`）の単位はすべてpt。`cells` の `meta.origin` と同じ座標系。
 
 出力例:
 ```jsonl
-{"_meta":true,"shape_count":8,"connector_count":3}
+{"meta":true,"shape_count":8,"connector_count":3}
 {"id":1,"type":"roundRect","text":"処理A","cell":"B2:D4","pos":{"x":120,"y":80,"w":200,"h":60},"adj":{"adj1":16667},"z":0}
 {"id":2,"type":"flowChartDecision","text":"条件分岐","cell":"B6:D8","pos":{"x":120,"y":200,"w":200,"h":80},"z":1}
 {"id":3,"type":"connector","cell":"B4:B6","pos":{"x":220,"y":140,"w":0,"h":60},"from":1,"to":2,"from_idx":2,"to_idx":0,"connector_type":"bentConnector3","adj":{"adj1":50000},"arrow":"end","start":{"x":220,"y":140},"end":{"x":220,"y":200},"z":2}

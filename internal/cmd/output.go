@@ -15,7 +15,7 @@ import (
 const defaultOutputLimit = 1000
 
 type truncatedOutput struct {
-	Truncated bool   `json:"_truncated"`
+	Truncated bool   `json:"truncated"`
 	NextCell  string `json:"next_cell"`
 }
 

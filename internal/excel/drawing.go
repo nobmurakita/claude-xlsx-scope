@@ -71,7 +71,7 @@ type ShapeInfo struct {
 
 // ShapesMeta は shapes コマンドのメタ情報行
 type ShapesMeta struct {
-	Meta           bool `json:"_meta"`
+	Meta           bool `json:"meta"`
 	ShapeCount     int  `json:"shape_count"`
 	ConnectorCount int  `json:"connector_count"`
 }

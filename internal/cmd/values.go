@@ -23,7 +23,7 @@ func NewValuesCmd() *cobra.Command {
 }
 
 type rowsMetaOutput struct {
-	Meta bool     `json:"_meta"`
+	Meta bool     `json:"meta"`
 	Cols []string `json:"cols"`
 }
 
@@ -33,7 +33,7 @@ type rowsRowOutput struct {
 }
 
 type rowsTruncatedOutput struct {
-	Truncated bool `json:"_truncated"`
+	Truncated bool `json:"truncated"`
 	NextRow   int  `json:"next_row"`
 }
 
