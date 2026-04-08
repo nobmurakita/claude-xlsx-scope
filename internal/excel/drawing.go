@@ -1,7 +1,6 @@
 package excel
 
 import (
-	"archive/zip"
 	"fmt"
 	"io"
 	"strings"
@@ -88,7 +87,7 @@ func (f *File) HasShapes(sheet string) bool {
 	if !ok {
 		return false
 	}
-	return getDrawingTarget(f.zr, xmlPath) != ""
+	return getDrawingTarget(f.zi, xmlPath) != ""
 }
 
 // DrawingOptions は LoadDrawing の動作を制御するオプション
@@ -103,8 +102,7 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
 	}
 
-	zr := f.zr
-	target := getDrawingTarget(zr, xmlPath)
+	target := getDrawingTarget(f.zi, xmlPath)
 	if target == "" {
 		// 図形なし
 		return &DrawingResult{
@@ -113,7 +111,7 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 	}
 
 	// シートメタデータを読み込む（図形の座標計算用）
-	sheetMeta, metaErr := LoadSheetMeta(zr, xmlPath)
+	sheetMeta, metaErr := LoadSheetMeta(f.zi, xmlPath)
 	if metaErr != nil {
 		sheetMeta = newSheetMeta()
 	}
@@ -122,9 +120,9 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 	drawingPath := resolveRelTarget(xmlPath, target)
 
 	// drawing の .rels を読む（画像パス解決用）
-	drawingRels := loadDrawingRels(zr, drawingPath)
+	drawingRels := loadDrawingRels(f.zi, drawingPath)
 
-	entry := findZipEntry(zr, drawingPath)
+	entry := f.zi.lookup(drawingPath)
 	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
 	}
@@ -140,7 +138,7 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 
 // ExtractImage は ZIP 内の画像を w に書き出す。
 func (f *File) ExtractImage(mediaPath string, w io.Writer) error {
-	entry := findZipEntry(f.zr, mediaPath)
+	entry := f.zi.lookup(mediaPath)
 	if entry == nil {
 		return fmt.Errorf("ZIP 内に %s が見つかりません", mediaPath)
 	}
@@ -155,8 +153,8 @@ func (f *File) ExtractImage(mediaPath string, w io.Writer) error {
 }
 
 // loadDrawingRels は drawing の .rels を読み、rId → (type, target) のマップを返す
-func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelationship {
-	rels := loadSheetRelsAll(zr, drawingPath)
+func loadDrawingRels(zi *zipIndex, drawingPath string) map[string]xmlRelationship {
+	rels := loadSheetRelsAll(zi, drawingPath)
 	if len(rels) == 0 {
 		return nil
 	}
@@ -168,8 +166,8 @@ func loadDrawingRels(zr *zip.ReadCloser, drawingPath string) map[string]xmlRelat
 }
 
 // getDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
-func getDrawingTarget(zr *zip.ReadCloser, sheetXMLPath string) string {
-	rels := loadSheetRelsAll(zr, sheetXMLPath)
+func getDrawingTarget(zi *zipIndex, sheetXMLPath string) string {
+	rels := loadSheetRelsAll(zi, sheetXMLPath)
 	for _, r := range rels {
 		if strings.Contains(r.Type, relKeywordDrawing) {
 			return r.Target

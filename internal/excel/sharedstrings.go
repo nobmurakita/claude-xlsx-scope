@@ -43,8 +43,8 @@ func (ss *sharedStrings) GetRichTextRuns(index int) []richTextRunRaw {
 }
 
 // parseSharedStringsFromZip は ZIP 内の sharedStrings.xml を SAX パースする
-func parseSharedStringsFromZip(zr *zip.ReadCloser) (*sharedStrings, error) {
-	if entry := findZipEntry(zr, "xl/sharedStrings.xml"); entry != nil {
+func parseSharedStringsFromZip(zi *zipIndex) (*sharedStrings, error) {
+	if entry := zi.lookup("xl/sharedStrings.xml"); entry != nil {
 		return parseSharedStringsEntry(entry)
 	}
 	// sharedStrings.xml がないファイルもある（数値のみ等）

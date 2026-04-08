@@ -47,14 +47,16 @@ func BookInfo(path string) (*BookInfoResult, error) {
 	}
 	defer r.Close()
 
+	zi := newZipIndex(r)
+
 	// workbook.xml.rels を読んでリレーション種別を取得
-	relTypes, err := readRels(r, "xl/_rels/workbook.xml.rels")
+	relTypes, err := readRels(zi, "xl/_rels/workbook.xml.rels")
 	if err != nil {
 		return nil, err
 	}
 
 	// workbook.xml を読んでシートと定義名を取得
-	wb, err := readWorkbook(r, "xl/workbook.xml")
+	wb, err := readWorkbook(zi, "xl/workbook.xml")
 	if err != nil {
 		return nil, err
 	}
@@ -127,21 +129,31 @@ func withZipXML(entry *zip.File, fn func(decoder *xml.Decoder) error) error {
 	return fn(xml.NewDecoder(rc))
 }
 
-// findZipEntry は ZIP 内の指定パスのエントリを探す
-func findZipEntry(zr *zip.ReadCloser, name string) *zip.File {
-	for _, f := range zr.File {
-		if f.Name == name {
-			return f
-		}
-	}
-	return nil
+// zipIndex は ZIP 内のファイルを名前で高速検索するためのインデックス
+type zipIndex struct {
+	files map[string]*zip.File
 }
 
-// readZipFile は ZIP 内の指定パスのファイルを読み込む
-func readZipFile(r *zip.ReadCloser, name string) ([]byte, error) {
-	entry := findZipEntry(r, name)
+// newZipIndex は zip.ReadCloser からインデックスを構築する
+func newZipIndex(zr *zip.ReadCloser) *zipIndex {
+	m := make(map[string]*zip.File, len(zr.File))
+	for _, f := range zr.File {
+		m[f.Name] = f
+	}
+	return &zipIndex{files: m}
+}
+
+// lookup は指定パスのファイルを返す。見つからなければ nil
+func (zi *zipIndex) lookup(name string) *zip.File {
+	return zi.files[name]
+}
+
+// readZipFile は ZIP 内の指定パスのファイルを読み込む。
+// ファイルが存在しない場合は (nil, nil) を返す。
+func readZipFile(zi *zipIndex, name string) ([]byte, error) {
+	entry := zi.lookup(name)
 	if entry == nil {
-		return nil, fmt.Errorf("ZIP内に %s が見つかりません", name)
+		return nil, nil
 	}
 	rc, err := entry.Open()
 	if err != nil {
@@ -151,10 +163,13 @@ func readZipFile(r *zip.ReadCloser, name string) ([]byte, error) {
 	return io.ReadAll(rc)
 }
 
-func readWorkbook(r *zip.ReadCloser, name string) (*xmlWorkbook, error) {
-	data, err := readZipFile(r, name)
+func readWorkbook(zi *zipIndex, name string) (*xmlWorkbook, error) {
+	data, err := readZipFile(zi, name)
 	if err != nil {
 		return nil, err
+	}
+	if data == nil {
+		return nil, fmt.Errorf("ZIP内に %s が見つかりません", name)
 	}
 	var wb xmlWorkbook
 	if err := xml.Unmarshal(data, &wb); err != nil {
@@ -165,9 +180,12 @@ func readWorkbook(r *zip.ReadCloser, name string) (*xmlWorkbook, error) {
 
 // readRels は .rels ファイルを読み、rId → Type のマップを返す。
 // .rels ファイルが存在しない場合はエラーではなく空マップを返す（rels はオプショナルなため）。
-func readRels(r *zip.ReadCloser, name string) (map[string]string, error) {
-	data, err := readZipFile(r, name)
+func readRels(zi *zipIndex, name string) (map[string]string, error) {
+	data, err := readZipFile(zi, name)
 	if err != nil {
+		return nil, err
+	}
+	if data == nil {
 		return map[string]string{}, nil
 	}
 	var rels xmlRelationships

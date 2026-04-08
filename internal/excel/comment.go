@@ -32,7 +32,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 		return nil
 	}
 
-	rels := loadSheetRelsAll(f.zr, xmlPath)
+	rels := loadSheetRelsAll(f.zi, xmlPath)
 	if len(rels) == 0 {
 		return nil
 	}
@@ -42,7 +42,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	for _, rel := range rels {
 		if strings.Contains(rel.Type, relKeywordComments) {
 			commentsPath := resolveRelTarget(xmlPath, rel.Target)
-			parseComments(f.zr, commentsPath, comments)
+			parseComments(f.zi, commentsPath, comments)
 		}
 	}
 
@@ -51,7 +51,7 @@ func (f *File) LoadComments(sheet string) CommentMap {
 	for _, rel := range rels {
 		if strings.Contains(strings.ToLower(rel.Type), relKeywordThreadedComments) {
 			threadPath := resolveRelTarget(xmlPath, rel.Target)
-			parseThreadedComments(f.zr, threadPath, comments, persons)
+			parseThreadedComments(f.zi, threadPath, comments, persons)
 		}
 	}
 
@@ -64,15 +64,15 @@ func (f *File) LoadComments(sheet string) CommentMap {
 // loadPersons は xl/persons/person.xml をオンデマンドでパースし、personId → displayName のマップを返す
 func (f *File) loadPersons() map[string]string {
 	f.personsOnce.Do(func() {
-		f.persons = parsePersons(f.zr)
+		f.persons = parsePersons(f.zi)
 	})
 	return f.persons
 }
 
 // loadSheetRelsAll はシートの .rels から全リレーションを返す
-func loadSheetRelsAll(zr *zip.ReadCloser, sheetXMLPath string) []xmlRelationship {
-	data, err := readZipFile(zr, relsPathFor(sheetXMLPath))
-	if err != nil {
+func loadSheetRelsAll(zi *zipIndex, sheetXMLPath string) []xmlRelationship {
+	data, err := readZipFile(zi, relsPathFor(sheetXMLPath))
+	if err != nil || data == nil {
 		return nil
 	}
 
@@ -105,8 +105,8 @@ func resolveRelTarget(sheetXMLPath, target string) string {
 }
 
 // parseComments はレガシーコメント（comments.xml）をパースする
-func parseComments(zr *zip.ReadCloser, path string, comments CommentMap) {
-	if entry := findZipEntry(zr, path); entry != nil {
+func parseComments(zi *zipIndex, path string, comments CommentMap) {
+	if entry := zi.lookup(path); entry != nil {
 		parseCommentsEntry(entry, comments)
 	}
 }
@@ -218,8 +218,8 @@ func parseCommentsSAX(decoder *xml.Decoder, comments CommentMap) {
 }
 
 // parsePersons は xl/persons/person.xml をパースし、personId → displayName のマップを返す
-func parsePersons(zr *zip.ReadCloser) map[string]string {
-	entry := findZipEntry(zr, "xl/persons/person.xml")
+func parsePersons(zi *zipIndex) map[string]string {
+	entry := zi.lookup("xl/persons/person.xml")
 	if entry == nil {
 		return nil
 	}
@@ -257,8 +257,8 @@ func parsePersons(zr *zip.ReadCloser) map[string]string {
 }
 
 // parseThreadedComments はスレッドコメント（threadedComment.xml）をパースする
-func parseThreadedComments(zr *zip.ReadCloser, path string, comments CommentMap, persons map[string]string) {
-	if entry := findZipEntry(zr, path); entry != nil {
+func parseThreadedComments(zi *zipIndex, path string, comments CommentMap, persons map[string]string) {
+	if entry := zi.lookup(path); entry != nil {
 		parseThreadedCommentsEntry(entry, comments, persons)
 	}
 }

@@ -25,7 +25,7 @@ func (f *File) ScanSheet(sheet string, visualIDs map[int]struct{}) (*ScanResult,
 		return nil, fmt.Errorf("シート %q の XML パスが見つかりません", sheet)
 	}
 
-	entry := findZipEntry(f.zr, xmlPath)
+	entry := f.zi.lookup(xmlPath)
 	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}

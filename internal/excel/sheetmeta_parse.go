@@ -67,8 +67,8 @@ type HyperlinkEntry struct {
 
 // LoadSheetMeta はワークシートXMLから sheetData 以外のメタデータを読み取る。
 // SAX パースで sheetData 内の行属性も取得する。
-func LoadSheetMeta(zr *zip.ReadCloser, xmlPath string) (*SheetMeta, error) {
-	entry := findZipEntry(zr, xmlPath)
+func LoadSheetMeta(zi *zipIndex, xmlPath string) (*SheetMeta, error) {
+	entry := zi.lookup(xmlPath)
 	if entry == nil {
 		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
@@ -350,8 +350,8 @@ func (sm *SheetMeta) CellOriginPt(col, row int) (int, int) {
 // LoadDimensionOnly はワークシートXMLから dimension 属性のみを高速に取得する。
 // XML 先頭付近の <dimension> 要素を見つけた時点で即座に返す。
 // dimension が見つからない場合やパースエラー時は空文字列を返す（警告のみ出力）。
-func LoadDimensionOnly(zr *zip.ReadCloser, xmlPath string) string {
-	entry := findZipEntry(zr, xmlPath)
+func LoadDimensionOnly(zi *zipIndex, xmlPath string) string {
+	entry := zi.lookup(xmlPath)
 	if entry == nil {
 		return ""
 	}
@@ -433,8 +433,8 @@ func (sm *SheetMeta) BuildHyperlinkMap(sheetRels map[string]string) HyperlinkMap
 
 // LoadSheetRelsFromZip はシートのリレーションファイルを読み、rId → target のマップを返す。
 // 主にハイパーリンクの外部URL解決に使用。
-func LoadSheetRelsFromZip(zr *zip.ReadCloser, sheetXMLPath string) map[string]string {
-	rels := loadSheetRelsAll(zr, sheetXMLPath)
+func LoadSheetRelsFromZip(zi *zipIndex, sheetXMLPath string) map[string]string {
+	rels := loadSheetRelsAll(zi, sheetXMLPath)
 	if len(rels) == 0 {
 		return nil
 	}

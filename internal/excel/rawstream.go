@@ -41,7 +41,7 @@ func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *R
 		return fmt.Errorf("シート %q の XML パスが見つかりません", sheet)
 	}
 
-	entry := findZipEntry(f.zr, xmlPath)
+	entry := f.zi.lookup(xmlPath)
 	if entry == nil {
 		return fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}

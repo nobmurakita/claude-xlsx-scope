@@ -22,6 +22,7 @@ type File struct {
 	Name string // ファイル名（パス除去済み）
 	path string
 	zr   *zip.ReadCloser
+	zi   *zipIndex
 
 	// ZIP 内 XML から自前でパースしたデータ
 	sharedStrings *sharedStrings
@@ -53,28 +54,34 @@ func OpenFile(path string) (result *File, retErr error) {
 		}
 	}()
 
+	zi := newZipIndex(zr)
+
 	f := &File{
 		Name: filepath.Base(path),
 		path: path,
 		zr:   zr,
+		zi:   zi,
 	}
 
 	// 共有文字列テーブル
-	f.sharedStrings, err = parseSharedStringsFromZip(zr)
+	f.sharedStrings, err = parseSharedStringsFromZip(zi)
 	if err != nil {
 		return nil, err
 	}
 
 	// シートパスマップ
-	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zr)
+	f.sheetPaths, f.sheetNames, err = buildSheetPaths(zi)
 	if err != nil {
 		return nil, err
 	}
 
 	// styles.xml
-	stylesData, err := readZipFile(zr, "xl/styles.xml")
+	stylesData, err := readZipFile(zi, "xl/styles.xml")
 	if err != nil {
 		return nil, fmt.Errorf("styles.xml の読み込みに失敗: %w", err)
+	}
+	if stylesData == nil {
+		return nil, fmt.Errorf("ZIP内に xl/styles.xml が見つかりません")
 	}
 	f.styles, err = parseStyleSheet(stylesData)
 	if err != nil {
@@ -95,8 +102,8 @@ func (f *File) Close() error {
 // getTheme は theme をオンデマンドでロードする
 func (f *File) getTheme() *themeColors {
 	f.themeOnce.Do(func() {
-		data, err := readZipFile(f.zr, "xl/theme/theme1.xml")
-		if err == nil {
+		data, _ := readZipFile(f.zi, "xl/theme/theme1.xml")
+		if data != nil {
 			f.theme = parseThemeColors(data)
 		}
 	})
@@ -109,7 +116,7 @@ func (f *File) LoadSheetMeta(sheet string) (*SheetMeta, error) {
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
 	}
-	return LoadSheetMeta(f.zr, xmlPath)
+	return LoadSheetMeta(f.zi, xmlPath)
 }
 
 // LoadSheetRels はシートのリレーションを読む
@@ -118,7 +125,7 @@ func (f *File) LoadSheetRels(sheet string) map[string]string {
 	if !ok {
 		return nil
 	}
-	return LoadSheetRelsFromZip(f.zr, xmlPath)
+	return LoadSheetRelsFromZip(f.zi, xmlPath)
 }
 
 // LoadDimension はシートの dimension を高速取得する（XML先頭のみ読む）
@@ -127,7 +134,7 @@ func (f *File) LoadDimension(sheet string) string {
 	if !ok {
 		return ""
 	}
-	return LoadDimensionOnly(f.zr, xmlPath)
+	return LoadDimensionOnly(f.zi, xmlPath)
 }
 
 const (
@@ -206,15 +213,18 @@ func (f *File) VisualStyleIDs() map[int]struct{} {
 }
 
 // buildSheetPaths は workbook.xml と workbook.xml.rels からシート名→XMLパスのマップとシート名リストを構築する
-func buildSheetPaths(zr *zip.ReadCloser) (map[string]string, []string, error) {
-	wb, err := readWorkbook(zr, "xl/workbook.xml")
+func buildSheetPaths(zi *zipIndex) (map[string]string, []string, error) {
+	wb, err := readWorkbook(zi, "xl/workbook.xml")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	relsData, err := readZipFile(zr, "xl/_rels/workbook.xml.rels")
+	relsData, err := readZipFile(zi, "xl/_rels/workbook.xml.rels")
 	if err != nil {
 		return nil, nil, err
+	}
+	if relsData == nil {
+		return nil, nil, fmt.Errorf("ZIP内に xl/_rels/workbook.xml.rels が見つかりません")
 	}
 	var rels xmlRelationships
 	if err := xml.Unmarshal(relsData, &rels); err != nil {
