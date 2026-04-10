@@ -5,7 +5,6 @@ description: |-
   データ抽出、Excel方眼紙の仕様書・設計書の解析、図形・フローチャートの構造把握に使用する。
 allowed-tools:
   - Bash(*/.claude/skills/xlsx-scope/scripts/xlsx-scope *)
-  - Bash(rm */xlsx-scope-tmp-*)
   - Read(*/xlsx-scope-tmp-*)
 ---
 
@@ -27,7 +26,7 @@ $ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope cells --sheet 0 example.xlsx
 {"file":"$TMPDIR/xlsx-scope-tmp-abc456","lines":3482}
 ```
 
-返された `file` パスを Read で読む（offset: 0始まり行番号, limit: 読む行数）。読み終わったら都度削除する。
+返された `file` パスを Read で読む（offset: 0始まり行番号, limit: 読む行数）。読み終わったら都度 `cleanup` サブコマンドで削除する。
 
 ## 利用フロー
 
@@ -51,11 +50,7 @@ scan は各シートに対して基本的に実行する。各指標を総合し
 
 **図形・画像の確認:**
 
-`has_shapes: true` のシートでは shapes を必ず実行し、図形の構造を把握する。shapes 出力に `image_id` がある場合、内容の把握に役立つ可能性が高いため積極的に確認する。
-
-1. `image` サブコマンドで画像を取得: `xlsx-scope image <file> <image_id>`
-2. 返された `file` パスを Read で画像の内容を確認する
-3. 確認が終わったら削除する
+`has_shapes: true` のシートでは shapes を必ず実行し、図形の構造を把握する。shapes 出力に `image_id` がある場合、内容の把握に役立つ可能性が高いため積極的に `image` サブコマンドで取得して確認する。
 
 **大量データの取得戦略:**
 
@@ -203,7 +198,7 @@ xlsx-scope shapes [options] <file>
 
 `xlsx-scope image <file> <image_id>` — 画像を一時ファイルに保存。
 
-shapes 出力の `image_id` を指定する。stdout に `{"file":"$TMPDIR/xlsx-scope-tmp-abc123.png"}` が返る。返された `file` パスを Read で確認し、終わったら削除する。
+shapes 出力の `image_id` を指定する。stdout に `{"file":"$TMPDIR/xlsx-scope-tmp-abc123.png"}` が返る。
 
 ### search
 
@@ -222,3 +217,12 @@ xlsx-scope search [options] <file>
 その他: `--sheet`, `--range`, `--start`, `--limit`, `--style`, `--formula`
 
 出力フィールドは cells と同じ。結果なしでも正常終了（終了コード 0）。
+
+### cleanup
+
+`xlsx-scope cleanup <file> [file...]` — xlsx-scope が生成した一時ファイルを削除する。
+
+```bash
+$ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope cleanup /tmp/xlsx-scope-tmp-abc123 /tmp/xlsx-scope-tmp-def456
+{"deleted":2}
+```

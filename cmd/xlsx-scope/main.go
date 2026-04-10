@@ -24,6 +24,7 @@ func main() {
 		cmd.NewShapesCmd(),
 		cmd.NewImageCmd(),
 		cmd.NewValuesCmd(),
+		cmd.NewCleanupCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
