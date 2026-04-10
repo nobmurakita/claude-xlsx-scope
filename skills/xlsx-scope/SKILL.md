@@ -1,10 +1,12 @@
 ---
 name: xlsx-scope
-description: Excelファイル（.xlsx/.xlsm）を読み取りJSONLで出力する。スプレッドシートのデータ抽出、Excel方眼紙の仕様書・設計書の解析、セル値の検索、図形・フローチャートの構造把握に使用する。
-user-invocable: false
+description: |-
+  Excelファイル(.xlsx/.xlsm)を読み取り値/式/書式/図/画像などの情報をJSONLで出力する。
+  データ抽出、Excel方眼紙の仕様書・設計書の解析、図形・フローチャートの構造把握に使用する。
 allowed-tools:
-  - Bash
-  - Read
+  - Bash(*/.claude/skills/xlsx-scope/scripts/xlsx-scope *)
+  - Bash(rm */xlsx-scope-tmp-*)
+  - Read(*/xlsx-scope-tmp-*)
 ---
 
 # xlsx-scope
@@ -15,14 +17,14 @@ Excelファイル（.xlsx/.xlsm）の内容をCLIから出力するツール。
 
 ## 出力の読み取り方
 
-全コマンドの出力は自動的に一時ファイルに保存され、stdout にはファイルパスと行数のみが返る。
+全コマンドの出力は自動的に一時ファイル（プレフィックス `xlsx-scope-tmp-`）に保存され、stdout にはファイルパスと行数のみが返る。
 
 ```bash
 $ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope info example.xlsx
-{"file":"$TMPDIR/xlsx-scope-abc123","lines":1}
+{"file":"$TMPDIR/xlsx-scope-tmp-abc123","lines":1}
 
 $ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope cells --sheet 0 example.xlsx
-{"file":"$TMPDIR/xlsx-scope-abc456","lines":3482}
+{"file":"$TMPDIR/xlsx-scope-tmp-abc456","lines":3482}
 ```
 
 返された `file` パスを Read で読む（offset: 0始まり行番号, limit: 読む行数）。読み終わったら都度削除する。
@@ -201,7 +203,7 @@ xlsx-scope shapes [options] <file>
 
 `xlsx-scope image <file> <image_id>` — 画像を一時ファイルに保存。
 
-shapes 出力の `image_id` を指定する。stdout に `{"file":"$TMPDIR/xlsx-scope-abc123.png"}` が返る。返された `file` パスを Read で確認し、終わったら削除する。
+shapes 出力の `image_id` を指定する。stdout に `{"file":"$TMPDIR/xlsx-scope-tmp-abc123.png"}` が返る。返された `file` パスを Read で確認し、終わったら削除する。
 
 ### search
 

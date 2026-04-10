@@ -30,7 +30,7 @@ func runImage(cmd *cobra.Command, args []string) error {
 	imageID := args[1]
 
 	ext := filepath.Ext(imageID)
-	out, err := os.CreateTemp("", "xlsx-scope-*"+ext)
+	out, err := os.CreateTemp("", "xlsx-scope-tmp-*"+ext)
 	if err != nil {
 		return fmt.Errorf("一時ファイルの作成エラー: %w", err)
 	}

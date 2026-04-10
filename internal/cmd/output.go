@@ -50,7 +50,7 @@ func newOutputWriter(cmd *cobra.Command) (*outputWriter, error) {
 			useStdout: true,
 		}, nil
 	}
-	f, err := os.CreateTemp("", "xlsx-scope-*.jsonl")
+	f, err := os.CreateTemp("", "xlsx-scope-tmp-*.jsonl")
 	if err != nil {
 		return nil, fmt.Errorf("一時ファイルの作成エラー: %w", err)
 	}
