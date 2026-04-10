@@ -5,7 +5,7 @@ description: |-
   データ抽出、Excel方眼紙の仕様書・設計書の解析、図形・フローチャートの構造把握に使用する。
 allowed-tools:
   - Bash(*/.claude/skills/xlsx-scope/scripts/xlsx-scope *)
-  - Read(*/xlsx-scope-tmp-*)
+  - Read
 ---
 
 # xlsx-scope
