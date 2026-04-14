@@ -226,3 +226,12 @@ xlsx-scope search [options] <file>
 $ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope cleanup /tmp/xlsx-scope-tmp-abc123 /tmp/xlsx-scope-tmp-def456
 {"deleted":2}
 ```
+
+### version
+
+`xlsx-scope version` — バージョン情報を表示する。
+
+```bash
+$ bash ${CLAUDE_SKILL_DIR}/scripts/xlsx-scope version
+v0.0.9
+```

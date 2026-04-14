@@ -25,6 +25,7 @@ func main() {
 		cmd.NewImageCmd(),
 		cmd.NewValuesCmd(),
 		cmd.NewCleanupCmd(),
+		cmd.NewVersionCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

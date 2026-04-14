@@ -20,7 +20,7 @@ jobs:
 
       - name: Build binaries
         run: |
-          LDFLAGS="-s -w"
+          LDFLAGS="-s -w -X github.com/nobmurakita/claude-xlsx-scope/internal/cmd.Version=${GITHUB_REF_NAME}"
           TARGETS=(
             "darwin/amd64"
             "darwin/arm64"
