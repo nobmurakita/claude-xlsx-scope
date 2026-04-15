@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewValuesCmd は rows サブコマンドを生成する
+// NewValuesCmd は values サブコマンドを生成する
 func NewValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "values <file>",
