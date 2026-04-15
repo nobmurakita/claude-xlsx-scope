@@ -90,13 +90,8 @@ func (f *File) HasShapes(sheet string) bool {
 	return getDrawingTarget(f.zi, xmlPath) != ""
 }
 
-// DrawingOptions は LoadDrawing の動作を制御するオプション
-type DrawingOptions struct {
-	IncludeStyle bool // true: fill/line/font 等の書式情報を出力に含める
-}
-
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
-func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, error) {
+func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
@@ -129,7 +124,7 @@ func (f *File) LoadDrawing(sheet string, opts DrawingOptions) (*DrawingResult, e
 
 	return parseDrawingXML(entry, drawingParserConfig{
 		theme:        f.getTheme(),
-		includeStyle: opts.IncludeStyle,
+		includeStyle: true,
 		drawingPath:  drawingPath,
 		drawingRels:  drawingRels,
 		sheetMeta:    sheetMeta,

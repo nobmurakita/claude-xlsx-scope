@@ -173,9 +173,8 @@ xlsx-scope shapes [options] <file>
 |-----------|------|-----------|
 | `--sheet <name\|index>` | 対象シート | 最初のシート |
 | `--limit <n>` | 出力図形数の上限（0で無制限） | 1000 |
-| `--style` | 書式情報を出力 | OFF |
 
-座標（`pos`, `start`, `end`, `callout_target`）の単位はすべてpt。`cells` の `meta.origin` と同じ座標系。
+座標（`pos`, `start`, `end`, `callout_target`）はpt単位で `cells` の `meta.origin` と同じ座標系。
 
 出力例:
 ```jsonl
