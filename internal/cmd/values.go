@@ -17,7 +17,7 @@ func NewValuesCmd() *cobra.Command {
 	}
 	cmd.Flags().StringP("sheet", "s", "", "対象シート（名前 or 0始まりインデックス）")
 	cmd.Flags().String("range", "", "セル範囲（例: A1:H20, A:F, 1:20）")
-	cmd.Flags().Int("start", 0, "開始行番号（1始まり）")
+	cmd.Flags().Int("start", 0, "開始行番号（1始まり、0または未指定で先頭行）")
 	cmd.Flags().Int("limit", defaultOutputLimit, "出力行数の上限（0で無制限）")
 	return cmd
 }
