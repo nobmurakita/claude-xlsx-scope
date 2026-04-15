@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -46,7 +45,5 @@ func runImage(cmd *cobra.Command, args []string) error {
 		fmt.Println(out.Name())
 		return nil
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
-	return enc.Encode(outputResult{File: out.Name()})
+	return newJSONLWriter(os.Stdout).Encode(outputResult{File: out.Name()})
 }

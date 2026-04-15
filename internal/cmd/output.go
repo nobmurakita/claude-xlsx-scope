@@ -91,8 +91,6 @@ func (ow *outputWriter) finalize() error {
 		os.Remove(name)
 		return err
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
 	lines := ow.lineCount
-	return enc.Encode(outputResult{File: name, Lines: &lines})
+	return newJSONLWriter(os.Stdout).Encode(outputResult{File: name, Lines: &lines})
 }

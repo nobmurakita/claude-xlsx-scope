@@ -114,10 +114,10 @@ func parseCachedValue(rawValue string) any {
 	if _, err := strconv.ParseFloat(rawValue, 64); err == nil {
 		return parseNumber(rawValue)
 	}
-	if rawValue == "TRUE" || rawValue == "true" {
+	if strings.EqualFold(rawValue, "true") {
 		return true
 	}
-	if rawValue == "FALSE" || rawValue == "false" {
+	if strings.EqualFold(rawValue, "false") {
 		return false
 	}
 	return rawValue

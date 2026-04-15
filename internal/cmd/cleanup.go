@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,7 +53,5 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		deleted++
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
-	return enc.Encode(cleanupOutput{Deleted: deleted})
+	return newJSONLWriter(os.Stdout).Encode(cleanupOutput{Deleted: deleted})
 }
