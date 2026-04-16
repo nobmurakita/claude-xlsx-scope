@@ -247,6 +247,9 @@ func (p *drawingParser) parse(r io.Reader) error {
 				}
 				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parseShape(decoder, z, cell, pos, groupStack)
+				if shape.Hidden {
+					continue
+				}
 				p.incrementZOrder(groupStack)
 				p.addShape(shape, groupStack)
 
@@ -256,6 +259,9 @@ func (p *drawingParser) parse(r io.Reader) error {
 				}
 				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parseConnector(decoder, z, cell, pos, groupStack)
+				if shape.Hidden {
+					continue
+				}
 				p.incrementZOrder(groupStack)
 				p.connCount++
 				p.addShape(shape, groupStack)
@@ -266,6 +272,12 @@ func (p *drawingParser) parse(r io.Reader) error {
 				}
 				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				grpShape := p.startGroup(decoder, z, cell, pos, groupStack)
+				if grpShape.Hidden {
+					// 非表示グループはスキップ。子要素は本来このグループの後に続くが、
+					// grpSp の EndElement まで読み飛ばさないと整合性が崩れる。
+					skipDepth = 1
+					continue
+				}
 				p.incrementZOrder(groupStack)
 				p.addShape(grpShape, groupStack)
 				groupStack = append(groupStack, groupContext{
@@ -278,6 +290,9 @@ func (p *drawingParser) parse(r io.Reader) error {
 				}
 				z, cell, pos := p.prepareShapeContext(anchorType, anchorFrom, anchorTo, hasTo, anchorExtCX, anchorExtCY, anchorAbsX, anchorAbsY, groupStack)
 				shape := p.parsePicture(decoder, z, cell, pos, groupStack)
+				if shape.Hidden {
+					continue
+				}
 				p.incrementZOrder(groupStack)
 				p.picCount++
 				p.addShape(shape, groupStack)

@@ -38,7 +38,7 @@ func (p *drawingParser) parsePicture(decoder *xml.Decoder, z int, cell string, p
 				st.inNvPicPr = true
 			case "cNvPr":
 				if st.inNvPicPr {
-					shape.Name, excelID = parseCNvPr(t)
+					shape.Name, excelID, shape.Hidden = parseCNvPr(t)
 					if v := attrVal(t, "descr"); v != "" {
 						shape.AltText = v
 					}

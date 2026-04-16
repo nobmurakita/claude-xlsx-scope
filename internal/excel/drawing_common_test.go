@@ -156,10 +156,11 @@ func TestBuildDrawingFontObj(t *testing.T) {
 
 func TestParseCNvPr(t *testing.T) {
 	tests := []struct {
-		name     string
-		attrs    []xml.Attr
-		wantName string
-		wantID   int
+		name       string
+		attrs      []xml.Attr
+		wantName   string
+		wantID     int
+		wantHidden bool
 	}{
 		{
 			"normal",
@@ -167,14 +168,23 @@ func TestParseCNvPr(t *testing.T) {
 				{Name: xml.Name{Local: "name"}, Value: "Shape 1"},
 				{Name: xml.Name{Local: "id"}, Value: "5"},
 			},
-			"Shape 1", 5,
+			"Shape 1", 5, false,
 		},
 		{
 			"no id",
 			[]xml.Attr{
 				{Name: xml.Name{Local: "name"}, Value: "Shape 2"},
 			},
-			"Shape 2", 0,
+			"Shape 2", 0, false,
+		},
+		{
+			"hidden form control legacy",
+			[]xml.Attr{
+				{Name: xml.Name{Local: "id"}, Value: "73729"},
+				{Name: xml.Name{Local: "name"}, Value: "Check Box 1"},
+				{Name: xml.Name{Local: "hidden"}, Value: "1"},
+			},
+			"Check Box 1", 73729, true,
 		},
 	}
 
@@ -184,9 +194,9 @@ func TestParseCNvPr(t *testing.T) {
 				Name: xml.Name{Local: "cNvPr"},
 				Attr: tt.attrs,
 			}
-			name, id := parseCNvPr(se)
-			if name != tt.wantName || id != tt.wantID {
-				t.Errorf("got (%q, %d), want (%q, %d)", name, id, tt.wantName, tt.wantID)
+			name, id, hidden := parseCNvPr(se)
+			if name != tt.wantName || id != tt.wantID || hidden != tt.wantHidden {
+				t.Errorf("got (%q, %d, %v), want (%q, %d, %v)", name, id, hidden, tt.wantName, tt.wantID, tt.wantHidden)
 			}
 		})
 	}

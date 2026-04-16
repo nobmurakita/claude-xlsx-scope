@@ -365,6 +365,8 @@ VML（`xl/drawings/vmlDrawing*.vml`）で定義されるレガシー形式のフ
 
 以下のフォームコントロールは通常のワークシートでは使われないため対応しない: `EditBox`（ダイアログシート用入力ボックス）、`Dialog`（ダイアログフレーム）、`Note`（レガシーコメント、`comment` コマンドで取得可能）。
 
+**DrawingML 側の描画代替の除外:** Excel はフォームコントロールの互換表示のため、各 VML コントロールに対応する DrawingML shape（`xdr:cNvPr` に `hidden="1"` が付く）を自動生成する。これらは見た目を表現する以外の意味を持たず、フォームコントロール本体と二重に現れるため、`hidden="1"` の shape は shapes 出力から除外する。
+
 ### `xlsx-scope image <file> <image_id>`
 
 **役割:** `shapes` が返した `image_id`（ZIP 内の画像パス）を受け取り、画像を一時ファイルに抽出する。抽出後のファイルは Read ツール等で参照でき、不要になったら `cleanup` で削除する。

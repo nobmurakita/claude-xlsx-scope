@@ -91,6 +91,10 @@ type ShapeInfo struct {
 	Inc           *int   `json:"inc,omitempty"`            // spin, scroll の増分
 	Page          *int   `json:"page,omitempty"`           // scroll のページ増分
 	Macro         string `json:"macro,omitempty"`          // button のマクロ名（fmlaMacro）
+
+	// 内部フラグ（JSON 出力しない）。フォームコントロールの DrawingML 描画代替など、
+	// Excel が互換用に自動生成する非表示図形を除外するために使う。
+	Hidden bool `json:"-"`
 }
 
 // ShapesMeta は shapes コマンドのメタ情報行

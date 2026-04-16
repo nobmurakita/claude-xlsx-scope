@@ -206,14 +206,17 @@ func (p *drawingParser) registerExcelID(excelID, seqID int) {
 	}
 }
 
-// parseCNvPr は cNvPr 要素から name, id (excelID) を取得する共通ヘルパー
-func parseCNvPr(t xml.StartElement) (name string, excelID int) {
+// parseCNvPr は cNvPr 要素から name, id (excelID), hidden を取得する共通ヘルパー。
+// hidden="1" は Excel が互換用に自動生成する描画代替（フォームコントロール等）に付く。
+func parseCNvPr(t xml.StartElement) (name string, excelID int, hidden bool) {
 	for _, attr := range t.Attr {
 		switch attr.Name.Local {
 		case "name":
 			name = attr.Value
 		case "id":
 			excelID = safeAtoi(attr.Value)
+		case "hidden":
+			hidden = attr.Value == "1"
 		}
 	}
 	return

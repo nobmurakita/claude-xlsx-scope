@@ -59,7 +59,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 				st.inNvCxnSpPr = true
 			case "cNvPr":
 				if st.inNvCxnSpPr {
-					shape.Name, excelID = parseCNvPr(t)
+					shape.Name, excelID, shape.Hidden = parseCNvPr(t)
 				}
 			case "cNvCxnSpPr":
 				if st.inNvCxnSpPr {

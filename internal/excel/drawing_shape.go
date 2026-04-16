@@ -54,7 +54,7 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, pos
 				st.inNvSpPr = true
 			case "cNvPr":
 				if st.inNvSpPr {
-					shape.Name, excelID = parseCNvPr(t)
+					shape.Name, excelID, shape.Hidden = parseCNvPr(t)
 				}
 			case "spPr":
 				st.inSpPr = true
@@ -170,8 +170,9 @@ func (p *drawingParser) startGroup(decoder *xml.Decoder, z int, cell string, pos
 			switch t.Name.Local {
 			case "cNvPr":
 				if depth <= 2 {
-					name, eid := parseCNvPr(t)
+					name, eid, hidden := parseCNvPr(t)
 					shape.Name = name
+					shape.Hidden = hidden
 					p.registerExcelID(eid, shape.ID)
 				}
 			case "xfrm":
