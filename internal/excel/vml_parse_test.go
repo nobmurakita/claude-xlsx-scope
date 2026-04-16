@@ -135,7 +135,7 @@ func TestParseVMLShapesSAX_Checkbox(t *testing.T) {
 	if got := vmlMap[73730]; got.Text != "行1\n行2" || got.ZIndex != 2 {
 		t.Errorf("shape 73730 text=%q z=%d, want %q z=2", got.Text, got.ZIndex, "行1\n行2")
 	}
-	if got := vmlMap[73731]; got.Text != "" || got.ZIndex != 3 || !got.HasShape {
+	if got := vmlMap[73731]; got.Text != "" || got.ZIndex != 3 || !got.HasZ {
 		t.Errorf("shape 73731: %+v", got)
 	}
 }
@@ -191,18 +191,18 @@ func TestParseSheetControlsSAX(t *testing.T) {
 	}
 }
 
-func TestBuildCellRangeFromAnchor(t *testing.T) {
+func TestCellRangeRef(t *testing.T) {
 	tests := []struct {
-		from, to anchorPos
-		want     string
+		fromCol, fromRow, toCol, toRow int
+		want                           string
 	}{
-		{anchorPos{col: 0, row: 0}, anchorPos{col: 0, row: 0}, "A1"},
-		{anchorPos{col: 0, row: 0}, anchorPos{col: 2, row: 1}, "A1:C2"},
-		{anchorPos{col: 4, row: 6}, anchorPos{col: 8, row: 7}, "E7:I8"},
+		{0, 0, 0, 0, "A1"},
+		{0, 0, 2, 1, "A1:C2"},
+		{4, 6, 8, 7, "E7:I8"},
 	}
 	for _, tt := range tests {
-		if got := buildCellRangeFromAnchor(tt.from, tt.to); got != tt.want {
-			t.Errorf("from=%+v to=%+v -> %q, want %q", tt.from, tt.to, got, tt.want)
+		if got := cellRangeRef(tt.fromCol, tt.fromRow, tt.toCol, tt.toRow); got != tt.want {
+			t.Errorf("from=(%d,%d) to=(%d,%d) -> %q, want %q", tt.fromCol, tt.fromRow, tt.toCol, tt.toRow, got, tt.want)
 		}
 	}
 }

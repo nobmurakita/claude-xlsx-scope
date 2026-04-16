@@ -5,6 +5,7 @@ import "encoding/xml"
 // リレーション種別のキーワード（Relationship の Type 属性に含まれる文字列で判定する）
 const (
 	relKeywordDrawing          = "drawing"
+	relKeywordVMLDrawing       = "vmldrawing" // 大文字小文字混在あり、小文字で比較する
 	relKeywordComments         = "/comments"
 	relKeywordThreadedComments = "threadedcomment" // 大文字小文字混在あり、小文字で比較する
 )

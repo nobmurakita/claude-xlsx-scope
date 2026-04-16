@@ -202,14 +202,14 @@ func (p *drawingParser) parse(r io.Reader) error {
 
 			case "from":
 				if inAnchor && len(groupStack) == 0 {
-					anchorFrom = p.parseAnchorPos(decoder)
+					anchorFrom = parseAnchorPos(decoder)
 				} else {
 					skipElement(decoder)
 				}
 
 			case "to":
 				if inAnchor && len(groupStack) == 0 && anchorType == "two" {
-					anchorTo = p.parseAnchorPos(decoder)
+					anchorTo = parseAnchorPos(decoder)
 					hasTo = true
 				} else {
 					skipElement(decoder)
@@ -361,6 +361,16 @@ func (p *drawingParser) closeGroup(groupStack *[]groupContext) {
 	}
 }
 
+// cellRangeRef は from/to のセル座標（0始まり）から "A1:B2" または "A1" の形式の範囲文字列を返す
+func cellRangeRef(fromCol, fromRow, toCol, toRow int) string {
+	from := CellRef(fromCol+1, fromRow+1)
+	to := CellRef(toCol+1, toRow+1)
+	if from == to {
+		return from
+	}
+	return from + ":" + to
+}
+
 func (p *drawingParser) currentZOrder(groupStack []groupContext) int {
 	if len(groupStack) > 0 {
 		return groupStack[len(groupStack)-1].childZ
@@ -378,12 +388,7 @@ func (p *drawingParser) buildCell(anchorType string, fromCol, fromRow, toCol, to
 	switch anchorType {
 	case "two":
 		if hasTo {
-			from := CellRef(fromCol+1, fromRow+1)
-			to := CellRef(toCol+1, toRow+1)
-			if from == to {
-				return from
-			}
-			return from + ":" + to
+			return cellRangeRef(fromCol, fromRow, toCol, toRow)
 		}
 		return CellRef(fromCol+1, fromRow+1)
 	case "one":
@@ -393,8 +398,9 @@ func (p *drawingParser) buildCell(anchorType string, fromCol, fromRow, toCol, to
 	}
 }
 
-// parseAnchorPos は <from> または <to> 内の col, colOff, row, rowOff を読む
-func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) anchorPos {
+// parseAnchorPos は <from> / <to> / <xdr:from> / <xdr:to> 内の col, colOff, row, rowOff を読む。
+// 呼び出し時点で <from>/<to> の StartElement は消費済みで、EndElement まで消費する。
+func parseAnchorPos(decoder *xml.Decoder) anchorPos {
 	depth := 1
 	var pos anchorPos
 	var field string // "col", "colOff", "row", "rowOff"
@@ -418,16 +424,16 @@ func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) anchorPos {
 			depth--
 			switch t.Name.Local {
 			case "col":
-				pos.col, _ = strconv.Atoi(buf.String())
+				pos.col = safeAtoi(buf.String())
 				field = ""
 			case "colOff":
-				pos.colOff, _ = strconv.Atoi(buf.String())
+				pos.colOff = safeAtoi(buf.String())
 				field = ""
 			case "row":
-				pos.row, _ = strconv.Atoi(buf.String())
+				pos.row = safeAtoi(buf.String())
 				field = ""
 			case "rowOff":
-				pos.rowOff, _ = strconv.Atoi(buf.String())
+				pos.rowOff = safeAtoi(buf.String())
 				field = ""
 			}
 		case xml.CharData:
@@ -437,6 +443,15 @@ func (p *drawingParser) parseAnchorPos(decoder *xml.Decoder) anchorPos {
 		}
 	}
 	return pos
+}
+
+// twoAnchorPos は from/to アンカーからポイント座標の Position を算出する
+func twoAnchorPos(pc *posCalculator, from, to anchorPos) *Position {
+	x1 := pc.calcX(from.col, from.colOff)
+	y1 := pc.calcY(from.row, from.rowOff)
+	x2 := pc.calcX(to.col, to.colOff)
+	y2 := pc.calcY(to.row, to.rowOff)
+	return &Position{X: x1, Y: y1, W: x2 - x1, H: y2 - y1}
 }
 
 // buildPos はアンカー情報からポイント座標を算出する
@@ -449,11 +464,7 @@ func (p *drawingParser) buildPos(anchorType string, from, to anchorPos, hasTo bo
 		if !hasTo {
 			return nil
 		}
-		x1 := p.posCalc.calcX(from.col, from.colOff)
-		y1 := p.posCalc.calcY(from.row, from.rowOff)
-		x2 := p.posCalc.calcX(to.col, to.colOff)
-		y2 := p.posCalc.calcY(to.row, to.rowOff)
-		return &Position{X: x1, Y: y1, W: x2 - x1, H: y2 - y1}
+		return twoAnchorPos(p.posCalc, from, to)
 	case "one":
 		x := p.posCalc.calcX(from.col, from.colOff)
 		y := p.posCalc.calcY(from.row, from.rowOff)

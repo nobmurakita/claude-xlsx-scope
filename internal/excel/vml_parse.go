@@ -9,13 +9,11 @@ import (
 	"strings"
 )
 
-// controlTypeMap は objectType（ctrlProp / VML ClientData の値）を内部 type に対応づける。
+// controlTypeMap は ctrlProp の objectType を内部 type に対応づける。
 // 非対応タイプ（EditBox, Dialog, Note）はマップに含めない。
 var controlTypeMap = map[string]string{
 	"CheckBox": ShapeTypeCheckbox,
-	"Checkbox": ShapeTypeCheckbox, // VML 側は Checkbox 表記で出てくるため
 	"Radio":    ShapeTypeRadio,
-	"Option":   ShapeTypeRadio, // VML 側の別名
 	"Drop":     ShapeTypeDrop,
 	"List":     ShapeTypeList,
 	"Spin":     ShapeTypeSpin,
@@ -25,10 +23,13 @@ var controlTypeMap = map[string]string{
 	"Label":    ShapeTypeLabel,
 }
 
+// ctrlPropCheckedValue は ctrlProp の checked 属性がチェック済みを示す値
+const ctrlPropCheckedValue = "Checked"
+
 // formControlPr は xl/ctrlProps/ctrlProp*.xml の <formControlPr> から読み取るプロパティ
 type formControlPr struct {
 	ObjectType string
-	Checked    string // "Checked" 以外（空や "Unchecked"）は未チェック扱い
+	Checked    string // ctrlPropCheckedValue 以外（空や "Unchecked", "Mixed"）は未チェック扱い
 	FmlaLink   string
 	FmlaRange  string
 	FmlaMacro  string
@@ -53,34 +54,30 @@ type sheetControl struct {
 
 // vmlShapeInfo は VML 側から抽出する表示情報（shapeId をキーにマージ）
 type vmlShapeInfo struct {
-	ZIndex   int
-	HasZ     bool
-	Text     string
-	HasShape bool
+	ZIndex int
+	HasZ   bool
+	Text   string
 }
 
-// loadFormControls はシートのフォームコントロールを読み込み、ShapeInfo のリストと次の z-order / ID を返す。
+// loadFormControls はシートのフォームコントロールを読み込み、ShapeInfo のリストを返す。
+// z-order / ID は startZ / startID から連番で採番される。
 // 対応しない種別（EditBox, Dialog 等）は静かにスキップする。
-func loadFormControls(zi *zipIndex, sheetXMLPath string, sheetMeta *SheetMeta, startZ, startID int) (shapes []ShapeInfo, nextZ, nextID int) {
-	nextZ = startZ
-	nextID = startID
-
+func loadFormControls(zi *zipIndex, sheetXMLPath string, sheetRels []xmlRelationship, sheetMeta *SheetMeta, startZ, startID int) []ShapeInfo {
 	controls := parseSheetControls(zi, sheetXMLPath)
 	if len(controls) == 0 {
-		return nil, nextZ, nextID
+		return nil
 	}
 
-	// sheet.xml.rels から rId → 絶対パスのマップを構築
-	rels := loadSheetRelsAll(zi, sheetXMLPath)
-	relsMap := make(map[string]string, len(rels))
-	for _, r := range rels {
+	// rId → 絶対パスのマップを構築
+	relsMap := make(map[string]string, len(sheetRels))
+	for _, r := range sheetRels {
 		relsMap[r.ID] = resolveRelTarget(sheetXMLPath, r.Target)
 	}
 
 	// VML 側から shapeId → ZIndex / Text を収集（複数の vmlDrawing にまたがる可能性あり）
 	vmlMap := make(map[int]vmlShapeInfo)
-	for _, r := range rels {
-		if !strings.Contains(strings.ToLower(r.Type), "vmldrawing") {
+	for _, r := range sheetRels {
+		if !strings.Contains(strings.ToLower(r.Type), relKeywordVMLDrawing) {
 			continue
 		}
 		vmlPath := resolveRelTarget(sheetXMLPath, r.Target)
@@ -101,6 +98,8 @@ func loadFormControls(zi *zipIndex, sheetXMLPath string, sheetMeta *SheetMeta, s
 		posCalc = &posCalculator{meta: sheetMeta}
 	}
 
+	var shapes []ShapeInfo
+	z, id := startZ, startID
 	for _, c := range controls {
 		ctrlPath, ok := relsMap[c.RelID]
 		if !ok {
@@ -116,22 +115,22 @@ func loadFormControls(zi *zipIndex, sheetXMLPath string, sheetMeta *SheetMeta, s
 		}
 		vml := vmlMap[c.ShapeID]
 		shape := ShapeInfo{
-			ID:   nextID,
+			ID:   id,
 			Type: t,
 			Name: c.Name,
-			Z:    nextZ,
-			Cell: buildCellRangeFromAnchor(c.From, c.To),
+			Z:    z,
+			Cell: cellRangeRef(c.From.col, c.From.row, c.To.col, c.To.row),
 		}
 		if posCalc != nil {
-			shape.Pos = buildPosFromAnchor(posCalc, c.From, c.To)
+			shape.Pos = twoAnchorPos(posCalc, c.From, c.To)
 		}
 		applyControlProps(&shape, t, props, vml)
 		shapes = append(shapes, shape)
-		nextZ++
-		nextID++
+		z++
+		id++
 	}
 
-	return shapes, nextZ, nextID
+	return shapes
 }
 
 // applyControlProps はコントロール種別に応じてフォームコントロール用フィールドを設定する
@@ -139,7 +138,7 @@ func applyControlProps(shape *ShapeInfo, t string, props *formControlPr, vml vml
 	shape.Text = vml.Text
 	switch t {
 	case ShapeTypeCheckbox, ShapeTypeRadio:
-		checked := props.Checked == "Checked"
+		checked := props.Checked == ctrlPropCheckedValue
 		shape.Checked = &checked
 		shape.LinkedCell = props.FmlaLink
 	case ShapeTypeDrop:
@@ -172,25 +171,6 @@ func applyControlProps(shape *ShapeInfo, t string, props *formControlPr, vml vml
 	}
 }
 
-// buildCellRangeFromAnchor は from/to のセル位置から "A1:B2" または "A1" の形式の範囲文字列を返す
-func buildCellRangeFromAnchor(from, to anchorPos) string {
-	fromRef := CellRef(from.col+1, from.row+1)
-	toRef := CellRef(to.col+1, to.row+1)
-	if fromRef == toRef {
-		return fromRef
-	}
-	return fromRef + ":" + toRef
-}
-
-// buildPosFromAnchor は from/to アンカーから Position を算出する
-func buildPosFromAnchor(pc *posCalculator, from, to anchorPos) *Position {
-	x1 := pc.calcX(from.col, from.colOff)
-	y1 := pc.calcY(from.row, from.rowOff)
-	x2 := pc.calcX(to.col, to.colOff)
-	y2 := pc.calcY(to.row, to.rowOff)
-	return &Position{X: x1, Y: y1, W: x2 - x1, H: y2 - y1}
-}
-
 // parseSheetControls はシートXMLの <controls> 配下から控除項目の一覧を取り出す。
 // <mc:AlternateContent> の <mc:Choice> を採用し、<mc:Fallback> は無視する。
 func parseSheetControls(zi *zipIndex, sheetXMLPath string) []sheetControl {
@@ -209,9 +189,8 @@ func parseSheetControls(zi *zipIndex, sheetXMLPath string) []sheetControl {
 // parseSheetControlsSAX は SAX パーサーで <controls>/<control> を拾う
 func parseSheetControlsSAX(decoder *xml.Decoder) []sheetControl {
 	var (
-		controls      []sheetControl
-		inControls    bool
-		fallbackDepth int // >0 の間は mc:Fallback 内
+		controls   []sheetControl
+		inControls bool
 	)
 
 	for {
@@ -225,16 +204,13 @@ func parseSheetControlsSAX(decoder *xml.Decoder) []sheetControl {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			if fallbackDepth > 0 {
-				fallbackDepth++
-				continue
-			}
 			switch t.Name.Local {
 			case "controls":
 				inControls = true
 			case "Fallback":
+				// mc:Fallback 内の control は mc:Choice と重複するのでスキップ
 				if inControls {
-					fallbackDepth = 1
+					skipElement(decoder)
 				}
 			case "control":
 				if inControls {
@@ -245,10 +221,6 @@ func parseSheetControlsSAX(decoder *xml.Decoder) []sheetControl {
 				}
 			}
 		case xml.EndElement:
-			if fallbackDepth > 0 {
-				fallbackDepth--
-				continue
-			}
 			if t.Name.Local == "controls" {
 				inControls = false
 			}
@@ -290,10 +262,10 @@ func readSheetControlAnchor(decoder *xml.Decoder, c *sheetControl) bool {
 		case xml.StartElement:
 			switch t.Name.Local {
 			case "from":
-				c.From = parseXdrAnchorPos(decoder)
+				c.From = parseAnchorPos(decoder)
 				gotFrom = true
 			case "to":
-				c.To = parseXdrAnchorPos(decoder)
+				c.To = parseAnchorPos(decoder)
 				gotTo = true
 			default:
 				depth++
@@ -303,52 +275,6 @@ func readSheetControlAnchor(decoder *xml.Decoder, c *sheetControl) bool {
 		}
 	}
 	return gotFrom && gotTo
-}
-
-// parseXdrAnchorPos は <from> または <to> の子として col/colOff/row/rowOff を読み取る。
-// 呼び出し時点で <from>/<to> の StartElement は既に消費済み。EndElement まで消費する。
-func parseXdrAnchorPos(decoder *xml.Decoder) anchorPos {
-	var pos anchorPos
-	var field string
-	var buf strings.Builder
-	depth := 1
-	for depth > 0 {
-		tok, err := decoder.Token()
-		if err != nil {
-			log.Printf("[WARN] parseXdrAnchorPos: %v", err)
-			return pos
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			depth++
-			switch t.Name.Local {
-			case "col", "colOff", "row", "rowOff":
-				field = t.Name.Local
-				buf.Reset()
-			}
-		case xml.EndElement:
-			depth--
-			switch t.Name.Local {
-			case "col":
-				pos.col = safeAtoi(buf.String())
-				field = ""
-			case "colOff":
-				pos.colOff = safeAtoi(buf.String())
-				field = ""
-			case "row":
-				pos.row = safeAtoi(buf.String())
-				field = ""
-			case "rowOff":
-				pos.rowOff = safeAtoi(buf.String())
-				field = ""
-			}
-		case xml.CharData:
-			if field != "" {
-				buf.Write(t)
-			}
-		}
-	}
-	return pos
 }
 
 // parseCtrlProp は xl/ctrlProps/ctrlProp*.xml をパースする
@@ -505,7 +431,6 @@ func parseVMLShapesSAX(decoder *xml.Decoder, vmlMap map[int]vmlShapeInfo) {
 					flushDiv()
 					text := strings.Join(textDivs, "\n")
 					info := vmlMap[shapeID]
-					info.HasShape = true
 					if hasZ {
 						info.ZIndex = zIndex
 						info.HasZ = true

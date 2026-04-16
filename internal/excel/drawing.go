@@ -116,7 +116,7 @@ func (f *File) HasShapes(sheet string) bool {
 	if !ok {
 		return false
 	}
-	return getDrawingTarget(f.zi, xmlPath) != ""
+	return findDrawingTarget(loadSheetRelsAll(f.zi, xmlPath)) != ""
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
@@ -138,8 +138,9 @@ func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 		Meta: ShapesMeta{Meta: true},
 	}
 
-	target := getDrawingTarget(f.zi, xmlPath)
-	if target != "" {
+	sheetRels := loadSheetRelsAll(f.zi, xmlPath)
+
+	if target := findDrawingTarget(sheetRels); target != "" {
 		drawingPath := resolveRelTarget(xmlPath, target)
 		drawingRels := loadDrawingRels(f.zi, drawingPath)
 		entry := f.zi.lookup(drawingPath)
@@ -161,8 +162,7 @@ func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 
 	// VML フォームコントロールを DrawingML の後ろに追加する。
 	// z は DrawingML トップレベル最大値+1 から、ID は既存最大+1 から採番。
-	nextZ, nextID := nextTopZ(result.Shapes), nextShapeID(result.Shapes)
-	ctrlShapes, _, _ := loadFormControls(f.zi, xmlPath, sheetMeta, nextZ, nextID)
+	ctrlShapes := loadFormControls(f.zi, xmlPath, sheetRels, sheetMeta, nextTopZ(result.Shapes), nextShapeID(result.Shapes))
 	if len(ctrlShapes) > 0 {
 		result.Shapes = append(result.Shapes, ctrlShapes...)
 		result.Meta.ShapeCount = len(result.Shapes)
@@ -226,9 +226,8 @@ func loadDrawingRels(zi *zipIndex, drawingPath string) map[string]xmlRelationshi
 	return m
 }
 
-// getDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
-func getDrawingTarget(zi *zipIndex, sheetXMLPath string) string {
-	rels := loadSheetRelsAll(zi, sheetXMLPath)
+// findDrawingTarget はシートの .rels から drawing リレーションのターゲットを探す
+func findDrawingTarget(rels []xmlRelationship) string {
 	for _, r := range rels {
 		if strings.Contains(r.Type, relKeywordDrawing) {
 			return r.Target
