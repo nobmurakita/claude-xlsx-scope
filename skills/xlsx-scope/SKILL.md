@@ -190,6 +190,13 @@ xlsx-scope shapes [options] <file>
 - コネクタ: `type` は `"connector"`。`from`/`to` で接続先図形ID、`start`/`end` で両端座標（pt）
 - グループ: `type` は `"group"`。`children` に子要素ID配列
 - 画像: `type` は `"picture"`。`image_id` で `image` サブコマンドにより取得可能
+- VMLフォームコントロール: `checkbox`, `radio`, `drop`, `list`, `spin`, `scroll`, `button`, `gbox`, `label`
+  - チェック状態: `checked`（checkbox / radio）
+  - リンクセル: `linked_cell`（fmlaLink）
+  - ドロップダウン/リスト: `list_range`, `selected_index`, `drop_lines`, `sel_type`
+  - 数値系: `min`, `max`, `val`, `inc`, `page`（spin / scroll）
+  - ボタン: `macro`
+  - DrawingML 図形の後ろに続く z で出力される
 
 **図形内テキスト:** `text` にプレーンテキスト（複数段落は `\n` 結合）。コネクタのテキストは `label`。
 

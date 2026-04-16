@@ -12,6 +12,17 @@ const (
 	ShapeTypeGroup     = "group"
 	ShapeTypePicture   = "picture"
 	ShapeTypeConnector = "connector"
+
+	// VMLフォームコントロール（xl/drawings/vmlDrawing*.vml + xl/ctrlProps/ctrlProp*.xml）
+	ShapeTypeCheckbox = "checkbox"
+	ShapeTypeRadio    = "radio"
+	ShapeTypeDrop     = "drop"
+	ShapeTypeList     = "list"
+	ShapeTypeSpin     = "spin"
+	ShapeTypeScroll   = "scroll"
+	ShapeTypeButton   = "button"
+	ShapeTypeGroupBox = "gbox"
+	ShapeTypeLabel    = "label"
 )
 
 // LineStyle は図形の枠線スタイル（色・線種・太さ）
@@ -66,6 +77,20 @@ type ShapeInfo struct {
 	Fill          string        `json:"fill,omitempty"`
 	Line          *LineStyle    `json:"line,omitempty"`
 	Font          *FontObj      `json:"font,omitempty"`
+
+	// VMLフォームコントロール用フィールド
+	Checked       *bool  `json:"checked,omitempty"`        // checkbox, radio
+	LinkedCell    string `json:"linked_cell,omitempty"`    // 値を書き出すセル参照（fmlaLink）
+	ListRange     string `json:"list_range,omitempty"`     // drop, list の候補範囲（fmlaRange）
+	SelectedIndex int    `json:"selected_index,omitempty"` // drop, list の選択インデックス（1始まり）
+	DropLines     int    `json:"drop_lines,omitempty"`     // drop の表示行数
+	SelType       string `json:"sel_type,omitempty"`       // list の選択種別（single/multi/extend）
+	Min           *int   `json:"min,omitempty"`            // spin, scroll の最小値
+	Max           *int   `json:"max,omitempty"`            // spin, scroll の最大値
+	Val           *int   `json:"val,omitempty"`            // spin, scroll の現在値
+	Inc           *int   `json:"inc,omitempty"`            // spin, scroll の増分
+	Page          *int   `json:"page,omitempty"`           // scroll のページ増分
+	Macro         string `json:"macro,omitempty"`          // button のマクロ名（fmlaMacro）
 }
 
 // ShapesMeta は shapes コマンドのメタ情報行
@@ -91,18 +116,12 @@ func (f *File) HasShapes(sheet string) bool {
 }
 
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
+// DrawingML 図形に加え、VML フォームコントロール（チェックボックス等）も
+// 続きの z-order で統合して返す。
 func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
-	}
-
-	target := getDrawingTarget(f.zi, xmlPath)
-	if target == "" {
-		// 図形なし
-		return &DrawingResult{
-			Meta: ShapesMeta{Meta: true},
-		}, nil
 	}
 
 	// シートメタデータを読み込む（図形の座標計算用）
@@ -111,24 +130,67 @@ func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 		sheetMeta = newSheetMeta()
 	}
 
-	// drawing XML パスを解決
-	drawingPath := resolveRelTarget(xmlPath, target)
-
-	// drawing の .rels を読む（画像パス解決用）
-	drawingRels := loadDrawingRels(f.zi, drawingPath)
-
-	entry := f.zi.lookup(drawingPath)
-	if entry == nil {
-		return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
+	result := &DrawingResult{
+		Meta: ShapesMeta{Meta: true},
 	}
 
-	return parseDrawingXML(entry, drawingParserConfig{
-		theme:        f.getTheme(),
-		includeStyle: true,
-		drawingPath:  drawingPath,
-		drawingRels:  drawingRels,
-		sheetMeta:    sheetMeta,
-	})
+	target := getDrawingTarget(f.zi, xmlPath)
+	if target != "" {
+		drawingPath := resolveRelTarget(xmlPath, target)
+		drawingRels := loadDrawingRels(f.zi, drawingPath)
+		entry := f.zi.lookup(drawingPath)
+		if entry == nil {
+			return nil, fmt.Errorf("ZIP 内に %s が見つかりません", drawingPath)
+		}
+		dr, err := parseDrawingXML(entry, drawingParserConfig{
+			theme:        f.getTheme(),
+			includeStyle: true,
+			drawingPath:  drawingPath,
+			drawingRels:  drawingRels,
+			sheetMeta:    sheetMeta,
+		})
+		if err != nil {
+			return nil, err
+		}
+		result = dr
+	}
+
+	// VML フォームコントロールを DrawingML の後ろに追加する。
+	// z は DrawingML トップレベル最大値+1 から、ID は既存最大+1 から採番。
+	nextZ, nextID := nextTopZ(result.Shapes), nextShapeID(result.Shapes)
+	ctrlShapes, _, _ := loadFormControls(f.zi, xmlPath, sheetMeta, nextZ, nextID)
+	if len(ctrlShapes) > 0 {
+		result.Shapes = append(result.Shapes, ctrlShapes...)
+		result.Meta.ShapeCount = len(result.Shapes)
+	}
+
+	return result, nil
+}
+
+// nextTopZ はトップレベル図形（parent なし）の最大 Z+1 を返す。
+// 図形が無ければ 0。
+func nextTopZ(shapes []ShapeInfo) int {
+	next := 0
+	for i := range shapes {
+		if shapes[i].Parent != nil {
+			continue
+		}
+		if shapes[i].Z+1 > next {
+			next = shapes[i].Z + 1
+		}
+	}
+	return next
+}
+
+// nextShapeID は既存 shapes の最大 ID+1 を返す。shapes が空の場合は 1。
+func nextShapeID(shapes []ShapeInfo) int {
+	next := 1
+	for i := range shapes {
+		if shapes[i].ID >= next {
+			next = shapes[i].ID + 1
+		}
+	}
+	return next
 }
 
 // ExtractImage は ZIP 内の画像を w に書き出す。
