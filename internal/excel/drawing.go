@@ -110,15 +110,6 @@ type DrawingResult struct {
 	Shapes []ShapeInfo
 }
 
-// HasShapes はシートに drawing リレーションが存在するかを返す
-func (f *File) HasShapes(sheet string) bool {
-	xmlPath, ok := f.sheetPaths[sheet]
-	if !ok {
-		return false
-	}
-	return findDrawingTarget(loadSheetRelsAll(f.zi, xmlPath)) != ""
-}
-
 // LoadDrawing はシートの drawing XML をパースして図形情報を返す。
 // DrawingML 図形に加え、VML フォームコントロール（チェックボックス等）も
 // 続きの z-order で統合して返す。

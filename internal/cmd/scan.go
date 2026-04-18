@@ -24,7 +24,7 @@ type scanOutput struct {
 	ValueCount    int    `json:"value_count"`
 	MergedCells   int    `json:"merged_cells"`
 	StyleVariants int    `json:"style_variants"`
-	HasShapes     bool   `json:"has_shapes,omitempty"`
+	Shapes        int    `json:"shapes"`
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -37,7 +37,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 	defer f.Close()
 
 	out := scanOutput{Sheet: sheet}
-	out.HasShapes = f.HasShapes(sheet)
+
+	drawing, err := f.LoadDrawing(sheet)
+	if err != nil {
+		return err
+	}
+	out.Shapes = drawing.Meta.ShapeCount
 
 	// 1パスで used_range・セル数・スタイルバリエーションを取得
 	visualIDs := f.VisualStyleIDs()
