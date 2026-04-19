@@ -1,7 +1,7 @@
 # xlsx-scope
 
-Excel ファイル（.xlsx / .xlsm）の内容を CLI から読み取り、JSONL形式で出力するGoツール。
-Claude Code 等の AI エージェントが Excel 資料（通常の表、Excel方眼紙の仕様書など）を構造的に読み取る用途を主眼とする。
+Claude で Excel ファイル（.xlsx / .xlsm）の内容を読み取るスキル。
+書式、罫線、図、画像などにも対応しており、Excel方眼紙や遷移図などの読み取りが可能。
 
 ## インストール
 
