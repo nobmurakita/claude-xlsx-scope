@@ -18,7 +18,7 @@ macOS / Linux / Windows (Git Bash)で動作する。インストール後、Clau
 ### チャット, Cowork で使う
 
 1. [Releases](https://github.com/nobmurakita/claude-xlsx-scope/releases) から最新の zip をダウンロード
-2. Claude の設定で「機能 > コード実行とファイル作成」が有効になっていることを確認
+2. Claude の設定で「[機能](https://claude.ai/settings/capabilities) > コード実行とファイル作成」が有効になっていることを確認
 3. [カスタマイズ > スキル](https://claude.ai/customize/skills) を開く
 4. 「+」→「スキルを作成」→「スキルをアップロード」で zip をアップロード
 
