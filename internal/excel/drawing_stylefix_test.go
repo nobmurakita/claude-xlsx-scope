@@ -103,6 +103,121 @@ func TestParseShapeFillRefAccent(t *testing.T) {
 	}
 }
 
+// TestParseShapeSysClrFill は spPr の <a:sysClr lastClr="..."/> による塗り指定が
+// fillRef（accent1）より優先され、lastClr の色で出力されることを確認する
+// （業務フロー（ヨコ）-Sample1.xlsx の flowChartDecision 図形に相当）。
+func TestParseShapeSysClrFill(t *testing.T) {
+	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+		<xdr:spPr>
+			<a:prstGeom prst="flowChartDecision"/>
+			<a:solidFill><a:sysClr val="window" lastClr="FFFFFF"/></a:solidFill>
+		</xdr:spPr>
+		<xdr:style>
+			<a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>
+		</xdr:style>
+	</xdr:sp>`
+
+	shape := parseShapeXML(t, testTheme(), spXML)
+
+	if shape.Fill != "#FFFFFF" {
+		t.Errorf("Fill = %q, want #FFFFFF (sysClr lastClr 由来)", shape.Fill)
+	}
+}
+
+// TestParseShapeSchemeAliases は schemeClr の bg1/bg2/tx1/tx2 エイリアスが
+// それぞれ lt1/lt2/dk1/dk2 と同じテーマ色に解決されることを確認する。
+func TestParseShapeSchemeAliases(t *testing.T) {
+	cases := []struct {
+		name   string
+		scheme string
+		want   string
+	}{
+		{"bg1 は lt1（白）", "bg1", "#FFFFFF"},
+		{"tx1 は dk1（黒）", "tx1", "#000000"},
+		{"bg2 は lt2", "bg2", "#E7E6E6"},
+		{"tx2 は dk2", "tx2", "#44546A"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spXML := `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+				<xdr:spPr>
+					<a:prstGeom prst="rect"/>
+					<a:solidFill><a:schemeClr val="` + tc.scheme + `"/></a:solidFill>
+				</xdr:spPr>
+				<xdr:style>
+					<a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>
+				</xdr:style>
+			</xdr:sp>`
+			shape := parseShapeXML(t, testTheme(), spXML)
+			if shape.Fill != tc.want {
+				t.Errorf("Fill = %q, want %q (schemeClr %s)", shape.Fill, tc.want, tc.scheme)
+			}
+		})
+	}
+}
+
+// TestParseShapePrstClrFill は prstClr の名前付き色（black/white 等）が
+// hex に解決されることを確認する。
+func TestParseShapePrstClrFill(t *testing.T) {
+	cases := []struct {
+		preset string
+		want   string
+	}{
+		{"black", "#000000"},
+		{"white", "#FFFFFF"},
+		{"red", "#FF0000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.preset, func(t *testing.T) {
+			spXML := `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+				<xdr:spPr>
+					<a:prstGeom prst="rect"/>
+					<a:solidFill><a:prstClr val="` + tc.preset + `"/></a:solidFill>
+				</xdr:spPr>
+			</xdr:sp>`
+			shape := parseShapeXML(t, testTheme(), spXML)
+			if shape.Fill != tc.want {
+				t.Errorf("Fill = %q, want %q (prstClr %s)", shape.Fill, tc.want, tc.preset)
+			}
+		})
+	}
+}
+
+// TestParseShapeScrgbClrFill は scrgbClr（線形 RGB の 0-100000 パーセント表記）が
+// hex に変換されることを確認する。
+func TestParseShapeScrgbClrFill(t *testing.T) {
+	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+		<xdr:spPr>
+			<a:prstGeom prst="rect"/>
+			<a:solidFill><a:scrgbClr r="100000" g="0" b="0"/></a:solidFill>
+		</xdr:spPr>
+	</xdr:sp>`
+	shape := parseShapeXML(t, testTheme(), spXML)
+	if shape.Fill != "#FF0000" {
+		t.Errorf("Fill = %q, want #FF0000 (scrgbClr r=100%%)", shape.Fill)
+	}
+}
+
+// TestParseShapeColorModsOnSysClr は sysClr に色変換（lumMod 等）が乗ったとき
+// ベース色（lastClr）に変換が適用されることを確認する。
+func TestParseShapeColorModsOnSysClr(t *testing.T) {
+	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+		<xdr:spPr>
+			<a:prstGeom prst="rect"/>
+			<a:solidFill>
+				<a:sysClr val="windowText" lastClr="000000">
+					<a:tint val="50000"/>
+				</a:sysClr>
+			</a:solidFill>
+		</xdr:spPr>
+	</xdr:sp>`
+	// tint 0.5 を黒に適用すると #808080 になる
+	shape := parseShapeXML(t, testTheme(), spXML)
+	if shape.Fill != "#808080" {
+		t.Errorf("Fill = %q, want #808080 (sysClr 000000 + tint 50%%)", shape.Fill)
+	}
+}
+
 // TestParseShapeExplicitFillWins は spPr の明示塗りが fillRef より優先されることを確認する
 func TestParseShapeExplicitFillWins(t *testing.T) {
 	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">

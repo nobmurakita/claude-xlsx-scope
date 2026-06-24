@@ -13,22 +13,6 @@ const (
 	drawingMLFontUnit    = 100    // DrawingML のフォントサイズ単位（100分の1ポイント）
 )
 
-// schemeColorIndex はスキームカラー名をテーマインデックスにマッピングする
-var schemeColorIndex = map[string]int{
-	"dk1":      0,
-	"lt1":      1,
-	"dk2":      2,
-	"lt2":      3,
-	"accent1":  4,
-	"accent2":  5,
-	"accent3":  6,
-	"accent4":  7,
-	"accent5":  8,
-	"accent6":  9,
-	"hlink":    10,
-	"folHlink": 11,
-}
-
 // colorMods は DrawingML の色変換パラメータ
 type colorMods struct {
 	lumMod  float64
@@ -86,29 +70,6 @@ func (cm colorMods) applyTo(base string) string {
 		return applyLuminance(base, cm.lumMod, cm.lumOff)
 	}
 	return base
-}
-
-// resolveSchemeColor はスキームカラーを解決し、子の色変換要素まで消費する
-func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder) string {
-	idx, ok := schemeColorIndex[scheme]
-	base := ""
-	if ok {
-		base = resolveThemeIndexScheme(idx, p.theme)
-	}
-
-	cm := collectColorMods(decoder)
-
-	if base == "" {
-		return ""
-	}
-	return cm.applyTo(base)
-}
-
-// applyColorMods は srgbClr の子要素（alpha 等）を消費し、色を返す
-func (p *drawingParser) applyColorMods(decoder *xml.Decoder, color string) string {
-	clr := normalizeHexColor(color)
-	cm := collectColorMods(decoder)
-	return cm.applyTo(clr)
 }
 
 // assignColor は解決済み色を適切なターゲットに割り当てる

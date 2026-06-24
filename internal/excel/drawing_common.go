@@ -60,29 +60,20 @@ func (h *drawingStyleHandler) handleStartElement(t xml.StartElement, decoder *xm
 		h.lnRefIdx = safeAtoi(attrVal(t, "idx"))
 		h.inLnRef = h.lnRefIdx != 0
 		return true, 0
-	case "srgbClr":
-		if h.inFill {
-			clr := attrVal(t, "val")
-			clr = h.p.applyColorMods(decoder, clr)
+	case "srgbClr", "schemeClr", "sysClr", "prstClr", "scrgbClr":
+		// 色要素は文脈（fill / fillRef / lnRef）に応じて割り当て先が変わるが、
+		// 色解決自体は resolveColorElement に集約。EndElement までは内部で消費する。
+		if !(h.inFill || h.inFillRef || h.inLnRef) {
+			return false, 0
+		}
+		clr := h.p.resolveColorElement(t, decoder)
+		switch {
+		case h.inFill:
 			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
-			return true, -1 // applyColorMods が EndElement まで消費
-		}
-		if h.inFillRef || h.inLnRef {
-			clr := h.p.applyColorMods(decoder, attrVal(t, "val"))
+		case h.inFillRef, h.inLnRef:
 			h.assignStyleRefColor(clr)
-			return true, -1
 		}
-	case "schemeClr":
-		if h.inFill {
-			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder)
-			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
-			return true, -1 // resolveSchemeColor が EndElement まで消費
-		}
-		if h.inFillRef || h.inLnRef {
-			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder)
-			h.assignStyleRefColor(clr)
-			return true, -1
-		}
+		return true, -1
 	case "prstDash":
 		if h.inLn && h.lineStyle != nil {
 			h.lineStyle.Style = attrVal(t, "val")
