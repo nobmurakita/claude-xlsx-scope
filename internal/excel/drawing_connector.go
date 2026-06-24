@@ -167,7 +167,7 @@ func (p *drawingParser) parseConnector(decoder *xml.Decoder, z int, cell string,
 
 	// スタイル
 	if p.includeStyle {
-		shape.Line = finalizeLineStyle(sh.lineStyle)
+		shape.Line = sh.resolvedLine()
 	}
 
 	// Excel ID マッピング

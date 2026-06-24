@@ -113,10 +113,10 @@ func (p *drawingParser) parseShape(decoder *xml.Decoder, z int, cell string, pos
 		shape.RichText = ts.runs
 	}
 	if p.includeStyle {
-		if sh.shapeFill != "" {
-			shape.Fill = sh.shapeFill
+		if fill := sh.resolvedFill(); fill != "" {
+			shape.Fill = fill
 		}
-		shape.Line = finalizeLineStyle(sh.lineStyle)
+		shape.Line = sh.resolvedLine()
 		if ts.shapeFont != nil {
 			shape.Font = buildDrawingFontObj(ts.shapeFont, p.theme)
 		}

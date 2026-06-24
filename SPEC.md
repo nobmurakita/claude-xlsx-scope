@@ -250,8 +250,8 @@ shapes の最初の行に出力される。
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `fill` | string | 塗りつぶし色（`#RRGGBB` 形式）。`a:solidFill` の色を解決。塗りつぶしなしの場合は省略 |
-| `line` | object | 枠線情報。`a:ln` から取得 |
+| `fill` | string | 塗りつぶし色（`#RRGGBB` 形式）。`a:spPr` の `a:solidFill` を優先し、無い場合は `a:style` の `a:fillRef`（`idx="0"` は除く）から解決。塗りつぶしなしの場合は省略 |
+| `line` | object | 枠線情報。`a:spPr` の `a:ln` を優先し、線色が無い場合は `a:style` の `a:lnRef`（`idx="0"` は除く）で補う |
 | `font` | object | テキストのデフォルトフォント。図形内の `a:defRPr` または最初の `a:rPr` から取得 |
 
 **`line` オブジェクト:**

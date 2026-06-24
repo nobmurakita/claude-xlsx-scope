@@ -93,7 +93,7 @@ func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, 
 	idx, ok := schemeColorIndex[scheme]
 	base := ""
 	if ok {
-		base = resolveThemeIndex(idx, p.theme)
+		base = resolveThemeIndexScheme(idx, p.theme)
 	}
 
 	cm := collectColorMods(decoder)

@@ -102,7 +102,9 @@ var themeIndexMap = map[int]int{
 	3: 2, // dk2
 }
 
-// Get はテーマカラーインデックスからRGB色を返す
+// Get はテーマカラーインデックスからRGB色を返す。
+// styles.xml のセル用テーマインデックス（0=lt1, 1=dk1, 2=lt2, 3=dk2 の入れ替え順）を前提とし、
+// themeIndexMap でスワップしてから格納配列を引く。
 func (tc *themeColors) Get(index int) string {
 	if tc == nil {
 		return ""
@@ -115,4 +117,17 @@ func (tc *themeColors) Get(index int) string {
 		return ""
 	}
 	return tc.colors[actual]
+}
+
+// GetScheme は DrawingML スキームカラー用に、スワップなしで色を返す。
+// schemeColorIndex が既に自然順（dk1=0, lt1=1, dk2=2, lt2=3, accent1-6=4-9...）を渡すため、
+// セル用テーマインデックスのスワップ（themeIndexMap）は適用してはならない。
+func (tc *themeColors) GetScheme(index int) string {
+	if tc == nil {
+		return ""
+	}
+	if index < 0 || index >= len(tc.colors) {
+		return ""
+	}
+	return tc.colors[index]
 }

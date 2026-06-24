@@ -171,12 +171,20 @@ func applyLuminance(hexColor string, lumMod, lumOff float64) string {
 
 // ---------- テーマカラー解決 ----------
 
-// resolveThemeIndex はテーマインデックスからベースカラーを取得する
+// resolveThemeIndex はテーマインデックスからベースカラーを取得する（styles.xml セル用・スワップあり）
 func resolveThemeIndex(idx int, tc *themeColors) string {
 	if tc == nil {
 		return ""
 	}
 	return tc.Get(idx)
+}
+
+// resolveThemeIndexScheme は DrawingML スキームカラーのインデックスからベースカラーを取得する（スワップなし）
+func resolveThemeIndexScheme(idx int, tc *themeColors) string {
+	if tc == nil {
+		return ""
+	}
+	return tc.GetScheme(idx)
 }
 
 // resolveColorLite は自前パーサーのテーマカラーを解決する

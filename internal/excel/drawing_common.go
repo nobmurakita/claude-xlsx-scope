@@ -13,6 +13,12 @@ type drawingStyleHandler struct {
 	fillCtx   string // "sp", "ln", "rPr", "defRPr"
 	shapeFill string
 	lineStyle *LineStyle
+
+	// <xdr:style> の参照（spPr に明示指定が無い場合のフォールバック）
+	inFillRef      bool   // fillRef 要素内（idx="0" の noFill 時は false のまま）
+	inLnRef        bool   // lnRef 要素内（idx="0" の noLine 時は false のまま）
+	styleFill      string // fillRef から解決した塗り色
+	styleLineColor string // lnRef から解決した線色
 }
 
 // handleStartElement はスタイル関連の StartElement を処理する。
@@ -31,6 +37,14 @@ func (h *drawingStyleHandler) handleStartElement(t xml.StartElement, decoder *xm
 		h.inFill = true
 		h.fillCtx = determineFillCtx(h.inLn, inRPr, inDefRPr, inSpPr)
 		return true, 0
+	case "fillRef":
+		// idx="0" は noFill。色子要素を持つが塗りは無いので参照対象にしない。
+		h.inFillRef = attrVal(t, "idx") != "0"
+		return true, 0
+	case "lnRef":
+		// idx="0" は noLine。
+		h.inLnRef = attrVal(t, "idx") != "0"
+		return true, 0
 	case "srgbClr":
 		if h.inFill {
 			clr := attrVal(t, "val")
@@ -38,11 +52,21 @@ func (h *drawingStyleHandler) handleStartElement(t xml.StartElement, decoder *xm
 			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
 			return true, -1 // applyColorMods が EndElement まで消費
 		}
+		if h.inFillRef || h.inLnRef {
+			clr := h.p.applyColorMods(decoder, 0, attrVal(t, "val"))
+			h.assignStyleRefColor(clr)
+			return true, -1
+		}
 	case "schemeClr":
 		if h.inFill {
 			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder, 0)
 			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
 			return true, -1 // resolveSchemeColor が EndElement まで消費
+		}
+		if h.inFillRef || h.inLnRef {
+			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder, 0)
+			h.assignStyleRefColor(clr)
+			return true, -1
 		}
 	case "prstDash":
 		if h.inLn && h.lineStyle != nil {
@@ -61,7 +85,46 @@ func (h *drawingStyleHandler) handleEndElement(name string) {
 	case "solidFill":
 		h.inFill = false
 		h.fillCtx = ""
+	case "fillRef":
+		h.inFillRef = false
+	case "lnRef":
+		h.inLnRef = false
 	}
+}
+
+// assignStyleRefColor は fillRef / lnRef から解決した色をフォールバック先に格納する
+func (h *drawingStyleHandler) assignStyleRefColor(clr string) {
+	if clr == "" {
+		return
+	}
+	switch {
+	case h.inFillRef:
+		h.styleFill = clr
+	case h.inLnRef:
+		h.styleLineColor = clr
+	}
+}
+
+// resolvedFill は塗り色を返す。spPr の明示塗りを優先し、無ければ style の fillRef を使う。
+func (h *drawingStyleHandler) resolvedFill() string {
+	if h.shapeFill != "" {
+		return h.shapeFill
+	}
+	return h.styleFill
+}
+
+// resolvedLine は線スタイルを最終化する。spPr の線色が無い場合は style の lnRef 色で補う。
+func (h *drawingStyleHandler) resolvedLine() *LineStyle {
+	ls := h.lineStyle
+	if h.styleLineColor != "" {
+		if ls == nil {
+			ls = &LineStyle{}
+		}
+		if ls.Color == "" {
+			ls.Color = h.styleLineColor
+		}
+	}
+	return finalizeLineStyle(ls)
 }
 
 // handleArrow は矢印関連の StartElement を処理する
