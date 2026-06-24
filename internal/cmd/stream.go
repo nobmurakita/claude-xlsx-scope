@@ -34,14 +34,46 @@ type streamResult struct {
 // runStream は cells/search 共通のストリーミング走査を実行する
 func runStream(cfg *streamConfig) (*streamResult, error) {
 	result := &streamResult{}
-	lastRow := -1
+	lastRow := 0
 	var encErr error
 	acc := &cellAccumulator{enc: cfg.enc}
+
+	// flushRowsUpTo は lastRow+1 から upTo までの各行について row 情報を出力する。
+	// セルが1個も無い行や、スキャン範囲外のセルしか持たない行も拾うため、
+	// セル出力のコールバック発火に頼らずここで埋める。
+	flushRowsUpTo := func(upTo int) bool {
+		if !cfg.emitRowInfo || cfg.dc.sheetMeta == nil {
+			lastRow = upTo
+			return true
+		}
+		startEmit, endEmit := scanRowRange(cfg, lastRow+1, upTo)
+		if startEmit > endEmit {
+			lastRow = upTo
+			return true
+		}
+		if encErr = acc.flush(); encErr != nil {
+			return false
+		}
+		for r := startEmit; r <= endEmit; r++ {
+			if encErr = cfg.dc.emitRowInfo(cfg.enc, r); encErr != nil {
+				return false
+			}
+		}
+		lastRow = upTo
+		return true
+	}
 
 	err := cfg.f.StreamSheet(cfg.dc.sheet, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
-		if skip, stop := shouldSkipCell(col, row, cfg.scanRange, cfg.startCol, cfg.startRow, cfg.dc.mergeInfo); skip {
+		// セル出現に先んじて、ここまでに通り過ぎた行の row 情報を埋める
+		if row != lastRow {
+			if !flushRowsUpTo(row) {
+				return false
+			}
+		}
+
+		if skip, stop := shouldSkipCell(col, row, cfg.scanRange, cfg.startCol, cfg.startRow, cfg.dc.mergeInfo); skip || stop {
 			return !stop
 		}
 
@@ -70,17 +102,6 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 			return false
 		}
 
-		// 行情報出力（cells 用）— 行が変わったらバッファをフラッシュしてから行情報を出力
-		if cfg.emitRowInfo && row != lastRow {
-			if encErr = acc.flush(); encErr != nil {
-				return false
-			}
-			if encErr = cfg.dc.emitRowInfo(cfg.enc, row); encErr != nil {
-				return false
-			}
-			lastRow = row
-		}
-
 		out, styleDef := cfg.dc.buildCellOutput(col, row, data, raw)
 		if encErr = acc.add(col, row, out, styleDef); encErr != nil {
 			return false
@@ -94,6 +115,11 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 		encErr = acc.flush()
 	}
 
+	// scanRange 指定時は末尾の空行も埋める（切り詰めが無い場合のみ）
+	if encErr == nil && result.TruncatedNext == "" && cfg.scanRange != nil {
+		flushRowsUpTo(cfg.scanRange.EndRow)
+	}
+
 	if encErr != nil {
 		return nil, encErr
 	}
@@ -101,6 +127,20 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// scanRowRange は flushRowsUpTo が出力対象とする行範囲 [start, end] を返す。
+// scanRange / startRow による下限と upTo による上限を反映する。
+func scanRowRange(cfg *streamConfig, candidateStart, candidateEnd int) (int, int) {
+	startEmit := max(candidateStart, 1)
+	endEmit := candidateEnd
+	if cfg.scanRange != nil {
+		startEmit = max(startEmit, cfg.scanRange.StartRow)
+		endEmit = min(endEmit, cfg.scanRange.EndRow)
+	} else if cfg.startRow > 0 {
+		startEmit = max(startEmit, cfg.startRow)
+	}
+	return startEmit, endEmit
 }
 
 // cellAccumulator は同一行内で連続する同内容セルをまとめてトークンを節約するバッファ
