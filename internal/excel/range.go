@@ -15,11 +15,6 @@ type CellRange struct {
 	EndRow   int
 }
 
-// String はExcel記法の範囲文字列を返す（例: "A1:H20"）
-func (r CellRange) String() string {
-	return fmt.Sprintf("%s%d:%s%d", colName(r.StartCol), r.StartRow, colName(r.EndCol), r.EndRow)
-}
-
 var (
 	reCellRange  = regexp.MustCompile(`^([A-Z]+)(\d+):([A-Z]+)(\d+)$`)
 	reColRange   = regexp.MustCompile(`^([A-Z]+):([A-Z]+)$`)
@@ -102,11 +97,6 @@ func StartPosition(startCell string) (col, row int, err error) {
 	col = colNumber(m[1])
 	row, _ = strconv.Atoi(m[2])
 	return col, row, nil
-}
-
-// IsEmpty は範囲が空（ゼロ値）かどうかを返す
-func (r CellRange) IsEmpty() bool {
-	return r.StartCol == 0 && r.StartRow == 0 && r.EndCol == 0 && r.EndRow == 0
 }
 
 // colNumber は列名を列番号（1始まり）に変換する（例: "A"→1, "Z"→26, "AA"→27）
