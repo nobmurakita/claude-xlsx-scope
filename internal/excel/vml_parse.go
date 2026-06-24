@@ -179,6 +179,7 @@ func parseSheetControls(zi *zipIndex, sheetXMLPath string) []sheetControl {
 		return nil
 	}
 	var controls []sheetControl
+	// シート XML 内の controls はベストエフォート（読めない場合はフォームコントロール列挙が空になるだけ）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		controls = parseSheetControlsSAX(decoder)
 		return nil
@@ -284,6 +285,7 @@ func parseCtrlProp(zi *zipIndex, path string) *formControlPr {
 		return nil
 	}
 	var result *formControlPr
+	// ctrlProp はベストエフォート（読めない場合は当該コントロールの属性が欠落するだけ）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		for {
 			tok, err := decoder.Token()
@@ -350,6 +352,7 @@ func parseVMLShapes(zi *zipIndex, path string, vmlMap map[int]vmlShapeInfo) {
 	if entry == nil {
 		return
 	}
+	// VML はベストエフォート（読めない場合は当該ファイル分の VML 情報が欠落するだけ）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		parseVMLShapesSAX(decoder, vmlMap)
 		return nil

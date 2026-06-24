@@ -224,6 +224,7 @@ func parsePersons(zi *zipIndex) map[string]string {
 		return nil
 	}
 	persons := make(map[string]string)
+	// persons.xml はベストエフォート（取れない場合はスレッドコメントの著者名が解決されないだけ）
 	_ = withZipXML(entry, func(decoder *xml.Decoder) error {
 		for {
 			tok, err := decoder.Token()
