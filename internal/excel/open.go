@@ -116,7 +116,7 @@ func (f *File) LoadSheetMeta(sheet string) (*SheetMeta, error) {
 	if !ok {
 		return nil, fmt.Errorf("シート %q が見つかりません", sheet)
 	}
-	return LoadSheetMeta(f.zi, xmlPath)
+	return loadSheetMeta(f.zi, xmlPath)
 }
 
 // LoadSheetRels はシートのリレーションを読む
@@ -125,7 +125,7 @@ func (f *File) LoadSheetRels(sheet string) map[string]string {
 	if !ok {
 		return nil
 	}
-	return LoadSheetRelsFromZip(f.zi, xmlPath)
+	return loadSheetRelsFromZip(f.zi, xmlPath)
 }
 
 // LoadDimension はシートの dimension を高速取得する（XML先頭のみ読む）
@@ -134,7 +134,7 @@ func (f *File) LoadDimension(sheet string) string {
 	if !ok {
 		return ""
 	}
-	return LoadDimensionOnly(f.zi, xmlPath)
+	return loadDimensionOnly(f.zi, xmlPath)
 }
 
 const (

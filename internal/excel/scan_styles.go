@@ -39,7 +39,7 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 	styleRemaining := len(visualIDs)
 	allStylesFound := styleRemaining == 0
 
-	rc := NewRowCache() // used_range 算出用（dimension なしの場合に使用）
+	rc := newRowCache() // used_range 算出用（dimension なしの場合に使用）
 	hasDimension := false
 
 	err := withZipXML(entry, func(decoder *xml.Decoder) error {
@@ -87,7 +87,7 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 					}
 
 					if !hasDimension && col > 0 && row > 0 {
-						rc.Add(col, row)
+						rc.add(col, row)
 					}
 
 					if !allStylesFound && styleID > 0 {
@@ -129,7 +129,7 @@ func scanSheetFromEntry(entry *zip.File, visualIDs map[int]struct{}) (*ScanResul
 	}
 
 	if !hasDimension {
-		result.UsedRange = rc.CalcUsedRange()
+		result.UsedRange = rc.calcUsedRange()
 	}
 	result.StyleVariants = len(foundStyles)
 

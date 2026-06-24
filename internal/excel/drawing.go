@@ -120,7 +120,7 @@ func (f *File) LoadDrawing(sheet string) (*DrawingResult, error) {
 	}
 
 	// シートメタデータを読み込む（図形の座標計算用）
-	sheetMeta, metaErr := LoadSheetMeta(f.zi, xmlPath)
+	sheetMeta, metaErr := loadSheetMeta(f.zi, xmlPath)
 	if metaErr != nil {
 		sheetMeta = newSheetMeta()
 	}
