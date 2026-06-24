@@ -9,14 +9,13 @@ import (
 
 // streamConfig はストリーミング走査の設定
 type streamConfig struct {
-	f           *excel.File
-	dc          *cellsContext
-	enc         *json.Encoder
-	scanRange   *excel.CellRange
-	startCol    int
-	startRow    int
-	limit       int
-	showFormula bool
+	f         *excel.File
+	dc        *cellsContext
+	enc       *json.Encoder
+	scanRange *excel.CellRange
+	startCol  int
+	startRow  int
+	limit     int
 
 	// cells 固有: 空セル出力・行情報出力
 	includeEmpty bool
@@ -39,7 +38,7 @@ func runStream(cfg *streamConfig) (*streamResult, error) {
 	var encErr error
 	acc := &cellAccumulator{enc: cfg.enc}
 
-	err := cfg.f.StreamSheet(cfg.dc.sheet, cfg.showFormula, func(raw *excel.RawCell) bool {
+	err := cfg.f.StreamSheet(cfg.dc.sheet, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
 		if skip, stop := shouldSkipCell(col, row, cfg.scanRange, cfg.startCol, cfg.startRow, cfg.dc.mergeInfo); skip {

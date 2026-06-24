@@ -334,11 +334,12 @@ func parseThreadedCommentsSAX(decoder *xml.Decoder) []threadedCommentRaw {
 			}
 
 		case xml.EndElement:
-			if t.Name.Local == "threadedComment" {
+			switch t.Name.Local {
+			case "threadedComment":
 				current.text = textBuf.String()
 				items = append(items, current)
 				st.inComment = false
-			} else if t.Name.Local == "text" {
+			case "text":
 				st.inText = false
 			}
 

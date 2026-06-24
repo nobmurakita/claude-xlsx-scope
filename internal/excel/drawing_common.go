@@ -63,23 +63,23 @@ func (h *drawingStyleHandler) handleStartElement(t xml.StartElement, decoder *xm
 	case "srgbClr":
 		if h.inFill {
 			clr := attrVal(t, "val")
-			clr = h.p.applyColorMods(decoder, 0, clr)
+			clr = h.p.applyColorMods(decoder, clr)
 			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
 			return true, -1 // applyColorMods が EndElement まで消費
 		}
 		if h.inFillRef || h.inLnRef {
-			clr := h.p.applyColorMods(decoder, 0, attrVal(t, "val"))
+			clr := h.p.applyColorMods(decoder, attrVal(t, "val"))
 			h.assignStyleRefColor(clr)
 			return true, -1
 		}
 	case "schemeClr":
 		if h.inFill {
-			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder, 0)
+			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder)
 			h.p.assignColor(clr, h.fillCtx, &h.shapeFill, h.lineStyle, currentFont, shapeFont)
 			return true, -1 // resolveSchemeColor が EndElement まで消費
 		}
 		if h.inFillRef || h.inLnRef {
-			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder, 0)
+			clr := h.p.resolveSchemeColor(attrVal(t, "val"), decoder)
 			h.assignStyleRefColor(clr)
 			return true, -1
 		}

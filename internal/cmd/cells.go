@@ -112,7 +112,6 @@ func runCells(cmd *cobra.Command, args []string) error {
 		startCol:     startCol,
 		startRow:     startRow,
 		limit:        limit,
-		showFormula:  showFormula,
 		includeEmpty: includeEmpty,
 		emitRowInfo:  true,
 	})

@@ -124,7 +124,7 @@ func runValues(cmd *cobra.Command, args []string) error {
 
 	truncatedNextRow := 0
 
-	err = f.StreamSheet(sheet, false, func(raw *excel.RawCell) bool {
+	err = f.StreamSheet(sheet, func(raw *excel.RawCell) bool {
 		col, row := raw.Col, raw.Row
 
 		// 範囲フィルタ

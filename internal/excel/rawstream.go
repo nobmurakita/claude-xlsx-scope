@@ -33,9 +33,8 @@ type RawCell struct {
 
 // StreamSheet はワークシートXMLを自前でSAXパースし、全セル属性を1パスで取得する。
 // ワークシートの全セルデータを1パスで取得する。
-// needFormula が false の場合でも、XMLの型属性が formula の場合は数式を取得する。
 // callback が false を返すと走査を中断する。
-func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *RawCell) bool) error {
+func (f *File) StreamSheet(sheet string, callback func(cell *RawCell) bool) error {
 	xmlPath, ok := f.sheetPaths[sheet]
 	if !ok {
 		return fmt.Errorf("シート %q の XML パスが見つかりません", sheet)
@@ -45,12 +44,12 @@ func (f *File) StreamSheet(sheet string, needFormula bool, callback func(cell *R
 	if entry == nil {
 		return fmt.Errorf("ZIP 内に %s が見つかりません", xmlPath)
 	}
-	return streamWorksheetXML(entry, f.sharedStrings, needFormula, callback)
+	return streamWorksheetXML(entry, f.sharedStrings, callback)
 }
 
-func streamWorksheetXML(entry *zip.File, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
+func streamWorksheetXML(entry *zip.File, ss *sharedStrings, callback func(cell *RawCell) bool) error {
 	return withZipXML(entry, func(decoder *xml.Decoder) error {
-		return streamWorksheetSAX(decoder, ss, needFormula, callback)
+		return streamWorksheetSAX(decoder, ss, callback)
 	})
 }
 
@@ -65,7 +64,7 @@ type worksheetSAXState struct {
 	inT         bool // <is> 内の <t>
 }
 
-func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
+func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, callback func(cell *RawCell) bool) error {
 	var st worksheetSAXState
 	var (
 		currentRow int
@@ -213,15 +212,16 @@ func streamWorksheetSAX(decoder *xml.Decoder, ss *sharedStrings, needFormula boo
 // resolveCell はセルの値と数式を各バッファから解決する
 func resolveCell(cell *RawCell, ss *sharedStrings, valueBuf, formulaBuf, inlineBuf *strings.Builder) {
 	// 値の解決
-	if cell.ValueType == vtInlineStr {
+	switch cell.ValueType {
+	case vtInlineStr:
 		cell.Value = inlineBuf.String()
-	} else if cell.ValueType == vtSharedString {
+	case vtSharedString:
 		// 共有文字列のインデックスを解決
 		if idx, err := strconv.Atoi(valueBuf.String()); err == nil {
 			cell.Value = ss.Get(idx)
 			cell.SharedStrIdx = idx
 		}
-	} else {
+	default:
 		cell.Value = valueBuf.String()
 	}
 

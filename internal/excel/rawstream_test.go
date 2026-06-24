@@ -93,7 +93,7 @@ func TestStreamWorksheetSAX(t *testing.T) {
 	}}
 
 	var cells []RawCell
-	err := streamWorksheetSAXFromString(xmlData, ss, false, func(cell *RawCell) bool {
+	err := streamWorksheetSAXFromString(xmlData, ss, func(cell *RawCell) bool {
 		cells = append(cells, *cell)
 		return true
 	})
@@ -134,7 +134,7 @@ func TestStreamWorksheetSAX_EarlyStop(t *testing.T) {
 </worksheet>`
 
 	count := 0
-	err := streamWorksheetSAXFromString(xmlData, nil, false, func(cell *RawCell) bool {
+	err := streamWorksheetSAXFromString(xmlData, nil, func(cell *RawCell) bool {
 		count++
 		return count < 2 // 2つ目で停止
 	})
@@ -157,7 +157,7 @@ func TestStreamWorksheetSAX_WithFormula(t *testing.T) {
 </worksheet>`
 
 	var cells []RawCell
-	err := streamWorksheetSAXFromString(xmlData, nil, true, func(cell *RawCell) bool {
+	err := streamWorksheetSAXFromString(xmlData, nil, func(cell *RawCell) bool {
 		cells = append(cells, *cell)
 		return true
 	})
@@ -186,7 +186,7 @@ func TestStreamWorksheetSAX_StyleOnlyCell(t *testing.T) {
 </worksheet>`
 
 	var cells []RawCell
-	err := streamWorksheetSAXFromString(xmlData, nil, false, func(cell *RawCell) bool {
+	err := streamWorksheetSAXFromString(xmlData, nil, func(cell *RawCell) bool {
 		cells = append(cells, *cell)
 		return true
 	})
@@ -202,10 +202,10 @@ func TestStreamWorksheetSAX_StyleOnlyCell(t *testing.T) {
 }
 
 // streamWorksheetSAXFromString はテスト用のヘルパー
-func streamWorksheetSAXFromString(xmlData string, ss *sharedStrings, needFormula bool, callback func(cell *RawCell) bool) error {
+func streamWorksheetSAXFromString(xmlData string, ss *sharedStrings, callback func(cell *RawCell) bool) error {
 	if ss == nil {
 		ss = &sharedStrings{}
 	}
 	decoder := xml.NewDecoder(strings.NewReader(xmlData))
-	return streamWorksheetSAX(decoder, ss, needFormula, callback)
+	return streamWorksheetSAX(decoder, ss, callback)
 }

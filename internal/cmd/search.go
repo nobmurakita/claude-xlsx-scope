@@ -72,15 +72,14 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	enc := newJSONLWriter(ow)
 
 	result, err := runStream(&streamConfig{
-		f:           f,
-		dc:          dc,
-		enc:         enc,
-		scanRange:   scanRange,
-		startCol:    startCol,
-		startRow:    startRow,
-		limit:       limit,
-		showFormula: showFormula,
-		filter:      filter,
+		f:         f,
+		dc:        dc,
+		enc:       enc,
+		scanRange: scanRange,
+		startCol:  startCol,
+		startRow:  startRow,
+		limit:     limit,
+		filter:    filter,
 	})
 	if err != nil {
 		return err

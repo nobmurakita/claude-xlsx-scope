@@ -89,7 +89,7 @@ func (cm colorMods) applyTo(base string) string {
 }
 
 // resolveSchemeColor はスキームカラーを解決し、子の色変換要素まで消費する
-func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, startDepth int) string {
+func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder) string {
 	idx, ok := schemeColorIndex[scheme]
 	base := ""
 	if ok {
@@ -105,7 +105,7 @@ func (p *drawingParser) resolveSchemeColor(scheme string, decoder *xml.Decoder, 
 }
 
 // applyColorMods は srgbClr の子要素（alpha 等）を消費し、色を返す
-func (p *drawingParser) applyColorMods(decoder *xml.Decoder, startDepth int, color string) string {
+func (p *drawingParser) applyColorMods(decoder *xml.Decoder, color string) string {
 	clr := normalizeHexColor(color)
 	cm := collectColorMods(decoder)
 	return cm.applyTo(clr)
