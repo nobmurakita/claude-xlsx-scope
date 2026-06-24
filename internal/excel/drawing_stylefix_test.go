@@ -122,6 +122,63 @@ func TestParseShapeExplicitFillWins(t *testing.T) {
 	}
 }
 
+// TestApplyDrawingColorOps は HSL 近似の色変換が DrawingML 定義どおり効くことを確認する
+func TestApplyDrawingColorOps(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		ops  []drawingColorOp
+		want string
+	}{
+		{"ops なしは素通り", "#5B9BD5", nil, "#5B9BD5"},
+		{"tint は白へ寄せる", "#000000", []drawingColorOp{{"tint", 0.5}}, "#808080"},
+		{"shade は黒へ寄せる", "#FFFFFF", []drawingColorOp{{"shade", 0.5}}, "#808080"},
+		{"satMod 0 で無彩色化", "#5B9BD5", []drawingColorOp{{"satMod", 0}}, "#989898"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := applyDrawingColorOps(tt.base, tt.ops); got != tt.want {
+				t.Errorf("applyDrawingColorOps(%q, %v) = %q, want %q", tt.base, tt.ops, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestThemeFillStyleTransform は fmtScheme の解析と fillRef idx 別の色変換適用を確認する
+func TestThemeFillStyleTransform(t *testing.T) {
+	const themeXML = `<a:theme xmlns:a="a"><a:themeElements>
+		<a:clrScheme><a:dk1><a:srgbClr val="000000"/></a:dk1></a:clrScheme>
+		<a:fmtScheme>
+			<a:fillStyleLst>
+				<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+				<a:gradFill>
+					<a:gsLst>
+						<a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="40000"/></a:schemeClr></a:gs>
+						<a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="60000"/></a:schemeClr></a:gs>
+						<a:gs pos="100000"><a:schemeClr val="phClr"><a:tint val="80000"/></a:schemeClr></a:gs>
+					</a:gsLst>
+				</a:gradFill>
+			</a:fillStyleLst>
+		</a:fmtScheme>
+	</a:themeElements></a:theme>`
+
+	tc := parseThemeColors([]byte(themeXML))
+
+	base := "#000000"
+	// idx=1: solidFill phClr（変換なし）→ 素通り
+	if got := tc.ApplyFillStyle(1, base); got != base {
+		t.Errorf("idx=1: got %q, want %q", got, base)
+	}
+	// idx=2: 中央ストップ（pos=50000, tint 60%）を代表 → l=0*0.6+0.4=0.4 → #666666
+	if got := tc.ApplyFillStyle(2, base); got != "#666666" {
+		t.Errorf("idx=2: got %q, want #666666 (中央ストップ tint 60%%)", got)
+	}
+	// 範囲外 idx は素通り
+	if got := tc.ApplyFillStyle(9, base); got != base {
+		t.Errorf("idx=9(範囲外): got %q, want %q", got, base)
+	}
+}
+
 // TestParseShapeFillRefNoFill は fillRef idx="0"（noFill）で塗りが出力されないことを確認する
 func TestParseShapeFillRefNoFill(t *testing.T) {
 	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
@@ -135,5 +192,43 @@ func TestParseShapeFillRefNoFill(t *testing.T) {
 
 	if shape.Fill != "" {
 		t.Errorf("Fill = %q, want \"\" (fillRef idx=0 は noFill)", shape.Fill)
+	}
+}
+
+// TestParseShapeExplicitNoFill は spPr の明示 noFill が fillRef フォールバックを抑止することを確認する
+func TestParseShapeExplicitNoFill(t *testing.T) {
+	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+		<xdr:spPr>
+			<a:prstGeom prst="rect"/>
+			<a:noFill/>
+		</xdr:spPr>
+		<xdr:style>
+			<a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>
+		</xdr:style>
+	</xdr:sp>`
+
+	shape := parseShapeXML(t, testTheme(), spXML)
+
+	if shape.Fill != "" {
+		t.Errorf("Fill = %q, want \"\" (明示 noFill は fillRef より優先)", shape.Fill)
+	}
+}
+
+// TestParseShapeLineNoFill は ln 内の明示 noFill が線なし（lnRef 抑止）になることを確認する
+func TestParseShapeLineNoFill(t *testing.T) {
+	const spXML = `<xdr:sp xmlns:xdr="x" xmlns:a="a">
+		<xdr:spPr>
+			<a:prstGeom prst="rect"/>
+			<a:ln w="9525"><a:noFill/></a:ln>
+		</xdr:spPr>
+		<xdr:style>
+			<a:lnRef idx="2"><a:schemeClr val="accent1"/></a:lnRef>
+		</xdr:style>
+	</xdr:sp>`
+
+	shape := parseShapeXML(t, testTheme(), spXML)
+
+	if shape.Line != nil {
+		t.Errorf("Line = %+v, want nil (ln 内 noFill は線なし)", shape.Line)
 	}
 }

@@ -17,8 +17,12 @@ type drawingStyleHandler struct {
 	// <xdr:style> の参照（spPr に明示指定が無い場合のフォールバック）
 	inFillRef      bool   // fillRef 要素内（idx="0" の noFill 時は false のまま）
 	inLnRef        bool   // lnRef 要素内（idx="0" の noLine 時は false のまま）
-	styleFill      string // fillRef から解決した塗り色
-	styleLineColor string // lnRef から解決した線色
+	fillRefIdx     int    // fillRef の idx（テーマ fillStyleLst の色変換参照に使用）
+	lnRefIdx       int    // lnRef の idx
+	styleFill      string // fillRef から解決した塗り色（テーマ色変換適用後）
+	styleLineColor string // lnRef から解決した線色（テーマ色変換適用後）
+	spFillNone     bool   // spPr に明示の <a:noFill/>（塗りつぶしなし）。style fillRef を抑止する
+	lnFillNone     bool   // ln 内に明示の <a:noFill/>（線なし）。style lnRef を抑止する
 }
 
 // handleStartElement はスタイル関連の StartElement を処理する。
@@ -37,13 +41,24 @@ func (h *drawingStyleHandler) handleStartElement(t xml.StartElement, decoder *xm
 		h.inFill = true
 		h.fillCtx = determineFillCtx(h.inLn, inRPr, inDefRPr, inSpPr)
 		return true, 0
+	case "noFill":
+		// 明示的な「塗りつぶしなし／線なし」。style の fillRef/lnRef フォールバックを抑止する。
+		switch determineFillCtx(h.inLn, inRPr, inDefRPr, inSpPr) {
+		case "sp":
+			h.spFillNone = true
+		case "ln":
+			h.lnFillNone = true
+		}
+		return true, 0
 	case "fillRef":
 		// idx="0" は noFill。色子要素を持つが塗りは無いので参照対象にしない。
-		h.inFillRef = attrVal(t, "idx") != "0"
+		h.fillRefIdx = safeAtoi(attrVal(t, "idx"))
+		h.inFillRef = h.fillRefIdx != 0
 		return true, 0
 	case "lnRef":
 		// idx="0" は noLine。
-		h.inLnRef = attrVal(t, "idx") != "0"
+		h.lnRefIdx = safeAtoi(attrVal(t, "idx"))
+		h.inLnRef = h.lnRefIdx != 0
 		return true, 0
 	case "srgbClr":
 		if h.inFill {
@@ -92,29 +107,37 @@ func (h *drawingStyleHandler) handleEndElement(name string) {
 	}
 }
 
-// assignStyleRefColor は fillRef / lnRef から解決した色をフォールバック先に格納する
+// assignStyleRefColor は fillRef / lnRef の phClr 色にテーマ fmtScheme の色変換を適用して格納する
 func (h *drawingStyleHandler) assignStyleRefColor(clr string) {
 	if clr == "" {
 		return
 	}
 	switch {
 	case h.inFillRef:
-		h.styleFill = clr
+		h.styleFill = h.p.theme.ApplyFillStyle(h.fillRefIdx, clr)
 	case h.inLnRef:
-		h.styleLineColor = clr
+		h.styleLineColor = h.p.theme.ApplyLineStyle(h.lnRefIdx, clr)
 	}
 }
 
-// resolvedFill は塗り色を返す。spPr の明示塗りを優先し、無ければ style の fillRef を使う。
+// resolvedFill は塗り色を返す。spPr の明示塗りを優先し、明示の noFill 時は塗りなし、
+// いずれも無ければ style の fillRef を使う。
 func (h *drawingStyleHandler) resolvedFill() string {
 	if h.shapeFill != "" {
 		return h.shapeFill
 	}
+	if h.spFillNone {
+		return ""
+	}
 	return h.styleFill
 }
 
-// resolvedLine は線スタイルを最終化する。spPr の線色が無い場合は style の lnRef 色で補う。
+// resolvedLine は線スタイルを最終化する。ln 内に明示の noFill がある場合は線なし、
+// spPr の線色が無い場合は style の lnRef 色で補う。
 func (h *drawingStyleHandler) resolvedLine() *LineStyle {
+	if h.lnFillNone {
+		return nil
+	}
 	ls := h.lineStyle
 	if h.styleLineColor != "" {
 		if ls == nil {

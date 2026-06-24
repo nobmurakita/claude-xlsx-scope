@@ -169,6 +169,46 @@ func applyLuminance(hexColor string, lumMod, lumOff float64) string {
 	return formatHexRGB(rr, gg, bb)
 }
 
+// drawingColorOp は DrawingML の色変換（テーマ fmtScheme 用）。val は比率（例: 1.10, 0.67）
+type drawingColorOp struct {
+	kind string // "lumMod","lumOff","satMod","satOff","tint","shade"
+	val  float64
+}
+
+// applyDrawingColorOps は色変換を出現順に HSL 空間で適用する。
+// tint/shade は DrawingML 定義に従う（val=元色の保持率。tint は残りを白へ、shade は黒へ寄せる）。
+// 厳密な RGB 線形空間ではなく既存実装に合わせた HSL 近似。
+func applyDrawingColorOps(base string, ops []drawingColorOp) string {
+	if base == "" || len(ops) == 0 {
+		return base
+	}
+	r, g, b, ok := parseHexRGB(base)
+	if !ok {
+		return base
+	}
+	h, s, l := rgbToHSL(r, g, b)
+	for _, op := range ops {
+		switch op.kind {
+		case "lumMod":
+			l *= op.val
+		case "lumOff":
+			l += op.val
+		case "satMod":
+			s *= op.val
+		case "satOff":
+			s += op.val
+		case "tint":
+			l = l*op.val + (1.0 - op.val)
+		case "shade":
+			l *= op.val
+		}
+	}
+	s = math.Max(0, math.Min(1, s))
+	l = math.Max(0, math.Min(1, l))
+	rr, gg, bb := hslToRGB(h, s, l)
+	return formatHexRGB(rr, gg, bb)
+}
+
 // ---------- テーマカラー解決 ----------
 
 // resolveThemeIndex はテーマインデックスからベースカラーを取得する（styles.xml セル用・スワップあり）
