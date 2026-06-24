@@ -123,6 +123,38 @@ func TestFormatNumericValue(t *testing.T) {
 		{"date serial 1 (1900-01-01)", "yyyy-mm-dd", 1, "1900-01-01"},
 		{"date serial 60 (leap year bug)", "yyyy-mm-dd", 60, "1900-03-01"},
 		{"date serial 61", "yyyy-mm-dd", 61, "1900-03-01"},
+
+		// ── 分数 ──
+		{"fraction simple", "# ?/?", 1.25, "1 1/4"},
+		// ??/?? は分子分母とも幅2にパディングする実装挙動
+		{"fraction two digit padding", "# ??/??", 1.625, "1  5/8 "},
+		{"fraction fixed denom", "# ?/4", 1.25, "1 1/4"},
+		// 整数部0は省略される（Excel 互換挙動）
+		{"fraction whole zero omitted", "# ?/?", 0.5, "1/2"},
+		{"fraction integer", "# ?/?", 3, "3"},
+		{"fraction improper", "?/?", 1.5, "3/2"},
+
+		// ── 条件演算子バリエーション ──
+		{"condition <0 negative", "[<0]\"NEG\";0", -5, "NEG"},
+		{"condition <0 positive falls through", "[<0]\"NEG\";0", 5, "5"},
+		{"condition =0", "[=0]\"ZERO\";0", 0, "ZERO"},
+		{"condition >100", "[>100]\"BIG\";0", 200, "BIG"},
+		{"condition <>0", "[<>0]\"NZ\";0", 7, "NZ"},
+
+		// ── 3セクション条件付き ──
+		{"three section pos", "[>0]\"+\"0;[<0]\"-\"0;\"=\"0", 5, "+5"},
+		{"three section neg", "[>0]\"+\"0;[<0]\"-\"0;\"=\"0", -5, "-5"},
+		{"three section zero", "[>0]\"+\"0;[<0]\"-\"0;\"=\"0", 0, "=0"},
+
+		// ── AM/PM 境界 ──
+		{"AM/PM midnight", "h:mm AM/PM", 0, "12:00 AM"},
+		{"AM/PM noon", "h:mm AM/PM", 0.5, "12:00 PM"},
+
+		// ── 経過時間バリエーション ──
+		{"elapsed minutes", "[m]:ss", 0.0007, "1:00"}, // ≈ 60.48 秒
+		// [s] は整数切り捨て: 1/48 日 = 1800 秒 (端数なし)
+		{"elapsed seconds exact", "[s]", 1.0 / 48.0, "1800"},
+		{"elapsed long hours", "[h]:mm", 2.25, "54:00"},
 	}
 
 	for _, tt := range tests {
